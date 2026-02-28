@@ -1,0 +1,1325 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@plugin 'tailwind-scrollbar';
+@import 'tw-animate-css';
+@plugin "@tailwindcss/typography";
+@source "../node_modules/streamdown/dist/index.js";
+
+/* Custom cursor — hide default on pointer devices */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@keyframes spinner-fade {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-pulse {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.65 0.26 258 / 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 4px oklch(0.65 0.26 258 / 0);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.65 0.26 258 / 0);
+    transform: scale(1);
+  }
+}
+
+.shimmer-button {
+  animation: shimmer-pulse 2s infinite;
+}
+
+/* ===== BoredBrain Homepage Style: Warm Amber/Gold Accent ===== */
+.text-amber-brand {
+  color: oklch(0.78 0.16 75);
+}
+.text-amber-brand-light {
+  color: oklch(0.85 0.14 75);
+}
+.border-amber-brand {
+  border-color: oklch(0.78 0.16 75 / 0.4);
+}
+.bg-amber-brand {
+  background: oklch(0.78 0.16 75);
+}
+
+/* Signal card - boredbrain.net style dark premium card */
+.signal-card {
+  background: linear-gradient(145deg, oklch(0.14 0.02 258 / 0.9), oklch(0.11 0.015 258 / 0.95));
+  border: 1px solid oklch(0.30 0.04 75 / 0.25);
+  border-radius: 1rem;
+  transition: all 0.3s ease;
+}
+.signal-card:hover {
+  border-color: oklch(0.78 0.16 75 / 0.5);
+  box-shadow: 0 0 20px oklch(0.78 0.16 75 / 0.08), 0 8px 32px oklch(0 0 0 / 0.3);
+}
+
+/* Warm gradient text like boredbrain.net hero */
+.text-gradient-warm {
+  background: linear-gradient(135deg, oklch(0.85 0.14 75), oklch(0.78 0.16 75), oklch(0.72 0.18 45));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Monospace wide-tracked style like boredbrain.net */
+.font-mono-wide {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* Warm gradient border glow */
+.glow-amber {
+  box-shadow: 0 0 15px oklch(0.78 0.16 75 / 0.15), 0 0 30px oklch(0.78 0.16 75 / 0.05);
+}
+
+/* Warm gradient background overlay */
+.bg-warm-gradient {
+  background: radial-gradient(ellipse at top, oklch(0.78 0.16 75 / 0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at bottom right, oklch(0.65 0.20 320 / 0.04) 0%, transparent 50%);
+}
+
+/* Hero gradient background — boredbrain.net warm purple-pink-amber */
+.hero-gradient-bg {
+  background:
+    radial-gradient(ellipse 120% 80% at 30% 20%, oklch(0.35 0.15 320 / 0.5) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 70% at 70% 30%, oklch(0.40 0.12 350 / 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 50% 10%, oklch(0.50 0.14 45 / 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, oklch(0.30 0.10 280 / 0.15) 0%, transparent 50%);
+  border-radius: 1.25rem;
+  border: 1px solid oklch(0.30 0.06 320 / 0.2);
+}
+
+/* Pulse dot animation for live indicators */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+.pulse-live {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Cyberpunk neon glow animation for Extreme mode */
+@keyframes neon-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 5px oklch(0.78 0.25 320),
+      0 0 10px oklch(0.78 0.25 320),
+      0 0 15px oklch(0.65 0.26 258),
+      0 0 20px oklch(0.65 0.26 258),
+      inset 0 0 10px oklch(0.78 0.25 320 / 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 10px oklch(0.78 0.25 320),
+      0 0 20px oklch(0.78 0.25 320),
+      0 0 30px oklch(0.65 0.26 258),
+      0 0 40px oklch(0.65 0.26 258),
+      inset 0 0 15px oklch(0.78 0.25 320 / 0.3);
+  }
+}
+
+.neon-extreme {
+  animation: neon-glow 2s ease-in-out infinite;
+  background: linear-gradient(
+    135deg,
+    oklch(0.65 0.26 258),
+    oklch(0.78 0.25 320),
+    oklch(0.65 0.26 258)
+  ) !important;
+  border: 1px solid oklch(0.78 0.25 320 / 0.5) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.neon-extreme::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    45deg,
+    oklch(0.78 0.25 320),
+    oklch(0.65 0.26 258),
+    oklch(0.78 0.25 320)
+  );
+  border-radius: inherit;
+  opacity: 0.5;
+  z-index: -1;
+  animation: neon-glow 2s ease-in-out infinite;
+  filter: blur(4px);
+}
+
+/* Disable texture animation on reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  body::before {
+    animation: none !important;
+  }
+}
+
+/* High performance mode for low-end devices */
+@media (max-width: 640px) {
+  body::before {
+    /* Simpler animation on mobile */
+    animation-duration: 120s;
+    background-size: 300px 300px;
+  }
+  
+  /* Reduce blur intensity on mobile for better performance */
+  .glass-panel,
+  .glass-header,
+  header,
+  nav[role="navigation"],
+  .navbar {
+    backdrop-filter: blur(8px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
+  }
+  
+  .card-surface {
+    backdrop-filter: saturate(140%) blur(10px) !important;
+    -webkit-backdrop-filter: saturate(140%) blur(10px) !important;
+  }
+}
+
+/* Add glassmorphism effect to specific components */
+.glass-panel {
+  background: oklch(var(--card) / 0.85); /* More opaque for better text readability */
+  backdrop-filter: saturate(150%) blur(12px);
+  -webkit-backdrop-filter: saturate(150%) blur(12px);
+  border: 1px solid oklch(var(--border) / 0.5);
+}
+
+.dark .glass-panel {
+  background: oklch(var(--card) / 0.75); /* More opaque for better readability */
+  border: 1px solid oklch(var(--border) / 0.3);
+}
+
+/* Elevated card surface styling */
+.card-surface {
+  background: linear-gradient(150deg,
+      oklch(var(--background) / 0.85),
+      oklch(0.65 0.26 258 / 0.28),
+      oklch(0.78 0.25 320 / 0.24)
+    ) !important;
+  border: 1px solid oklch(var(--border) / 0.38) !important;
+  box-shadow: 0 20px 55px -28px oklch(0.65 0.26 258 / 0.5);
+  backdrop-filter: saturate(160%) blur(22px);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
+}
+
+.dark .card-surface {
+  background: linear-gradient(150deg,
+      oklch(0.18 0.04 258 / 0.55),
+      oklch(0.65 0.26 258 / 0.32),
+      oklch(0.78 0.25 320 / 0.28)
+    ) !important;
+  border: 1px solid oklch(var(--border) / 0.45) !important;
+  box-shadow: 0 24px 64px -30px oklch(0.65 0.26 258 / 0.55);
+}
+
+/* Glassmorphic header/navbar styling */
+.glass-header,
+header,
+nav[role="navigation"],
+.navbar {
+  background: oklch(var(--background) / 0.75) !important;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border-bottom: 1px solid oklch(var(--border) / 0.3);
+}
+
+.dark .glass-header,
+.dark header,
+.dark nav[role="navigation"],
+.dark .navbar {
+  background: oklch(var(--background) / 0.7) !important;
+  border-bottom: 1px solid oklch(var(--border) / 0.4);
+}
+
+/* Ensure fixed headers work properly with the texture */
+.fixed.top-0,
+[class*="fixed"][class*="top-0"] {
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* Holographic button effect — warm amber/gold tone, subtle shadow (boredbrain.net style) */
+.holographic-button {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    oklch(0.72 0.16 75 / 0.25),
+    oklch(0.78 0.14 55 / 0.20),
+    oklch(0.70 0.18 45 / 0.25)
+  );
+  box-shadow:
+    0 1px 3px oklch(0.72 0.16 75 / 0.08),
+    inset 0 1px 1px oklch(1 0 0 / 0.06);
+  transition: all 0.25s ease;
+}
+
+.dark .holographic-button {
+  background: linear-gradient(
+    135deg,
+    oklch(0.60 0.16 75 / 0.85),
+    oklch(0.72 0.14 55 / 0.80),
+    oklch(0.60 0.16 75 / 0.85)
+  );
+  box-shadow:
+    0 1px 4px oklch(0.65 0.18 75 / 0.15),
+    inset 0 1px 1px oklch(1 0 0 / 0.08);
+}
+
+.holographic-button:hover {
+  transform: scale(1.02) translateY(-0.5px);
+  box-shadow:
+    0 2px 6px oklch(0.72 0.16 75 / 0.15),
+    inset 0 1px 2px oklch(1 0 0 / 0.08);
+}
+
+.dark .holographic-button:hover {
+  box-shadow:
+    0 2px 8px oklch(0.65 0.18 75 / 0.25),
+    0 4px 12px oklch(0.78 0.16 55 / 0.12),
+    inset 0 1px 2px oklch(1 0 0 / 0.12);
+}
+
+@theme {
+  --animate-accordion-down: accordion-down 300ms ease-out;
+  --animate-accordion-up: accordion-up 300ms ease-out;
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility text-responsive {
+  /* Responsive text sizes using clamp() */
+  &.text-xs {
+    font-size: clamp(0.7rem, 0.65rem + 0.25vw, 0.75rem);
+  }
+  &.text-sm {
+    font-size: clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
+  }
+  &.text-base {
+    font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1rem);
+  }
+  &.text-lg {
+    font-size: clamp(1.05rem, 1rem + 0.25vw, 1.125rem);
+  }
+  &.text-xl {
+    font-size: clamp(1.15rem, 1.1rem + 0.25vw, 1.25rem);
+  }
+  &.text-2xl {
+    font-size: clamp(1.3rem, 1.2rem + 0.5vw, 1.5rem);
+  }
+  &.text-3xl {
+    font-size: clamp(1.5rem, 1.3rem + 1vw, 1.875rem);
+  }
+  &.text-4xl {
+    font-size: clamp(1.8rem, 1.5rem + 1.5vw, 2.25rem);
+  }
+  &.text-5xl {
+    font-size: clamp(2rem, 1.6rem + 2vw, 3rem);
+  }
+}
+
+@utility prose-enhanced {
+  /* Enhanced readability for long-form content */
+  max-width: 65ch;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  
+  & p {
+    margin-bottom: 1.5em;
+  }
+  
+  & h1, & h2, & h3, & h4, & h5, & h6 {
+    margin-top: 2em;
+    margin-bottom: 1em;
+  }
+  
+  & h1:first-child,
+  & h2:first-child,
+  & h3:first-child {
+    margin-top: 0;
+  }
+  
+  & blockquote {
+    padding-left: 1.5em;
+    border-left: 4px solid var(--border);
+    font-style: italic;
+    color: var(--muted-foreground);
+  }
+  
+  & ul, & ol {
+    padding-left: 1.5em;
+  }
+  
+  & li {
+    margin-bottom: 0.75em;
+  }
+  
+  @media (max-width: 640px) {
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+}
+
+@utility tracking-reading {
+  /* Optimized letter spacing for reading */
+  letter-spacing: 0.01em;
+}
+
+@utility tracking-heading {
+  /* Tighter tracking for headings */
+  letter-spacing: -0.015em;
+}
+
+@utility leading-comfortable {
+  /* Comfortable line height for body text */
+  line-height: 1.65;
+}
+
+@utility leading-heading {
+  /* Tighter line height for headings */
+  line-height: 1.2;
+}
+
+@layer utilities {
+  .markdown-body .katex {
+    font-size: 1.1em;
+  }
+
+  .markdown-body .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+    margin-top: 1em;
+    margin-bottom: 1em;
+  }
+
+  .markdown-body .katex-display > .katex {
+    font-size: 1.21em;
+  }
+
+  .markdown-body .katex-display > .katex > .katex-html {
+    display: block;
+    position: relative;
+  }
+
+  .markdown-body .katex-display > .katex > .katex-html > .tag {
+    position: absolute;
+    right: 0;
+  }
+}
+
+@layer utilities {
+  /* Tweet wrapper styling for horizontal layout */
+  .tweet-wrapper {
+    position: relative;
+    height: 240px;
+    overflow: hidden;
+  }
+
+  .tweet-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(transparent, rgba(255, 255, 255, 0.8));
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .dark .tweet-wrapper::after {
+    background: linear-gradient(transparent, rgba(9, 9, 11, 0.95));
+  }
+
+  .tweet-wrapper [data-theme] {
+    margin: 0 !important;
+    border-radius: 1rem !important;
+    border: 1px solid rgb(229 231 235) !important;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.1),
+      0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+    background: white !important;
+    height: 100%;
+  }
+
+  .dark .tweet-wrapper [data-theme] {
+    border: 1px solid rgb(39 39 42) !important;
+    background: rgb(9 9 11) !important;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.3),
+      0 1px 2px -1px rgb(0 0 0 / 0.2) !important;
+  }
+
+  /* Tweet wrapper styling for sheet */
+  .tweet-wrapper-sheet [data-theme] {
+    margin: 0 !important;
+    border-radius: 1rem !important;
+    border: 1px solid rgb(229 231 235) !important;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.1),
+      0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+    background: white !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .dark .tweet-wrapper-sheet [data-theme] {
+    border: 1px solid rgb(39 39 42) !important;
+    background: rgb(9 9 11) !important;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.3),
+      0 1px 2px -1px rgb(0 0 0 / 0.2) !important;
+  }
+
+  /* Ensure proper tweet spacing */
+  .tweet-wrapper .react-tweet-theme,
+  .tweet-wrapper-sheet .react-tweet-theme {
+    margin: 0 !important;
+  }
+
+  /* Override react-tweet default margins */
+  [data-tweet-container] {
+    margin: 0 !important;
+  }
+
+  .linenumber {
+    font-style: normal !important;
+    font-weight: normal !important;
+  }
+
+  :is([data-theme='dark'], .dark) :where(.react-tweet-theme) {
+    --tweet-skeleton-gradient: linear-gradient(270deg, #09090b, #18181b, #18181b, #09090b) !important;
+    --tweet-border: 1px solid #27272a !important;
+    --tweet-font-color: #fafafa !important;
+    --tweet-font-color-secondary: #a1a1aa !important;
+    --tweet-bg-color: #09090b !important;
+    --tweet-bg-color-hover: #18181b !important;
+    --tweet-quoted-bg-color: #18181b !important;
+    --tweet-quoted-bg-color-hover: #27272a !important;
+    --tweet-color-blue-primary: #3b82f6 !important;
+    --tweet-color-blue-secondary-hover: rgba(59, 130, 246, 0.1) !important;
+    --tweet-icon-color: #71717a !important;
+    --tweet-icon-color-hover: #a1a1aa !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border !no-scrollbar;
+  }
+
+  body {
+    @apply bg-background text-foreground !scrollbar;
+    /* Optimize text rendering for better legibility */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    /* Futuristic texture background */
+    position: relative;
+    min-height: 100vh;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+  
+  /* Apply texture as a background layer */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background-image: url('/landing.png');
+    background-repeat: repeat;
+    background-size: 225px 186px; /* Half size for better tiling (451/2 x 372/2) */
+    background-position: 0 0;
+    opacity: 0.05; /* Very subtle in light mode */
+    pointer-events: none;
+    z-index: 0;
+    animation: textureShift 100s linear infinite;
+    transform: translateZ(0); /* Force GPU acceleration */
+  }
+  
+  /* Dark mode texture */
+  .dark body::before {
+    opacity: 0.12; /* More visible in dark mode */
+    filter: hue-rotate(200deg) brightness(1.2) contrast(0.8);
+    mix-blend-mode: screen;
+    background-size: 225px 186px; /* Consistent sizing */
+  }
+  
+  /* Gradient overlay for depth */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      oklch(0.98 0.01 258 / 0.1) 70%,
+      oklch(0.98 0.01 258 / 0.3) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  .dark body::after {
+    background: radial-gradient(
+      circle at center,
+      transparent 0%,
+      oklch(0.10 0.015 258 / 0.3) 60%,
+      oklch(0.10 0.015 258 / 0.6) 100%
+    );
+  }
+  
+  /* Subtle texture animation for cyberpunk feel */
+  @keyframes textureShift {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 225px 186px; /* Match tile size for seamless loop */
+    }
+  }
+  
+  /* Ensure content sits above texture */
+  main, 
+  .main-content, 
+  #__next > div,
+  .flex.flex-col.min-h-screen,
+  [class*="flex-col"][class*="min-h-"] {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Ensure all interactive elements are above background */
+  button,
+  input,
+  textarea,
+  select,
+  a,
+  [role="button"],
+  [role="link"] {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Improved font sizes with better hierarchy */
+  html {
+    /* Base font size set to 16px to prevent iOS auto-zoom on inputs */
+    font-size: 16px !important;
+    /* Fluid typography for responsive scaling */
+    @media (min-width: 768px) {
+      font-size: clamp(16px, 1.5vw, 18px);
+    }
+    
+    /* Smooth scrolling for better UX */
+    scroll-behavior: smooth;
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* Typography scale with optimal line heights */
+  h1, .h1 {
+    font-size: 2.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  
+  h2, .h2 {
+    font-size: 2rem;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+  
+  h3, .h3 {
+    font-size: 1.75rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+  
+  h4, .h4 {
+    font-size: 1.5rem;
+    line-height: 1.35;
+    letter-spacing: -0.008em;
+    font-weight: 500;
+  }
+  
+  h5, .h5 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+    font-weight: 500;
+  }
+  
+  h6, .h6 {
+    font-size: 1.125rem;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  /* Body text optimization */
+  p, .body-text {
+    font-size: 1rem; /* 16px - prevents iOS zoom */
+    line-height: 1.5; /* Optimized for mobile reading */
+    letter-spacing: 0.01em; /* Better for small screens */
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+  
+  /* Ensure chat messages use consistent font */
+  .message-content,
+  .chat-message,
+  [role="article"],
+  .prose {
+    font-family: var(--font-sans), system-ui, sans-serif !important;
+  }
+
+  /* Small text with improved readability */
+  small, .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+
+  .text-xs {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+
+  /* Large text for emphasis */
+  .text-lg {
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+
+  .text-xl {
+    font-size: 1.25rem;
+    line-height: 1.55;
+    letter-spacing: -0.005em;
+  }
+
+  .text-2xl {
+    font-size: 1.5rem;
+    line-height: 1.35;
+    letter-spacing: -0.008em;
+  }
+
+  /* Optimize spacing between paragraphs */
+  p + p {
+    margin-top: 1.25em;
+  }
+
+  /* Improve list readability */
+  ul, ol {
+    line-height: 1.7;
+  }
+
+  li {
+    margin-bottom: 0.5em;
+  }
+
+  /* Better code typography */
+  code, kbd, pre, samp {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.875em;
+    font-feature-settings: 'liga' 0;
+  }
+
+  /* Inline code styling */
+  :not(pre) > code {
+    padding: 0.125em 0.25em;
+    border-radius: 0.25em;
+    background: oklch(0.94 0.015 258);
+  }
+
+  .dark :not(pre) > code {
+    background: oklch(0.18 0.03 258);
+  }
+
+  /* Link underline optimization */
+  a {
+    text-underline-offset: 0.15em;
+    text-decoration-thickness: 1px;
+  }
+
+  /* Selection colors matching brand */
+  ::selection {
+    background: oklch(0.55 0.27 258 / 0.2);
+    color: inherit;
+  }
+
+  .dark ::selection {
+    background: oklch(0.65 0.26 258 / 0.3);
+  }
+
+  [role='button'],
+  button {
+    cursor: pointer;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  .whatsize {
+    field-sizing: content;
+    min-height: 2lh;
+    max-height: 10lh;
+    resize: none;
+    overflow-y: auto;
+
+    /* Fallback for browsers that don't support field-sizing */
+    min-height: 40px;
+    height: auto;
+
+    /* fix for firefox */
+    @supports (-moz-appearance: none) {
+      min-height: 2lh;
+      max-height: 10lh;
+    }
+  }
+}
+
+:root {
+  --sh-class: #2563eb;
+  --sh-identifier: #1f2937;
+  --sh-sign: #6b7280;
+  --sh-property: #3b82f6;
+  --sh-entity: #8b5cf6;
+  --sh-jsxliterals: #f59e0b;
+  --sh-string: #059669;
+  --sh-keyword: #dc2626;
+  --sh-comment: #9ca3af;
+}
+
+.dark {
+  --sh-class: #60a5fa;
+  --sh-identifier: #e5e7eb;
+  --sh-sign: #9ca3af;
+  --sh-property: #93c5fd;
+  --sh-entity: #a78bfa;
+  --sh-jsxliterals: #fbbf24;
+  --sh-string: #34d399;
+  --sh-keyword: #f87171;
+  --sh-comment: #6b7280;
+}
+
+:root {
+  --font-be-vietnam-pro: 'Be Vietnam Pro';
+  /* Light theme (ApeCoin cyberpunk - optimized for legibility) */
+  --background: oklch(0.98 0.01 258); /* Cleaner white with subtle blue */
+  --foreground: oklch(0.20 0.05 258); /* Darker for WCAG AAA contrast */
+  --card: oklch(0.99 0.005 258);
+  --card-foreground: oklch(0.20 0.05 258);
+  --popover: oklch(0.99 0.005 258);
+  --popover-foreground: oklch(0.20 0.05 258);
+  --primary: oklch(0.55 0.27 258); /* ApeCoin Blue - slightly darker for better contrast */
+  --primary-foreground: oklch(0.98 0.01 258);
+  --secondary: oklch(0.85 0.05 280); /* Muted purple instead of pink for less strain */
+  --secondary-foreground: oklch(0.20 0.05 258);
+  --muted: oklch(0.94 0.015 258);
+  --muted-foreground: oklch(0.48 0.04 258); /* WCAG AA compliant - 4.5:1 contrast ratio */
+  --accent: oklch(0.70 0.12 320); /* Softer pink accent for highlights only */
+  --accent-foreground: oklch(0.20 0.05 258);
+  --destructive: oklch(0.60 0.22 25); /* Slightly muted red */
+  --destructive-foreground: oklch(0.98 0.01 258);
+  --border: oklch(0.88 0.02 258);
+  --input: oklch(0.92 0.015 258);
+  --ring: oklch(0.55 0.27 258);
+  --chart-1: oklch(0.55 0.27 258); /* ApeCoin Blue */
+  --chart-2: oklch(0.65 0.18 320); /* Softer pink for charts */
+  --chart-3: oklch(0.35 0.15 258); /* Deeper blue */
+  --chart-4: oklch(0.72 0.10 290); /* Lavender */
+  --chart-5: oklch(0.50 0.20 275); /* Mid purple */
+  --sidebar: oklch(0.97 0.01 258);
+  --sidebar-foreground: oklch(0.25 0.05 258);
+  --sidebar-primary: oklch(0.35 0.15 258);
+  --sidebar-primary-foreground: oklch(0.97 0.01 258);
+  --sidebar-accent: oklch(0.93 0.02 258);
+  --sidebar-accent-foreground: oklch(0.25 0.05 258);
+  --sidebar-border: oklch(0.90 0.02 258);
+  --sidebar-ring: oklch(0.55 0.27 258);
+  --radius: 1rem;
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --font-be-vietnam-pro: 'Be Vietnam Pro';
+  /* Dark cyberpunk theme (ApeCoin - optimized for reduced eye strain) */
+  --background: oklch(0.10 0.015 258); /* Slightly lighter dark with ApeCoin blue tint */
+  --foreground: oklch(0.90 0.02 258); /* Softer white to reduce glare */
+  --card: oklch(0.13 0.025 258); /* Better separation from background */
+  --card-foreground: oklch(0.90 0.02 258);
+  --popover: oklch(0.13 0.025 258);
+  --popover-foreground: oklch(0.90 0.02 258);
+  --primary: oklch(0.65 0.26 258); /* ApeCoin Blue - slightly muted for less strain */
+  --primary-foreground: oklch(0.10 0.015 258);
+  --secondary: oklch(0.35 0.12 280); /* Deep purple instead of neon pink */
+  --secondary-foreground: oklch(0.90 0.02 258);
+  --muted: oklch(0.20 0.03 258);
+  --muted-foreground: oklch(0.70 0.05 258); /* WCAG AA compliant - 4.5:1 contrast ratio */
+  --accent: oklch(0.60 0.18 320); /* Muted pink accent for selective use */
+  --accent-foreground: oklch(0.90 0.02 258);
+  --destructive: oklch(0.65 0.24 20); /* Readable warning red */
+  --destructive-foreground: oklch(0.90 0.02 258);
+  --border: oklch(0.25 0.04 258); /* More visible borders */
+  --input: oklch(0.18 0.03 258);
+  --ring: oklch(0.65 0.26 258); /* ApeCoin Blue ring */
+  --chart-1: oklch(0.65 0.26 258); /* ApeCoin Blue */
+  --chart-2: oklch(0.60 0.18 320); /* Muted pink */
+  --chart-3: oklch(0.45 0.18 258); /* Mid blue */
+  --chart-4: oklch(0.55 0.15 290); /* Soft purple */
+  --chart-5: oklch(0.70 0.12 275); /* Light purple for contrast */
+  --sidebar: oklch(0.12 0.02 258);
+  --sidebar-foreground: oklch(0.85 0.02 258);
+  --sidebar-primary: oklch(0.65 0.26 258);
+  --sidebar-primary-foreground: oklch(0.10 0.015 258);
+  --sidebar-accent: oklch(0.18 0.03 258);
+  --sidebar-accent-foreground: oklch(0.85 0.02 258);
+  --sidebar-border: oklch(0.23 0.04 258);
+  --sidebar-ring: oklch(0.65 0.26 258); /* Consistent with primary */
+  --radius: 1rem;
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+}
+
+@theme inline {
+  --font-be-vietnam-pro: var(--font-be-vietnam-pro);
+  --font-baumans: var(--font-baumans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Ensure main content areas have proper backgrounds */
+  .main-content,
+  main,
+  [role="main"] {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Cards and overlays should have solid backgrounds */
+  .card,
+  [role="dialog"],
+  [role="alertdialog"],
+  .popover-content,
+  .dropdown-menu {
+    @apply bg-card;
+    backdrop-filter: blur(12px);
+    background-color: oklch(var(--card) / 0.95);
+  }
+  
+  .dark .card,
+  .dark [role="dialog"],
+  .dark [role="alertdialog"],
+  .dark .popover-content,
+  .dark .dropdown-menu {
+    background-color: oklch(var(--card) / 0.92);
+  }
+  
+  /* Sidebar with texture overlay */
+  .sidebar,
+  aside {
+    position: relative;
+    background-color: oklch(var(--sidebar) / 0.97);
+    backdrop-filter: blur(10px);
+  }
+  
+  .dark .sidebar,
+  .dark aside {
+    background-color: oklch(var(--sidebar) / 0.95);
+  }
+}
+
+/* Prevent iOS scroll bounce issues with fixed positioned elements */
+body {
+  /* Prevent iOS from shrinking viewport height when scrolling */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* Typography improvements for mobile */
+@media screen and (max-width: 640px) {
+  /* Keep base font at 16px to prevent iOS auto-zoom on form inputs */
+  html {
+    font-size: 16px !important;
+  }
+  
+  /* Reduce heading sizes on mobile */
+  h1, .h1 {
+    font-size: 2rem;
+  }
+  
+  h2, .h2 {
+    font-size: 1.625rem;
+  }
+  
+  h3, .h3 {
+    font-size: 1.375rem;
+  }
+  
+  h4, .h4 {
+    font-size: 1.25rem;
+  }
+  
+  /* Increase tap target size for better mobile UX - Apple and Google guidelines */
+  button:not(.compact), 
+  a:not(.compact), 
+  [role="button"]:not(.compact) {
+    min-height: 44px;
+    min-width: 44px;
+    /* Add padding for better touch feedback */
+    padding: max(8px, calc((44px - 1em) / 2));
+  }
+  
+  /* Ensure icon buttons meet touch target requirements */
+  button[aria-label]:not(:has(span)),
+  button:has(svg:only-child) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  p + p {
+    margin-top: 1em;
+  }
+}
+
+/* Mobile viewport height fixes */
+@media screen and (max-width: 1024px) {
+  /* Fix for iOS viewport height issues */
+  .h-screen {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for better mobile support */
+  }
+
+  /* Ensure fixed elements work properly with viewport changes */
+  .fixed {
+    /* Force hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Better height handling for mobile containers */
+  body {
+    /* Use dynamic viewport height on mobile */
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+
+  body {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Ensure fixed elements maintain position during scroll */
+@media screen and (max-width: 1024px) {
+  /* Prevent viewport height changes from affecting fixed elements */
+  .fixed {
+    /* Force hardware acceleration for smoother rendering */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    /* Prevent iOS bounce from affecting positioning */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Ensure safe area calculations are consistent */
+  .fixed.bottom-0 {
+    /* Use padding instead of margin for more reliable positioning */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Hide Leaflet attribution globally */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Polished Leaflet zoom control (light/dark aware) */
+.leaflet-control-zoom,
+.custom-zoom-control.leaflet-bar {
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(6px);
+}
+
+.dark .leaflet-control-zoom,
+.dark .custom-zoom-control.leaflet-bar {
+  border-color: hsl(var(--border));
+  background: rgba(9, 9, 11, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.leaflet-control-zoom a,
+.custom-zoom-control .zoom-btn {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border));
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.leaflet-control-zoom a:last-child,
+.custom-zoom-control .zoom-btn:last-child {
+  border-bottom: none;
+}
+
+.leaflet-control-zoom a:hover,
+.custom-zoom-control .zoom-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dark .leaflet-control-zoom a:hover,
+.dark .custom-zoom-control .zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.leaflet-control-zoom a:active,
+.custom-zoom-control .zoom-btn:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.dark .leaflet-control-zoom a:active,
+.dark .custom-zoom-control .zoom-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.leaflet-control-zoom a:focus,
+.custom-zoom-control .zoom-btn:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}
+
+.leaflet-control-zoom a.leaflet-disabled,
+.custom-zoom-control .zoom-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent !important;
+}
+
+/* Touch-friendly sizing */
+.leaflet-touch .leaflet-control-zoom a,
+.leaflet-touch .custom-zoom-control .zoom-btn {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  font-size: 18px;
+}
+
+/* Divider between zoom buttons */
+.custom-zoom-control .divider {
+  height: 1px;
+  background: hsl(var(--border));
+}
+
+/* Thin horizontal scrollbar for the map's place-card scroller */
+.nearby-search-map::-webkit-scrollbar {
+  height: 8px;
+}
+.nearby-search-map::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 9999px;
+}
+.nearby-search-map::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Sugar-high syntax highlighting styles */
+.sh__token--keyword {
+  color: #c792ea;
+}
+.sh__token--string {
+  color: #c3e88d;
+}
+.sh__token--comment {
+  color: #546e7a;
+  font-style: italic;
+}
+.sh__token--identifier {
+  color: #82b1ff;
+}
+.sh__token--number {
+  color: #f78c6c;
+}
+.sh__token--operator {
+  color: #89ddff;
+}
+.sh__token--punctuation {
+  color: #89ddff;
+}
+
+/* Dark mode adjustments for sugar-high */
+.dark .sh__token--keyword {
+  color: #bb86fc;
+}
+.dark .sh__token--string {
+  color: #4caf50;
+}
+.dark .sh__token--comment {
+  color: #6a737d;
+}
+.dark .sh__token--identifier {
+  color: #64b5f6;
+}
+.dark .sh__token--number {
+  color: #ff9800;
+}
+.dark .sh__token--operator {
+  color: #03dac6;
+}
+.dark .sh__token--punctuation {
+  color: #03dac6;
+}
