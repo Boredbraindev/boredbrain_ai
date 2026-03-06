@@ -74,7 +74,7 @@ const Navbar = memo(
           role="navigation"
         >
           <div className="flex items-center gap-2 sm:gap-3 min-w-[80px]">
-            {/* History Menu Button - ChatGPT/Claude style */}
+            {/* Platform Menu */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -82,7 +82,6 @@ const Navbar = memo(
                   size="icon"
                   className="size-9 rounded-lg"
                   onClick={() => {
-                    // This will be wired to open history drawer
                     const event = new CustomEvent('toggle-history-drawer');
                     window.dispatchEvent(event);
                   }}
@@ -105,7 +104,7 @@ const Navbar = memo(
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
-                Chat History
+                Menu
               </TooltipContent>
             </Tooltip>
 
@@ -129,11 +128,14 @@ const Navbar = memo(
             <Link href="/agents">
               <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Agents</Button>
             </Link>
-            <Link href="/prompts">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Prompts</Button>
-            </Link>
             <Link href="/marketplace">
               <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Market</Button>
+            </Link>
+            <Link href="/playbooks">
+              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Playbooks</Button>
+            </Link>
+            <Link href="/network">
+              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Network</Button>
             </Link>
             <Link href="/dashboard/revenue">
               <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Revenue</Button>
@@ -181,9 +183,9 @@ const Navbar = memo(
               </>
             )}
 
-            {/* New Chat Button */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Link href="/new">
+              <Link href="/arena">
                 <Button
                   type="button"
                   variant="ghost"
@@ -191,9 +193,8 @@ const Navbar = memo(
                   className="holographic-button rounded-full border border-border/40 dark:border-white/10 transition-all pointer-events-auto px-3.5 sm:px-4 h-9 font-semibold active:scale-[0.97]"
                 >
                   <span className="font-bold text-xs sm:text-sm text-white dark:text-white flex items-center gap-1">
-                    <span className="text-base sm:text-lg leading-none">+</span>
-                    <span className="tracking-wide hidden sm:inline">NEW CHAT</span>
-                    <span className="tracking-wide sm:hidden">NEW</span>
+                    <span className="text-base sm:text-lg leading-none">⚔</span>
+                    <span className="tracking-wide hidden sm:inline">ARENA</span>
                   </span>
                 </Button>
               </Link>
