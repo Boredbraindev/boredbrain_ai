@@ -120,7 +120,12 @@ function executeMockTool(toolName: string, args: Record<string, unknown>): strin
 // ---------------------------------------------------------------------------
 
 export async function GET() {
-  const stats = await getNetworkStats();
+  let stats = { totalNodes: 0, onlineNodes: 0, totalMessages: 0 };
+  try {
+    stats = await getNetworkStats();
+  } catch {
+    // DB not available — return defaults
+  }
 
   return NextResponse.json(
     {
