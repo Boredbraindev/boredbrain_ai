@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 import { ShareButton } from '@/components/share';
+import { WalletConnectButton } from '@/components/wallet-connect-button';
 
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 
@@ -131,8 +132,11 @@ const Navbar = memo(
             <Link href="/prompts">
               <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Prompts</Button>
             </Link>
-            <Link href="/stats">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Stats</Button>
+            <Link href="/marketplace">
+              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Market</Button>
+            </Link>
+            <Link href="/dashboard/revenue">
+              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Revenue</Button>
             </Link>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 min-w-[80px] justify-end">
@@ -206,6 +210,11 @@ const Navbar = memo(
                   </span>
                 </Button>
               </Link>
+            </div>
+
+            {/* Wallet Connect */}
+            <div className="hidden sm:block">
+              <WalletConnectButton />
             </div>
 
             {/* Navigation Menu - settings icon for general navigation */}

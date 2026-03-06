@@ -5,6 +5,7 @@ import { arenaMatch, agent } from '@/lib/db/schema';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { generateId } from 'ai';
 import { MOCK_ARENA_MATCHES } from '@/lib/mock-data';
+import { dynamicMatchStore } from '@/lib/arena-store';
 
 /**
  * GET /api/arena - List arena matches
@@ -34,10 +35,14 @@ export async function GET(request: NextRequest) {
     // DB connection failed or timeout, fall through to mock data
   }
 
-  // Return mock data as fallback
+  // Combine static mock data with dynamically created matches
+  const dynamicMatches = Array.from(dynamicMatchStore.values());
+  const allMockMatches = [...MOCK_ARENA_MATCHES, ...dynamicMatches]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   const filtered = status !== 'all'
-    ? MOCK_ARENA_MATCHES.filter((m) => m.status === status)
-    : MOCK_ARENA_MATCHES;
+    ? allMockMatches.filter((m) => m.status === status)
+    : allMockMatches;
   return NextResponse.json({ matches: filtered.slice(0, limit) });
 }
 

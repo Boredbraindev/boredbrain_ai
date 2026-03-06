@@ -2,7 +2,7 @@
 import { generateTitleFromUserMessage } from '@/app/actions';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
 import { boredbrain } from '@/ai/providers';
-import { xai } from '@ai-sdk/xai';
+import { openai } from '@ai-sdk/openai';
 import {
   createStreamId,
   saveChat,
@@ -169,7 +169,7 @@ export async function POST(req: Request) {
 
         // Start streaming - use Grok directly to avoid boredbrain provider payment issues
         const result = streamText({
-          model: xai('grok-4-fast'),
+          model: openai('gpt-5-mini'),
           messages: convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,

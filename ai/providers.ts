@@ -1,34 +1,15 @@
 import { customProvider } from 'ai';
 
-import { xai } from '@ai-sdk/xai';
-import { google } from '@ai-sdk/google';
+import { openai } from '@ai-sdk/openai';
 
-// Removed unused middleware and providers - using only Grok and Gemini models
+// BoredBrain AI — Single unified model for all interactions
+// No model selection UI — clean, focused experience
 
 export const boredbrain = customProvider({
   languageModels: {
-    // Grok models (xAI) - differentiated routing
-    'boredbrain-default': xai('grok-4-fast-non-reasoning'),
-    'boredbrain-grok-3': xai('grok-3-latest'),
-    'boredbrain-grok-4': xai('grok-4'),
-    'boredbrain-grok-4-fast': xai('grok-4-fast-non-reasoning'),
-    'boredbrain-grok-4-fast-think': xai('grok-4-fast'),
-    'boredbrain-code': xai('grok-4-fast'),
-    'boredbrain-enhance': xai('grok-4-fast-non-reasoning'), // For prompt enhancement
-    // Google Gemini models
-    'boredbrain-google-lite': google('gemini-2.5-flash-lite'),
-    'boredbrain-google': google('gemini-2.5-flash'),
-    'boredbrain-google-pro': google('gemini-2.5-pro'),
+    'boredbrain-default': openai('gpt-5-mini'),
   },
 });
-
-interface ModelParameters {
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  minP?: number;
-  frequencyPenalty?: number;
-}
 
 interface Model {
   value: string;
@@ -43,219 +24,84 @@ interface Model {
   requiresAuth: boolean;
   freeUnlimited: boolean;
   maxOutputTokens: number;
-  // Tags
   fast?: boolean;
   isNew?: boolean;
-  parameters?: ModelParameters;
 }
 
+// Single model — no selection needed
 export const models: Model[] = [
-  // Grok models (xAI)
-  {
-    value: 'boredbrain-grok-3',
-    label: 'Grok 3',
-    description: "xAI's recent smartest LLM",
-    vision: false,
-    reasoning: false,
-    experimental: false,
-    category: 'Pro',
-    pdf: false,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 16000,
-  },
-  {
-    value: 'boredbrain-grok-4',
-    label: 'Grok 4',
-    description: "xAI's most intelligent LLM",
-    vision: true,
-    reasoning: true,
-    experimental: false,
-    category: 'Pro',
-    pdf: false,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 16000,
-  },
   {
     value: 'boredbrain-default',
-    label: 'Grok 4 Fast',
-    description: "xAI's fastest multimodel LLM",
+    label: 'BoredBrain AI',
+    description: 'BoredBrain unified AI model',
     vision: true,
     reasoning: false,
     experimental: false,
     category: 'Free',
-    pdf: false,
+    pdf: true,
     pro: false,
     requiresAuth: false,
     freeUnlimited: false,
     maxOutputTokens: 16000,
     fast: true,
   },
-  {
-    value: 'boredbrain-grok-4-fast-think',
-    label: 'Grok 4 Fast Thinking',
-    description: "xAI's fastest multimodel reasoning LLM",
-    vision: true,
-    reasoning: true,
-    experimental: false,
-    category: 'Pro',
-    pdf: false,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 16000,
-    fast: true,
-  },
-  {
-    value: 'boredbrain-code',
-    label: 'Grok Code',
-    description: "xAI's advanced coding LLM",
-    vision: false,
-    reasoning: true,
-    experimental: false,
-    category: 'Pro',
-    pdf: false,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 16000,
-    fast: true,
-  },
-  // Google Gemini models
-  {
-    value: 'boredbrain-google-lite',
-    label: 'Gemini 2.5 Flash Lite',
-    description: "Google's advanced small LLM",
-    vision: true,
-    reasoning: false,
-    experimental: false,
-    category: 'Free',
-    pdf: true,
-    pro: false,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 10000,
-  },
-  {
-    value: 'boredbrain-google',
-    label: 'Gemini 2.5 Flash',
-    description: "Google's advanced small LLM",
-    vision: true,
-    reasoning: false,
-    experimental: false,
-    category: 'Pro',
-    pdf: true,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 10000,
-  },
-  {
-    value: 'boredbrain-google-pro',
-    label: 'Gemini 2.5 Pro',
-    description: "Google's most advanced LLM",
-    vision: true,
-    reasoning: false,
-    experimental: false,
-    category: 'Pro',
-    pdf: true,
-    pro: true,
-    requiresAuth: true,
-    freeUnlimited: false,
-    maxOutputTokens: 10000,
-  },
 ];
 
-// Helper functions for model access checks
+// Helper functions
 export function getModelConfig(modelValue: string) {
-  return models.find((model) => model.value === modelValue);
+  return models.find((model) => model.value === modelValue) || models[0];
 }
 
-export function requiresAuthentication(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.requiresAuth || false;
+export function requiresAuthentication(_modelValue: string): boolean {
+  return false;
 }
 
-export function requiresProSubscription(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.pro || false;
+export function requiresProSubscription(_modelValue: string): boolean {
+  return false;
 }
 
-export function isFreeUnlimited(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.freeUnlimited || false;
+export function isFreeUnlimited(_modelValue: string): boolean {
+  return false;
 }
 
-export function hasVisionSupport(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.vision || false;
+export function hasVisionSupport(_modelValue: string): boolean {
+  return true;
 }
 
-export function hasPdfSupport(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.pdf || false;
+export function hasPdfSupport(_modelValue: string): boolean {
+  return true;
 }
 
-export function hasReasoningSupport(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.reasoning || false;
+export function hasReasoningSupport(_modelValue: string): boolean {
+  return false;
 }
 
-export function isExperimentalModel(modelValue: string): boolean {
-  const model = getModelConfig(modelValue);
-  return model?.experimental || false;
+export function isExperimentalModel(_modelValue: string): boolean {
+  return false;
 }
 
-export function getMaxOutputTokens(modelValue: string): number {
-  const model = getModelConfig(modelValue);
-  return model?.maxOutputTokens || 8000;
+export function getMaxOutputTokens(_modelValue: string): number {
+  return 16000;
 }
 
-export function getModelParameters(modelValue: string): ModelParameters {
-  const model = getModelConfig(modelValue);
-  return model?.parameters || {};
+export function getModelParameters(_modelValue: string): Record<string, unknown> {
+  return {};
 }
 
-// Access control helper
-export function canUseModel(modelValue: string, user: any, isProUser: boolean): { canUse: boolean; reason?: string } {
-  const model = getModelConfig(modelValue);
-
-  if (!model) {
-    return { canUse: false, reason: 'Model not found' };
-  }
-
-  // Check if model requires authentication
-  if (model.requiresAuth && !user) {
-    return { canUse: false, reason: 'authentication_required' };
-  }
-
-  // Check if model requires Pro subscription
-  if (model.pro && !isProUser) {
-    return { canUse: false, reason: 'pro_subscription_required' };
-  }
-
+// Access control — always allow
+export function canUseModel(_modelValue: string, _user: any, _isProUser: boolean): { canUse: boolean; reason?: string } {
   return { canUse: true };
 }
 
-// Helper to check if user should bypass rate limits
-export function shouldBypassRateLimits(modelValue: string, user: any): boolean {
-  const model = getModelConfig(modelValue);
-  return Boolean(user && model?.freeUnlimited);
+export function shouldBypassRateLimits(_modelValue: string, _user: any): boolean {
+  return false;
 }
 
-// Get acceptable file types for a model
-export function getAcceptedFileTypes(modelValue: string, isProUser: boolean): string {
-  const model = getModelConfig(modelValue);
-  if (model?.pdf && isProUser) {
-    return 'image/*,.pdf';
-  }
-  return 'image/*';
+export function getAcceptedFileTypes(_modelValue: string, _isProUser: boolean): string {
+  return 'image/*,.pdf';
 }
 
-// Legacy arrays for backward compatibility (deprecated - use helper functions instead)
-export const authRequiredModels = models.filter((m) => m.requiresAuth).map((m) => m.value);
-export const proRequiredModels = models.filter((m) => m.pro).map((m) => m.value);
-export const freeUnlimitedModels = models.filter((m) => m.freeUnlimited).map((m) => m.value);
+// Legacy arrays (empty — no restrictions)
+export const authRequiredModels: string[] = [];
+export const proRequiredModels: string[] = [];
+export const freeUnlimitedModels: string[] = [];

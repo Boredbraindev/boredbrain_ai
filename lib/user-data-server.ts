@@ -1,15 +1,27 @@
 import 'server-only';
 
-import { eq } from 'drizzle-orm';
-import { user } from './db/schema';
+import { eq, desc, and, or } from 'drizzle-orm';
+import { user, subscription } from './db/schema';
 import { db } from './db';
 import { getSession } from './auth-utils';
 import { generateReferralCode } from './referral-utils';
 
 type DbUser = typeof user.$inferSelect;
 
+// ---------------------------------------------------------------------------
+// Feature flags
+// ---------------------------------------------------------------------------
+// When UNLOCK_PRO_FOR_ALL is "true" (the default until Polar is configured),
+// every user is treated as a Pro subscriber. Once you set up your Polar account
+// and have real subscriptions flowing, set this to "false" in the env.
+//
+// The order of precedence:
+//   1. UNLOCK_PRO_FOR_ALL env var (explicit override)
+//   2. NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL (fallback / build-time)
+//   3. Default: "true"  <-- keeps the app working before Polar is set up
 const PRO_UNLOCK_FLAG =
   (process.env.UNLOCK_PRO_FOR_ALL ?? process.env.NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL ?? 'true') !== 'false';
+
 const GUEST_ACCESS_FLAG =
   (process.env.ALLOW_GUEST_ACCESS ?? process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? 'true') !== 'false' ||
   PRO_UNLOCK_FLAG;
@@ -17,6 +29,126 @@ const GUEST_USER_ID = process.env.GUEST_USER_ID || 'guest-user';
 const GUEST_USER_EMAIL = process.env.GUEST_USER_EMAIL || 'guest@boredbrain.local';
 const GUEST_USER_NAME = process.env.GUEST_USER_NAME || 'Guest User';
 
+// ---------------------------------------------------------------------------
+// Polar subscription checking
+// ---------------------------------------------------------------------------
+type PolarSubscriptionInfo = {
+  id: string;
+  productId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  recurringInterval: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: Date | null;
+};
+
+/**
+ * Checks the subscription table for an active Polar subscription for the given user.
+ * Active means: status is "active" or "trialing", and currentPeriodEnd is in the future.
+ */
+async function getPolarSubscription(userId: string): Promise<PolarSubscriptionInfo | null> {
+  try {
+    const now = new Date();
+    const rows = await db
+      .select()
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.userId, userId),
+          or(
+            eq(subscription.status, 'active'),
+            eq(subscription.status, 'trialing'),
+            // Include canceled subs that haven't expired yet (cancel_at_period_end)
+            eq(subscription.status, 'canceled'),
+          ),
+        ),
+      )
+      .orderBy(desc(subscription.currentPeriodEnd))
+      .limit(1);
+
+    const sub = rows[0];
+    if (!sub) return null;
+
+    // For canceled subs, only consider them active if the period hasn't ended
+    if (sub.status === 'canceled' && sub.currentPeriodEnd < now) {
+      return null;
+    }
+
+    return {
+      id: sub.id,
+      productId: sub.productId,
+      status: sub.status,
+      amount: sub.amount,
+      currency: sub.currency,
+      recurringInterval: sub.recurringInterval,
+      currentPeriodStart: sub.currentPeriodStart,
+      currentPeriodEnd: sub.currentPeriodEnd,
+      cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+      canceledAt: sub.canceledAt,
+    };
+  } catch (error) {
+    // If the subscription table doesn't exist yet or any DB error occurs,
+    // fail gracefully and fall back to the PRO_UNLOCK_FLAG behavior.
+    console.warn('[user-data-server] Failed to check Polar subscription:', error);
+    return null;
+  }
+}
+
+/**
+ * Derives the pro status from subscription data.
+ * Returns the resolved isProUser, proSource, and subscriptionStatus.
+ */
+function deriveProStatus(polarSub: PolarSubscriptionInfo | null): {
+  isProUser: boolean;
+  proSource: 'polar' | 'dodo' | 'none';
+  subscriptionStatus: 'active' | 'canceled' | 'expired' | 'none';
+  polarSubscription?: ComprehensiveUserData['polarSubscription'];
+} {
+  if (polarSub) {
+    const isActive = polarSub.status === 'active' || polarSub.status === 'trialing';
+    const isCanceledButValid = polarSub.status === 'canceled' && polarSub.currentPeriodEnd > new Date();
+
+    return {
+      isProUser: isActive || isCanceledButValid,
+      proSource: 'polar',
+      subscriptionStatus: isActive ? 'active' : isCanceledButValid ? 'canceled' : 'expired',
+      polarSubscription: {
+        id: polarSub.id,
+        productId: polarSub.productId,
+        status: polarSub.status,
+        amount: polarSub.amount,
+        currency: polarSub.currency,
+        recurringInterval: polarSub.recurringInterval,
+        currentPeriodStart: polarSub.currentPeriodStart,
+        currentPeriodEnd: polarSub.currentPeriodEnd,
+        cancelAtPeriodEnd: polarSub.cancelAtPeriodEnd,
+        canceledAt: polarSub.canceledAt,
+      },
+    };
+  }
+
+  // No subscription found -- fall back to the feature flag
+  if (PRO_UNLOCK_FLAG) {
+    return {
+      isProUser: true,
+      proSource: 'none',
+      subscriptionStatus: 'active',
+    };
+  }
+
+  return {
+    isProUser: false,
+    proSource: 'none',
+    subscriptionStatus: 'none',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Guest user helpers
+// ---------------------------------------------------------------------------
 async function ensureGuestUserRecord(): Promise<DbUser> {
   const existingById = await db.select().from(user).where(eq(user.id, GUEST_USER_ID)).limit(1);
 
@@ -186,25 +318,18 @@ export async function getComprehensiveUserData(): Promise<ComprehensiveUserData 
     // Check cache first
     const cached = getCachedUserData(userId);
     if (cached) {
-      if (PRO_UNLOCK_FLAG && !cached.isProUser) {
-        const upgradedCache = {
-          ...cached,
-          isProUser: true,
-          proSource: cached.proSource ?? 'none',
-          subscriptionStatus: 'active' as const,
-        };
-        setCachedUserData(userId, upgradedCache);
-        return upgradedCache;
-      }
       return cached;
     }
 
-    // Fetch user data
-    const userData = await db
-      .select()
-      .from(user)
-      .where(eq(user.id, userId))
-      .then((rows) => rows[0]);
+    // Fetch user data and subscription in parallel
+    const [userData, polarSub] = await Promise.all([
+      db
+        .select()
+        .from(user)
+        .where(eq(user.id, userId))
+        .then((rows) => rows[0]),
+      getPolarSubscription(userId),
+    ]);
 
     if (!userData) {
       return null;
@@ -215,6 +340,9 @@ export async function getComprehensiveUserData(): Promise<ComprehensiveUserData 
     if (!referralCode) {
       referralCode = await ensureUserReferralCode(userData.id);
     }
+
+    // Derive pro status from real subscription data (or fall back to flag)
+    const proStatus = deriveProStatus(polarSub);
 
     const comprehensiveData: ComprehensiveUserData = {
       id: userData.id,
@@ -228,9 +356,10 @@ export async function getComprehensiveUserData(): Promise<ComprehensiveUserData 
       referredBy: userData.referredBy || null,
       createdAt: userData.createdAt,
       updatedAt: userData.updatedAt,
-      isProUser: true,
-      proSource: 'none',
-      subscriptionStatus: 'active',
+      isProUser: proStatus.isProUser,
+      proSource: proStatus.proSource,
+      subscriptionStatus: proStatus.subscriptionStatus,
+      polarSubscription: proStatus.polarSubscription,
       paymentHistory: [],
     };
 
@@ -242,12 +371,6 @@ export async function getComprehensiveUserData(): Promise<ComprehensiveUserData 
       isExpired: false,
       isExpiringSoon: false,
     };
-
-    if (PRO_UNLOCK_FLAG && !comprehensiveData.isProUser) {
-      comprehensiveData.isProUser = true;
-      comprehensiveData.proSource = comprehensiveData.proSource || 'none';
-      comprehensiveData.subscriptionStatus = 'active';
-    }
 
     // Cache the result
     setCachedUserData(userId, comprehensiveData);

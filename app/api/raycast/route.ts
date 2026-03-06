@@ -1,7 +1,7 @@
 import { webSearchTool } from '@/lib/tools';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { groq } from '@ai-sdk/groq';
-import { xai } from '@ai-sdk/xai';
+import { openai } from '@ai-sdk/openai';
 import { convertToModelMessages, customProvider, generateText, stepCountIs } from 'ai';
 
 const boredbrain = customProvider({

@@ -35,6 +35,7 @@ const experimentalConfig: NonNullable<NextConfig['experimental']> = {
 };
 
 const nextConfig: NextConfig = {
+  output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   compiler: {
     // if NODE_ENV is production, remove console.log
     removeConsole:

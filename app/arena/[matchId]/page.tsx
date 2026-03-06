@@ -12,6 +12,9 @@ interface Round {
   response: string;
   toolsUsed: string[];
   score: number;
+  accuracyScore?: number;
+  toolScore?: number;
+  speedScore?: number;
   timestamp: string;
 }
 
@@ -21,7 +24,6 @@ interface Match {
   matchType: string;
   agents: string[];
   winnerId: string | null;
-  totalVotes: number;
   status: string;
   prizePool: string;
   rounds: Round[] | null;
@@ -37,7 +39,6 @@ export default function MatchDetailPage() {
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
-  const [voting, setVoting] = useState(false);
 
   useEffect(() => {
     fetchMatch();
@@ -46,8 +47,10 @@ export default function MatchDetailPage() {
   async function fetchMatch() {
     try {
       const res = await fetch(`/api/arena/${matchId}`);
-      const data = await res.json();
-      setMatch(data.match);
+      if (res.ok) {
+        const data = await res.json();
+        setMatch(data.match || null);
+      }
     } catch (error) {
       console.error('Failed to fetch match:', error);
     } finally {
@@ -65,22 +68,6 @@ export default function MatchDetailPage() {
       console.error('Failed to start match:', error);
     } finally {
       setExecuting(false);
-    }
-  }
-
-  async function voteForAgent(agentId: string) {
-    setVoting(true);
-    try {
-      await fetch(`/api/arena/${matchId}/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId }),
-      });
-      await fetchMatch();
-    } catch (error) {
-      console.error('Failed to vote:', error);
-    } finally {
-      setVoting(false);
     }
   }
 
@@ -122,7 +109,6 @@ export default function MatchDetailPage() {
           <p className="text-muted-foreground mt-1">
             {match.agents.length} agents
             {match.prizePool !== '0' && ` | Prize Pool: ${match.prizePool} BBAI`}
-            {match.totalVotes > 0 && ` | ${match.totalVotes} votes`}
           </p>
         </div>
       </div>
@@ -172,25 +158,45 @@ export default function MatchDetailPage() {
                           #{i + 1}
                         </span>
                         {isWinner && <Badge variant="green">Winner</Badge>}
-                        <CardTitle className="text-lg">Agent {round.agentId.slice(0, 8)}</CardTitle>
+                        <CardTitle className="text-lg">{round.agentId.replace('agent-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</CardTitle>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <div className="text-2xl font-bold">{round.score}</div>
-                          <div className="text-xs text-muted-foreground">points</div>
+                          <div className="text-xs text-muted-foreground">total / 100</div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => voteForAgent(round.agentId)}
-                          disabled={voting}
-                        >
-                          Vote
-                        </Button>
+                        <Badge variant="outline" className="text-xs">AI Judge</Badge>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {/* AI Judge Score Breakdown */}
+                    {(() => {
+                      const accuracy = round.accuracyScore ?? Math.round((round.score / 100) * 40);
+                      const tool = round.toolScore ?? Math.round((round.score / 100) * 30);
+                      const speed = round.speedScore ?? Math.round((round.score / 100) * 30);
+                      return (
+                        <div className="grid grid-cols-4 gap-3 mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
+                          <div className="text-center">
+                            <div className="text-sm font-bold">{accuracy}<span className="text-muted-foreground font-normal">/40</span></div>
+                            <div className="text-[11px] text-muted-foreground">Accuracy</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-bold">{tool}<span className="text-muted-foreground font-normal">/30</span></div>
+                            <div className="text-[11px] text-muted-foreground">Tool Usage</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-bold">{speed}<span className="text-muted-foreground font-normal">/30</span></div>
+                            <div className="text-[11px] text-muted-foreground">Speed</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-bold text-primary">{round.score}<span className="text-muted-foreground font-normal">/100</span></div>
+                            <div className="text-[11px] text-muted-foreground">Total</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Tools used */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {round.toolsUsed.map((tool) => (

@@ -14,6 +14,7 @@ interface PromptTemplate {
   creatorName: string | null;
   title: string;
   description: string;
+  systemPrompt?: string;
   category: string;
   tags: string[];
   previewMessages: Array<{ role: string; content: string }>;
@@ -35,6 +36,32 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: string; color: stri
   creative: { label: 'Creative', icon: '✨', color: 'bg-pink-500/15 text-pink-400 border-pink-500/30' },
   marketing: { label: 'Marketing', icon: '📈', color: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
   general: { label: 'General', icon: '🧠', color: 'bg-gray-500/15 text-gray-400 border-gray-500/30' },
+};
+
+const TOOL_COLORS: Record<string, string> = {
+  web_search: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+  x_search: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  coin_data: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  wallet_analyzer: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  code_interpreter: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+  academic_search: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+  retrieve: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  reddit_search: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  nft_retrieval: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
+  token_retrieval: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+};
+
+const TOOL_LABELS: Record<string, string> = {
+  web_search: 'Web Search',
+  x_search: 'X / Twitter',
+  coin_data: 'Coin Data',
+  wallet_analyzer: 'Wallet Analyzer',
+  code_interpreter: 'Code Interpreter',
+  academic_search: 'Academic Search',
+  retrieve: 'Retrieval',
+  reddit_search: 'Reddit',
+  nft_retrieval: 'NFT Data',
+  token_retrieval: 'Token Data',
 };
 
 function PromptCardSkeleton() {
@@ -241,38 +268,67 @@ export default function PromptMarketplacePage() {
 
 function PromptCard({ prompt: p, featured = false }: { prompt: PromptTemplate; featured?: boolean }) {
   const catConfig = CATEGORY_CONFIG[p.category] || CATEGORY_CONFIG.general;
+  const isBestSeller = (p.totalSales || 0) >= 500;
+  const isTopRated = (p.rating || 0) >= 4.9;
+  const priceNum = parseFloat(p.price);
 
   return (
     <Link href={`/prompts/${p.id}`}>
-      <Card className={`h-full group hover:border-primary/40 transition-all duration-200 cursor-pointer hover:shadow-lg hover:shadow-primary/5 ${featured ? 'ring-1 ring-amber-500/20' : ''}`}>
+      <Card className={`h-full group hover:border-primary/40 transition-all duration-200 cursor-pointer hover:shadow-lg hover:shadow-primary/5 ${featured ? 'ring-1 ring-amber-500/30 bg-gradient-to-b from-amber-500/[0.03] to-transparent' : ''}`}>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base group-hover:text-primary transition-colors truncate">
-              {p.title}
-            </CardTitle>
-            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${catConfig.color}`}>
+          {/* Badges Row */}
+          <div className="flex items-center gap-1.5 mb-1">
+            {featured && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                Featured
+              </span>
+            )}
+            {isBestSeller && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-400 border border-green-500/30">
+                Best Seller
+              </span>
+            )}
+            {isTopRated && !isBestSeller && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-400 border border-violet-500/30">
+                Top Rated
+              </span>
+            )}
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ml-auto ${catConfig.color}`}>
               {catConfig.icon} {catConfig.label}
             </span>
           </div>
+
+          <CardTitle className="text-base group-hover:text-primary transition-colors line-clamp-1">
+            {p.title}
+          </CardTitle>
           <CardDescription className="line-clamp-2 text-xs">
             {p.description || 'No description'}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
-          {/* Tags */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(p.tags || []).slice(0, 4).map((tag) => (
-              <span key={tag} className="text-[10px] bg-muted/80 text-muted-foreground px-2 py-0.5 rounded-full">
-                #{tag}
-              </span>
-            ))}
-          </div>
+          {/* System Prompt Preview (blurred) */}
+          {p.systemPrompt && (
+            <div className="relative rounded-lg overflow-hidden border border-border/30">
+              <div className="p-3 max-h-[72px] overflow-hidden">
+                <p className="text-[10px] text-muted-foreground/70 font-mono leading-relaxed select-none" style={{ filter: 'blur(3px)' }}>
+                  {p.systemPrompt.slice(0, 300)}...
+                </p>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background flex items-end justify-center pb-2">
+                <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  Purchase to unlock full prompt
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Preview Chat Bubble */}
           {p.previewMessages && p.previewMessages.length > 0 && (
             <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
               {p.previewMessages.slice(0, 2).map((msg, i) => (
-                <div key={i} className={`text-[11px] ${i > 0 ? 'mt-2' : ''}`}>
+                <div key={i} className={`text-[11px] ${i > 0 ? 'mt-2 pt-2 border-t border-border/20' : ''}`}>
                   <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-400' : 'text-amber-400'}`}>
                     {msg.role === 'user' ? 'You' : 'AI'}:
                   </span>{' '}
@@ -282,33 +338,41 @@ function PromptCard({ prompt: p, featured = false }: { prompt: PromptTemplate; f
             </div>
           )}
 
-          {/* Tools */}
+          {/* Tools as colored badges */}
           {p.tools && p.tools.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {p.tools.slice(0, 3).map((t) => (
-                <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-mono">{t}</Badge>
-              ))}
-              {p.tools.length > 3 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">+{p.tools.length - 3}</Badge>
-              )}
+            <div className="flex flex-wrap gap-1.5">
+              {p.tools.map((t) => {
+                const toolColor = TOOL_COLORS[t] || 'bg-muted text-muted-foreground border-border';
+                const toolLabel = TOOL_LABELS[t] || t;
+                return (
+                  <span key={t} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${toolColor}`}>
+                    {toolLabel}
+                  </span>
+                );
+              })}
             </div>
           )}
 
           <Separator className="my-1" />
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="text-center p-2 rounded-lg bg-muted/50">
-              <div className="text-sm font-bold text-amber-500">{p.price}</div>
-              <div className="text-[9px] text-muted-foreground uppercase">BBAI</div>
+          {/* Price + Stats Row */}
+          <div className="flex items-center gap-3">
+            {/* Price - prominent */}
+            <div className="flex items-baseline gap-1 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              <span className={`font-bold ${priceNum >= 150 ? 'text-lg' : 'text-base'} text-amber-500`}>{p.price}</span>
+              <span className="text-[10px] text-amber-500/70 font-semibold">BBAI</span>
             </div>
-            <div className="text-center p-2 rounded-lg bg-muted/50">
-              <div className="text-sm font-bold">{(p.totalSales || 0).toLocaleString()}</div>
-              <div className="text-[9px] text-muted-foreground uppercase">Sales</div>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-muted/50">
-              <div className="text-sm font-bold">{(p.rating || 0).toFixed(1)}</div>
-              <div className="text-[9px] text-muted-foreground uppercase">Rating</div>
+
+            {/* Stats */}
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <div className="text-center p-1.5 rounded-lg bg-muted/50">
+                <div className="text-xs font-bold">{(p.totalSales || 0).toLocaleString()}</div>
+                <div className="text-[9px] text-muted-foreground uppercase">Sales</div>
+              </div>
+              <div className="text-center p-1.5 rounded-lg bg-muted/50">
+                <div className="text-xs font-bold">{(p.rating || 0).toFixed(1)}</div>
+                <div className="text-[9px] text-muted-foreground uppercase">Rating</div>
+              </div>
             </div>
           </div>
 
@@ -316,7 +380,7 @@ function PromptCard({ prompt: p, featured = false }: { prompt: PromptTemplate; f
           <div className="flex items-center justify-between">
             <StarRating rating={p.rating || 0} count={p.ratingCount || 0} />
             <span className="text-[10px] text-muted-foreground">
-              by {p.creatorName || 'Anonymous'}
+              by <span className="font-medium text-foreground/70">{p.creatorName || 'Anonymous'}</span>
             </span>
           </div>
         </CardContent>

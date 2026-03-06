@@ -10,6 +10,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import { Providers } from './providers';
+import { Web3Provider } from '@/components/providers/web3-provider';
 import { CustomCursor } from '@/components/custom-cursor';
 
 export const metadata: Metadata = {
@@ -106,10 +107,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <NuqsAdapter>
-          <Providers>
-            <CustomCursor />
-            {children}
-          </Providers>
+          <Web3Provider>
+            <Providers>
+              <CustomCursor />
+              {children}
+            </Providers>
+          </Web3Provider>
         </NuqsAdapter>
         <Analytics />
         <SpeedInsights />

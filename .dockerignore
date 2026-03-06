@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env.local
+.env.docker
+*.md
+.claude
+.vscode
+contracts/node_modules
+contracts/artifacts
+contracts/cache

@@ -181,6 +181,33 @@ export const lookout = pgTable('lookout', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// Polar subscription table (mirrors migration 0004_modern_ironclad.sql)
+export const subscription = pgTable('subscription', {
+  id: text('id').primaryKey().notNull(),
+  createdAt: timestamp('createdAt').notNull(),
+  modifiedAt: timestamp('modifiedAt'),
+  amount: integer('amount').notNull(),
+  currency: text('currency').notNull(),
+  recurringInterval: text('recurringInterval').notNull(),
+  status: text('status').notNull(),
+  currentPeriodStart: timestamp('currentPeriodStart').notNull(),
+  currentPeriodEnd: timestamp('currentPeriodEnd').notNull(),
+  cancelAtPeriodEnd: boolean('cancelAtPeriodEnd').notNull().default(false),
+  canceledAt: timestamp('canceledAt'),
+  startedAt: timestamp('startedAt').notNull(),
+  endsAt: timestamp('endsAt'),
+  endedAt: timestamp('endedAt'),
+  customerId: text('customerId').notNull(),
+  productId: text('productId').notNull(),
+  discountId: text('discountId'),
+  checkoutId: text('checkoutId').notNull(),
+  customerCancellationReason: text('customerCancellationReason'),
+  customerCancellationComment: text('customerCancellationComment'),
+  metadata: text('metadata'),
+  customFieldData: text('customFieldData'),
+  userId: text('userId').references(() => user.id),
+});
+
 // Referral tracking table
 export const referral = pgTable('referral', {
   id: text('id')
@@ -350,6 +377,261 @@ export const promptPurchase = pgTable('prompt_purchase', {
 });
 
 // ============================================
+// Agent Economy - Persistent Tables
+// ============================================
+
+// Agent wallets (BBAI token balances)
+export const agentWallet = pgTable('agent_wallet', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull().unique(),
+  address: text('address').notNull(),
+  balance: real('balance').notNull().default(0),
+  dailyLimit: real('daily_limit').notNull().default(500),
+  totalSpent: real('total_spent').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Wallet transaction log
+export const walletTransaction = pgTable('wallet_transaction', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull(),
+  amount: real('amount').notNull(),
+  type: text('type').notNull(), // 'debit' | 'credit'
+  reason: text('reason').notNull(),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  balanceAfter: real('balance_after').notNull(),
+});
+
+// Inter-agent billing records
+export const billingRecord = pgTable('billing_record', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  callerAgentId: text('caller_agent_id').notNull(),
+  providerAgentId: text('provider_agent_id').notNull(),
+  toolsUsed: json('tools_used').$type<string[]>().notNull().default([]),
+  totalCost: real('total_cost').notNull(),
+  platformFee: real('platform_fee').notNull(),
+  providerEarning: real('provider_earning').notNull(),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  status: text('status').notNull().default('completed'), // 'completed' | 'failed' | 'refunded'
+});
+
+// External agent registry
+export const externalAgent = pgTable('external_agent', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  name: text('name').notNull(),
+  description: text('description'),
+  ownerAddress: text('owner_address').notNull(),
+  agentCardUrl: text('agent_card_url'),
+  endpoint: text('endpoint').notNull(),
+  tools: json('tools').$type<string[]>().notNull().default([]),
+  specialization: text('specialization').notNull().default('general'),
+  stakingAmount: real('staking_amount').notNull().default(0),
+  status: text('status').notNull().default('pending'), // 'pending' | 'verified' | 'active' | 'suspended'
+  rating: real('rating').notNull().default(0),
+  totalCalls: integer('total_calls').notNull().default(0),
+  totalEarned: real('total_earned').notNull().default(0),
+  registeredAt: timestamp('registered_at').defaultNow().notNull(),
+  verifiedAt: timestamp('verified_at'),
+  metadata: json('metadata').$type<Record<string, any>>(),
+});
+
+// Marketplace listings
+export const marketplaceListing = pgTable('marketplace_listing', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  longDescription: text('long_description'),
+  specialization: text('specialization').notNull(),
+  tools: json('tools').$type<string[]>().notNull().default([]),
+  pricing: json('pricing').$type<{ perCall: number; subscription: number }>().notNull(),
+  rating: real('rating').notNull().default(0),
+  reviewCount: integer('review_count').notNull().default(0),
+  totalCalls: integer('total_calls').notNull().default(0),
+  successRate: real('success_rate').notNull().default(100),
+  avgResponseTime: integer('avg_response_time').notNull().default(0),
+  featured: boolean('featured').notNull().default(false),
+  verified: boolean('verified').notNull().default(false),
+  tags: json('tags').$type<string[]>().notNull().default([]),
+  developer: json('developer').$type<{ address: string; name: string; agentCount: number }>().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Agent reviews
+export const agentReview = pgTable('agent_review', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull(),
+  reviewerAddress: text('reviewer_address').notNull(),
+  reviewerName: text('reviewer_name').notNull(),
+  rating: integer('rating').notNull(),
+  title: text('title').notNull(),
+  comment: text('comment').notNull(),
+  helpful: integer('helpful').notNull().default(0),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+});
+
+// Cross-platform network nodes
+export const networkNode = pgTable('network_node', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  name: text('name').notNull(),
+  platform: text('platform').notNull(), // 'boredbrain' | 'claude' | 'openai' | 'gemini' | 'custom'
+  endpoint: text('endpoint').notNull(),
+  agentCardUrl: text('agent_card_url'),
+  capabilities: json('capabilities').$type<string[]>().notNull().default([]),
+  tools: json('tools').$type<string[]>().notNull().default([]),
+  status: text('status').notNull().default('online'), // 'online' | 'offline' | 'degraded'
+  lastSeen: timestamp('last_seen').defaultNow().notNull(),
+  latency: integer('latency').notNull().default(0),
+  totalInteractions: integer('total_interactions').notNull().default(0),
+  trustScore: integer('trust_score').notNull().default(50),
+  chain: text('chain'),
+  walletAddress: text('wallet_address'),
+});
+
+// Network messages between nodes
+export const networkMessage = pgTable('network_message', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  fromNodeId: text('from_node_id').notNull(),
+  toNodeId: text('to_node_id').notNull(),
+  type: text('type').notNull(), // 'discovery' | 'invoke' | 'response' | 'billing' | 'heartbeat'
+  payload: json('payload').$type<any>(),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  latency: integer('latency'),
+  status: text('status').notNull().default('sent'), // 'sent' | 'delivered' | 'processed' | 'failed'
+});
+
+// Payment transactions (all types)
+export const paymentTransaction = pgTable('payment_transaction', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  type: text('type').notNull(), // 'tool_call' | 'agent_invoke' | 'prompt_purchase' | 'arena_entry' | 'staking'
+  fromAgentId: text('from_agent_id').notNull(),
+  toAgentId: text('to_agent_id'),
+  amount: real('amount').notNull(),
+  platformFee: real('platform_fee').notNull().default(0),
+  providerShare: real('provider_share').notNull().default(0),
+  chain: text('chain').notNull().default('base'),
+  txHash: text('tx_hash'),
+  status: text('status').notNull().default('pending'), // 'pending' | 'confirmed' | 'failed'
+  toolName: text('tool_name'),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  blockNumber: integer('block_number'),
+});
+
+// ERC-4337 Smart wallets
+export const smartWallet = pgTable('smart_wallet', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull().unique(),
+  smartWalletAddress: text('smart_wallet_address').notNull(),
+  ownerAddress: text('owner_address').notNull(),
+  chain: text('chain').notNull().default('base'),
+  isDeployed: boolean('is_deployed').notNull().default(false),
+  nonce: integer('nonce').notNull().default(0),
+  guardians: json('guardians').$type<string[]>().notNull().default([]),
+  spendingLimits: json('spending_limits').$type<{ daily: number; perTransaction: number }>().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Arena Wager / Escrow
+export const arenaWager = pgTable('arena_wager', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  matchId: text('match_id').notNull(),
+  bettorId: text('bettor_id').notNull(), // user or agent ID
+  bettorType: text('bettor_type').notNull().default('user'), // 'user' | 'agent' | 'spectator'
+  agentId: text('agent_id').notNull(), // who they bet on
+  amount: real('amount').notNull(),
+  odds: real('odds').notNull().default(1),
+  status: text('status').notNull().default('escrowed'), // 'escrowed' | 'won' | 'lost' | 'refunded'
+  payout: real('payout').default(0),
+  txHash: text('tx_hash'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  settledAt: timestamp('settled_at'),
+});
+
+// Arena Escrow Pool
+export const arenaEscrow = pgTable('arena_escrow', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  matchId: text('match_id').notNull().unique(),
+  totalPool: real('total_pool').notNull().default(0),
+  platformRake: real('platform_rake').notNull().default(0), // 10% rake
+  winnerPayout: real('winner_payout').notNull().default(0),
+  status: text('status').notNull().default('open'), // 'open' | 'locked' | 'settled' | 'refunded'
+  settledAt: timestamp('settled_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================
+// Agent Tokenization (Virtuals Protocol model)
+// ============================================
+
+export const agentToken = pgTable('agent_token', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull().unique(),
+  tokenSymbol: text('token_symbol').notNull().unique(),
+  tokenName: text('token_name').notNull(),
+  totalSupply: real('total_supply').notNull().default(1_000_000_000), // 1B tokens
+  circulatingSupply: real('circulating_supply').notNull().default(0),
+  price: real('price').notNull().default(0.001), // price in BBAI
+  marketCap: real('market_cap').notNull().default(0),
+  totalVolume: real('total_volume').notNull().default(0),
+  holders: integer('holders').notNull().default(0),
+  buybackPool: real('buyback_pool').notNull().default(0), // accumulated from agent usage
+  tokenizationFee: real('tokenization_fee').notNull().default(500), // 500 BBAI to tokenize
+  chain: text('chain').notNull().default('base'),
+  txHash: text('tx_hash'),
+  status: text('status').notNull().default('active'), // 'pending' | 'active' | 'paused'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Agent token trades
+export const agentTokenTrade = pgTable('agent_token_trade', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  tokenId: text('token_id').notNull(),
+  traderId: text('trader_id').notNull(),
+  type: text('type').notNull(), // 'buy' | 'sell' | 'buyback'
+  amount: real('amount').notNull(), // token amount
+  price: real('price').notNull(), // price per token in BBAI
+  totalCost: real('total_cost').notNull(), // total BBAI cost
+  platformFee: real('platform_fee').notNull().default(0), // 1% trade fee
+  txHash: text('tx_hash'),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+});
+
+// Playbook marketplace (winning agent strategies)
+export const playbook = pgTable('playbook', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  creatorId: text('creator_id').notNull(),
+  agentId: text('agent_id'), // source agent
+  matchId: text('match_id'), // source match (if from arena win)
+  title: text('title').notNull(),
+  description: text('description'),
+  systemPrompt: text('system_prompt').notNull(),
+  toolConfig: json('tool_config').$type<string[]>().notNull().default([]),
+  matchType: text('match_type'), // debate, search_race, research
+  winRate: real('win_rate').notNull().default(0),
+  totalUses: integer('total_uses').notNull().default(0),
+  price: real('price').notNull().default(50), // BBAI tokens
+  totalSales: integer('total_sales').notNull().default(0),
+  totalRevenue: real('total_revenue').notNull().default(0),
+  rating: real('rating').notNull().default(0),
+  featured: boolean('featured').notNull().default(false),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Playbook purchases
+export const playbookPurchase = pgTable('playbook_purchase', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  playbookId: text('playbook_id').notNull(),
+  buyerId: text('buyer_id').notNull(),
+  price: real('price').notNull(),
+  txHash: text('tx_hash'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================
 // Type exports
 // ============================================
 
@@ -365,6 +647,7 @@ export type MessageUsage = InferSelectModel<typeof messageUsage>;
 export type CustomInstructions = InferSelectModel<typeof customInstructions>;
 export type Lookout = InferSelectModel<typeof lookout>;
 export type Referral = InferSelectModel<typeof referral>;
+export type Subscription = InferSelectModel<typeof subscription>;
 export type ApiKey = InferSelectModel<typeof apiKey>;
 export type Agent = InferSelectModel<typeof agent>;
 export type ToolUsage = InferSelectModel<typeof toolUsage>;
@@ -372,3 +655,19 @@ export type ArenaMatch = InferSelectModel<typeof arenaMatch>;
 export type OnchainTx = InferSelectModel<typeof onchainTx>;
 export type PromptTemplate = InferSelectModel<typeof promptTemplate>;
 export type PromptPurchase = InferSelectModel<typeof promptPurchase>;
+export type AgentWallet = InferSelectModel<typeof agentWallet>;
+export type WalletTransaction = InferSelectModel<typeof walletTransaction>;
+export type BillingRecord = InferSelectModel<typeof billingRecord>;
+export type ExternalAgent = InferSelectModel<typeof externalAgent>;
+export type MarketplaceListing = InferSelectModel<typeof marketplaceListing>;
+export type AgentReview = InferSelectModel<typeof agentReview>;
+export type NetworkNode = InferSelectModel<typeof networkNode>;
+export type NetworkMessage = InferSelectModel<typeof networkMessage>;
+export type PaymentTransaction = InferSelectModel<typeof paymentTransaction>;
+export type SmartWallet = InferSelectModel<typeof smartWallet>;
+export type ArenaWager = InferSelectModel<typeof arenaWager>;
+export type ArenaEscrow = InferSelectModel<typeof arenaEscrow>;
+export type AgentToken = InferSelectModel<typeof agentToken>;
+export type AgentTokenTrade = InferSelectModel<typeof agentTokenTrade>;
+export type Playbook = InferSelectModel<typeof playbook>;
+export type PlaybookPurchase = InferSelectModel<typeof playbookPurchase>;

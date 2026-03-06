@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # ---- PostgreSQL ----
+  postgres:
+    image: postgres:16-alpine
+    container_name: bbai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bbai
+      POSTGRES_PASSWORD: bbai_secret_2024
+      POSTGRES_DB: boredbrain
+    ports:
+      - "5433:5432"
+    volumes:
+      - bbai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bbai -d boredbrain"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---- Redis ----
+  redis:
+    image: redis:7-alpine
+    container_name: bbai-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - bbai_redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---- Next.js App ----
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://bbai:bbai_secret_2024@postgres:5432/boredbrain
+        REDIS_URL: redis://redis:6379
+    container_name: bbai-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  bbai_pgdata:
+  bbai_redis_data:

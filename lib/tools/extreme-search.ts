@@ -17,7 +17,8 @@ import { SNAPSHOT_NAME } from '@/lib/constants';
 import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
-import { XaiProviderOptions, xai } from '@ai-sdk/xai';
+import { openai } from '@ai-sdk/openai';
+type XaiProviderOptions = Record<string, any>;
 
 const pythonLibsAvailable = [
   'pandas',
@@ -543,7 +544,7 @@ ${JSON.stringify(plan)}
             const searchEndDate = endDate || new Date().toISOString().split('T')[0];
 
             const { text, sources } = await generateText({
-              model: xai('grok-4-fast-non-reasoning'),
+              model: openai('gpt-5-mini'),
               system: `You are a helpful assistant that searches for X posts and returns the results in a structured format. You will be given a search query and a list of X handles to search from. You will then search for the posts and return the results in a structured format. You will also cite the sources in the format [Source No.]. Go very deep in the search and return the most relevant results.`,
               messages: [{ role: 'user', content: query }],
               maxOutputTokens: 10,

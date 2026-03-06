@@ -19,6 +19,10 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/api/arena') ||
     pathname.startsWith('/api/agents') ||
     pathname.startsWith('/api/keys') ||
+    pathname.startsWith('/api/revenue') ||
+    pathname.startsWith('/api/playbooks') ||
+    pathname.startsWith('/api/marketplace') ||
+    pathname.startsWith('/api/network') ||
     pathname.startsWith('/.well-known')
   ) {
     return NextResponse.next();
@@ -26,10 +30,14 @@ export function middleware(request: NextRequest) {
 
   // Public frontend pages
   if (
+    pathname === '/' ||
     pathname.startsWith('/arena') ||
     pathname.startsWith('/agents') ||
     pathname.startsWith('/stats') ||
-    pathname.startsWith('/dashboard')
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/marketplace') ||
+    pathname.startsWith('/network') ||
+    pathname.startsWith('/playbooks')
   ) {
     return NextResponse.next();
   }

@@ -236,7 +236,7 @@ export async function updateChatVisibilityById({
     // Return a consistent, serializable structure
     return {
       success: true,
-      rowCount: result.rowCount || 0,
+      rowCount: (result as any).rowCount ?? 0,
       chatId,
       visibility,
     };

@@ -48,6 +48,13 @@ export const serverEnv = createEnv({
     RESEND_API_KEY: requiredString,
     SUPERMEMORY_API_KEY: requiredString,
     ALLOWED_ORIGINS: optionalStringWithDefault('http://localhost:3009'),
+    // Polar payment integration (optional -- app works without these)
+    POLAR_ACCESS_TOKEN: optionalStringWithDefault(''),
+    POLAR_WEBHOOK_SECRET: optionalStringWithDefault(''),
+    POLAR_PRO_PRODUCT_ID: optionalStringWithDefault(''),
+    POLAR_SUCCESS_URL: optionalStringWithDefault('/settings?checkout=success'),
+    POLAR_PORTAL_RETURN_URL: optionalStringWithDefault('/settings'),
+    POLAR_SANDBOX: optionalStringWithDefault('false'),
   },
   experimental__runtimeEnv: process.env,
 });

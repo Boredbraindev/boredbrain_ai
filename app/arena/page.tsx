@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,24 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton, CardSkeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ArenaMatch {
   id: string;
@@ -17,7 +36,6 @@ interface ArenaMatch {
   matchType: string;
   agents: string[];
   winnerId: string | null;
-  totalVotes: number;
   status: string;
   prizePool: string;
   createdAt: string;
@@ -27,6 +45,9 @@ interface ArenaMatch {
     response: string;
     toolsUsed: string[];
     score: number;
+    accuracyScore?: number;
+    toolScore?: number;
+    speedScore?: number;
     timestamp: string;
   }> | null;
 }
@@ -41,6 +62,22 @@ interface LeaderboardAgent {
   tools: string[];
   capabilities: string[];
 }
+
+// Available mock agents for the Create Match dialog
+const AVAILABLE_AGENTS = [
+  { id: 'agent-alpha-researcher', name: 'Alpha Researcher', tools: ['web_search', 'x_search', 'coin_data', 'wallet_analyzer'] },
+  { id: 'agent-market-sentinel', name: 'Market Sentinel', tools: ['stock_chart', 'coin_data', 'coin_ohlc', 'web_search', 'currency_converter'] },
+  { id: 'agent-news-hunter', name: 'News Hunter', tools: ['web_search', 'x_search', 'reddit_search', 'academic_search'] },
+  { id: 'agent-code-wizard', name: 'Code Wizard', tools: ['code_interpreter', 'web_search', 'academic_search', 'retrieve'] },
+  { id: 'agent-whale-tracker', name: 'Whale Tracker', tools: ['wallet_analyzer', 'nft_retrieval', 'token_retrieval', 'coin_data'] },
+  { id: 'agent-content-scout', name: 'Content Scout', tools: ['youtube_search', 'reddit_search', 'x_search', 'web_search'] },
+  { id: 'agent-defi-oracle', name: 'DeFi Oracle', tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'web_search', 'token_retrieval'] },
+  { id: 'agent-travel-planner', name: 'Travel Planner', tools: ['weather', 'find_place_on_map', 'nearby_places_search', 'track_flight', 'currency_converter'] },
+  { id: 'agent-extreme-searcher', name: 'Extreme Searcher', tools: ['extreme_search', 'web_search', 'academic_search', 'x_search', 'reddit_search'] },
+  { id: 'agent-movie-buff', name: 'Movie Buff', tools: ['movie_or_tv_search', 'trending_movies', 'trending_tv', 'youtube_search'] },
+  { id: 'agent-polyglot', name: 'Polyglot', tools: ['text_translate', 'web_search', 'retrieve'] },
+  { id: 'agent-academic-mind', name: 'Academic Mind', tools: ['academic_search', 'web_search', 'retrieve', 'text_translate'] },
+];
 
 // Map of agent IDs to display names
 const AGENT_NAMES: Record<string, string> = {
@@ -123,10 +160,75 @@ function LeaderboardSkeleton() {
 }
 
 export default function ArenaPage() {
+  const router = useRouter();
   const [matches, setMatches] = useState<ArenaMatch[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [matchFilter, setMatchFilter] = useState<'all' | 'active' | 'completed' | 'pending'>('all');
+
+  // Create Match dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTopic, setCreateTopic] = useState('');
+  const [createMatchType, setCreateMatchType] = useState<'debate' | 'search_race' | 'research'>('debate');
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [createPrizePool, setCreatePrizePool] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const toggleAgent = useCallback((agentId: string) => {
+    setSelectedAgents((prev) => {
+      if (prev.includes(agentId)) return prev.filter((id) => id !== agentId);
+      if (prev.length >= 4) return prev; // max 4
+      return [...prev, agentId];
+    });
+  }, []);
+
+  const handleCreateMatch = useCallback(async () => {
+    setCreateError('');
+
+    if (!createTopic.trim()) {
+      setCreateError('Please enter a topic.');
+      return;
+    }
+    if (selectedAgents.length < 2) {
+      setCreateError('Select at least 2 agents.');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const res = await fetch('/api/arena/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: createTopic.trim(),
+          matchType: createMatchType,
+          agentIds: selectedAgents,
+          prizePool: createPrizePool || '0',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setCreateError(data.error || 'Failed to create match');
+        return;
+      }
+
+      // Reset form
+      setCreateOpen(false);
+      setCreateTopic('');
+      setCreateMatchType('debate');
+      setSelectedAgents([]);
+      setCreatePrizePool('');
+
+      // Navigate to the new match
+      router.push(`/arena/${data.match.id}`);
+    } catch {
+      setCreateError('Network error. Please try again.');
+    } finally {
+      setCreateLoading(false);
+    }
+  }, [createTopic, createMatchType, selectedAgents, createPrizePool, router]);
 
   useEffect(() => {
     async function fetchData() {
@@ -159,7 +261,6 @@ export default function ArenaPage() {
   const completedCount = matches.filter((m) => m.status === 'completed').length;
   const activeCount = matches.filter((m) => m.status === 'active').length;
   const totalPrize = matches.reduce((sum, m) => sum + parseFloat(m.prizePool || '0'), 0);
-  const totalVotes = matches.reduce((sum, m) => sum + (m.totalVotes || 0), 0);
 
   return (
     <div className="min-h-screen bg-background relative z-1">
@@ -178,18 +279,20 @@ export default function ArenaPage() {
               </div>
               <p className="text-muted-foreground max-w-lg">
                 AI Agents compete, debate, and collaborate in real-time matches.
-                Watch them battle and vote for your favorite.
+                Scored by an AI Judge on accuracy, tool usage, and speed.
               </p>
             </div>
             <div className="flex gap-3">
               <Link href="/">
                 <Button variant="outline" size="sm">Back to Search</Button>
               </Link>
-              <Link href="/arena/create">
-                <Button size="sm" className="holographic-button text-white border-0">
-                  Create Match
-                </Button>
-              </Link>
+              <Button
+                size="sm"
+                className="holographic-button text-white border-0"
+                onClick={() => setCreateOpen(true)}
+              >
+                Create Match
+              </Button>
             </div>
           </div>
 
@@ -200,7 +303,7 @@ export default function ArenaPage() {
                 { label: 'Total Matches', value: matches.length },
                 { label: 'Completed', value: completedCount },
                 { label: 'Total Prize Pool', value: `${totalPrize.toLocaleString()} BBAI` },
-                { label: 'Total Votes', value: totalVotes.toLocaleString() },
+                { label: 'Judging', value: 'AI Judge' },
               ].map((s) => (
                 <div key={s.label} className="p-3 rounded-xl bg-muted/50 border border-border/30">
                   <div className="text-lg sm:text-xl font-bold">{s.value}</div>
@@ -249,9 +352,9 @@ export default function ArenaPage() {
                   <div className="text-4xl mb-3">&#x2694;&#xFE0F;</div>
                   <p className="text-muted-foreground text-lg font-medium">No matches found</p>
                   <p className="text-muted-foreground text-sm mt-1">Create the first match to start the battle!</p>
-                  <Link href="/arena/create" className="mt-5">
-                    <Button>Create Match</Button>
-                  </Link>
+                  <Button className="mt-5" onClick={() => setCreateOpen(true)}>
+                    Create Match
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -282,10 +385,10 @@ export default function ArenaPage() {
                         </CardTitle>
                         <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
                           <span>{match.agents.map(getAgentName).join(' vs ')}</span>
-                          {match.totalVotes > 0 && (
+                          {match.status === 'completed' && (
                             <>
                               <Separator orientation="vertical" className="h-3" />
-                              <span>{match.totalVotes} votes</span>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">AI Judge</Badge>
                             </>
                           )}
                         </div>
@@ -439,6 +542,128 @@ export default function ArenaPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ===== CREATE MATCH DIALOG ===== */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Arena Match</DialogTitle>
+            <DialogDescription>
+              Set up a new match between AI agents. Pick a topic, match type, and 2-4 agents.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Topic */}
+            <div className="space-y-2">
+              <Label htmlFor="match-topic">Topic</Label>
+              <Input
+                id="match-topic"
+                placeholder="e.g. Which blockchain will dominate DeFi in 2026?"
+                value={createTopic}
+                onChange={(e) => setCreateTopic(e.target.value)}
+              />
+            </div>
+
+            {/* Match Type */}
+            <div className="space-y-2">
+              <Label>Match Type</Label>
+              <Select value={createMatchType} onValueChange={(v) => setCreateMatchType(v as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="debate">Debate - Agents argue positions</SelectItem>
+                  <SelectItem value="search_race">Search Race - Speed + quality</SelectItem>
+                  <SelectItem value="research">Research - Deep analysis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Agent Selection */}
+            <div className="space-y-2">
+              <Label>Select Agents (2-4)</Label>
+              <p className="text-xs text-muted-foreground">
+                {selectedAgents.length} of 4 selected
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                {AVAILABLE_AGENTS.map((agent) => {
+                  const isSelected = selectedAgents.includes(agent.id);
+                  const isDisabled = !isSelected && selectedAgents.length >= 4;
+                  return (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => toggleAgent(agent.id)}
+                      className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : isDisabled
+                            ? 'border-border/30 opacity-50 cursor-not-allowed'
+                            : 'border-border/50 hover:border-primary/40 cursor-pointer'
+                      }`}
+                    >
+                      <div className="pt-0.5">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleAgent(agent.id)}
+                          disabled={isDisabled}
+                          className="pointer-events-none"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{agent.name}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {agent.tools.slice(0, 3).map((t) => (
+                            <span
+                              key={t}
+                              className="text-[10px] bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded-md"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                          {agent.tools.length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              +{agent.tools.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Prize Pool */}
+            <div className="space-y-2">
+              <Label htmlFor="prize-pool">Prize Pool (BBAI)</Label>
+              <Input
+                id="prize-pool"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={createPrizePool}
+                onChange={(e) => setCreatePrizePool(e.target.value)}
+              />
+            </div>
+
+            {createError && (
+              <p className="text-sm text-red-500 font-medium">{createError}</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateMatch} disabled={createLoading}>
+              {createLoading ? 'Creating...' : 'Create Match'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

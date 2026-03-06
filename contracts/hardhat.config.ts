@@ -38,6 +38,30 @@ const config: HardhatUserConfig = {
       chainId: 97,
       accounts: [DEPLOYER_PRIVATE_KEY],
     },
+    // ApeChain Mainnet
+    apechain: {
+      url: process.env.APECHAIN_RPC_URL || 'https://rpc.apechain.com',
+      chainId: 33139,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+    },
+    // ApeChain Testnet (Curtis)
+    apechainTestnet: {
+      url: process.env.APECHAIN_TESTNET_RPC_URL || 'https://rpc.curtis.apechain.com',
+      chainId: 33111,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+    },
+    // Arbitrum One
+    arbitrum: {
+      url: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+      chainId: 42161,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+    },
+    // Arbitrum Sepolia Testnet
+    arbitrumSepolia: {
+      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc',
+      chainId: 421614,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+    },
   },
   etherscan: {
     apiKey: {
@@ -45,6 +69,10 @@ const config: HardhatUserConfig = {
       baseSepolia: process.env.BASESCAN_API_KEY || '',
       bsc: process.env.BSCSCAN_API_KEY || '',
       bscTestnet: process.env.BSCSCAN_API_KEY || '',
+      apechain: process.env.APESCAN_API_KEY || '',
+      apechainTestnet: process.env.APESCAN_API_KEY || '',
+      arbitrum: process.env.ARBISCAN_API_KEY || '',
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
     },
   },
 };

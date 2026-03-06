@@ -3,6 +3,7 @@ import { agent, arenaMatch, toolUsage } from '@/lib/db/schema';
 import { eq, sql, inArray } from 'drizzle-orm';
 import { getTool } from '@/lib/agent-api/tool-registry';
 import { generateId } from 'ai';
+import { lockBetting, settleMatch } from '@/lib/arena/wagering';
 
 export type MatchType = 'debate' | 'search_race' | 'research';
 
@@ -12,6 +13,9 @@ export interface RoundResult {
   response: string;
   toolsUsed: string[];
   score: number;
+  accuracyScore: number;
+  toolScore: number;
+  speedScore: number;
   latencyMs: number;
   timestamp: string;
 }
@@ -42,6 +46,9 @@ export async function executeMatch(matchId: string): Promise<{
     .update(arenaMatch)
     .set({ status: 'active' })
     .where(eq(arenaMatch.id, matchId));
+
+  // Lock betting when match starts
+  await lockBetting(matchId);
 
   const rounds: RoundResult[] = [];
 
@@ -76,11 +83,15 @@ export async function executeMatch(matchId: string): Promise<{
       const latencyMs = Date.now() - startTime;
       const response = responses.join('\n---\n').slice(0, 3000);
 
-      // Score based on: response quality (length), tools used, speed
-      const lengthScore = Math.min(40, (response.length / 100) * 10);
-      const toolScore = toolsUsed.length * 15;
-      const speedScore = Math.max(0, 30 - (latencyMs / 1000) * 5);
-      const score = Math.round(Math.min(100, lengthScore + toolScore + speedScore));
+      // AI Judge scoring breakdown:
+      // Accuracy (0-40): based on response length and quality heuristics
+      const accuracyScore = Math.round(Math.min(40, (response.length / 100) * 10));
+      // Tool Usage (0-30): 10 points per unique tool used, max 30
+      const uniqueTools = new Set(toolsUsed);
+      const toolScore = Math.round(Math.min(30, uniqueTools.size * 10));
+      // Speed (0-30): faster = higher, based on execution time
+      const speedScore = Math.round(Math.max(0, 30 - (latencyMs / 1000) * 5));
+      const score = Math.round(Math.min(100, accuracyScore + toolScore + speedScore));
 
       return {
         agentId: agentData.id,
@@ -88,6 +99,9 @@ export async function executeMatch(matchId: string): Promise<{
         response,
         toolsUsed,
         score,
+        accuracyScore,
+        toolScore,
+        speedScore,
         latencyMs,
         timestamp: new Date().toISOString(),
       };
@@ -124,6 +138,9 @@ export async function executeMatch(matchId: string): Promise<{
         response: r.response,
         toolsUsed: r.toolsUsed,
         score: r.score,
+        accuracyScore: r.accuracyScore,
+        toolScore: r.toolScore,
+        speedScore: r.speedScore,
         timestamp: r.timestamp,
       })),
       winnerId,
@@ -131,6 +148,13 @@ export async function executeMatch(matchId: string): Promise<{
       completedAt: new Date(),
     })
     .where(eq(arenaMatch.id, matchId));
+
+  // Settle wagers
+  try {
+    await settleMatch(matchId, winnerId || '');
+  } catch {
+    // Settlement is non-blocking
+  }
 
   return { rounds, winnerId };
 }
