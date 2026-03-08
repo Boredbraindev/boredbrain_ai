@@ -10,8 +10,8 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import { Providers } from './providers';
-import { Web3Provider } from '@/components/providers/web3-provider';
 import { CustomCursor } from '@/components/custom-cursor';
+import { GlobalNavbar } from '@/components/global-navbar';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://boredbrain.ai'),
@@ -107,12 +107,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <NuqsAdapter>
-          <Web3Provider>
-            <Providers>
-              <CustomCursor />
-              {children}
-            </Providers>
-          </Web3Provider>
+          <Providers>
+            <CustomCursor />
+            <GlobalNavbar />
+            {children}
+          </Providers>
         </NuqsAdapter>
         <Analytics />
         <SpeedInsights />
