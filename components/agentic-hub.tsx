@@ -57,10 +57,11 @@ interface TokenStats {
   }>;
 }
 
-function formatBBAI(amount: number): string {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(2)}M`;
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
-  return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+function formatBBAI(amount: number | undefined | null): string {
+  const val = amount ?? 0;
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K`;
+  return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function truncateHash(hash: string): string {
@@ -155,19 +156,19 @@ export function AgenticHub() {
           {!loading && stats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-10">
               <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-green-400">{formatBBAI(stats.totalRevenue)}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-green-400">{formatBBAI(stats.totalRevenue ?? 0)}</div>
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Platform Revenue</div>
               </div>
               <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-blue-400">{formatBBAI(stats.totalVolume)}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-blue-400">{formatBBAI(stats.totalVolume ?? 0)}</div>
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Total Volume</div>
               </div>
               <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-purple-400">{stats.totalTransactions.toLocaleString()}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-purple-400">{(stats.totalTransactions ?? 0).toLocaleString()}</div>
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Transactions</div>
               </div>
               <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-amber-400">{formatBBAI(stats.dailyRevenue)}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-amber-400">{formatBBAI(stats.dailyRevenue ?? 0)}</div>
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Daily Revenue</div>
               </div>
             </div>
@@ -343,8 +344,8 @@ export function AgenticHub() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold">{token.price.toFixed(4)} BBAI</div>
-                        <div className="text-xs text-muted-foreground">MCap: {formatBBAI(token.marketCap)}</div>
+                        <div className="text-sm font-bold">{(token.price ?? 0).toFixed(4)} BBAI</div>
+                        <div className="text-xs text-muted-foreground">MCap: {formatBBAI(token.marketCap ?? 0)}</div>
                       </div>
                     </div>
                   ))}
