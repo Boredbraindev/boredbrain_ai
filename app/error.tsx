@@ -35,9 +35,12 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <h1 className="text-4xl mb-4 text-neutral-800 dark:text-neutral-100 font-be-vietnam-pro">
           Something went wrong
         </h1>
-        <p className="text-lg mb-8 text-neutral-600 dark:text-neutral-300">
-          An error occurred while trying to load this page. Please try again later.
+        <p className="text-lg mb-4 text-neutral-600 dark:text-neutral-300">
+          An error occurred while trying to load this page.
         </p>
+        <pre className="text-left text-xs bg-red-950/30 border border-red-500/20 rounded-lg p-3 mb-6 max-w-md overflow-auto max-h-40 text-red-300 whitespace-pre-wrap break-all">
+          {error?.message || 'Unknown error'}{error?.digest ? `\nDigest: ${error.digest}` : ''}{error?.stack ? `\n\n${error.stack.split('\n').slice(0, 5).join('\n')}` : ''}
+        </pre>
 
         <div className="flex justify-center gap-4">
           <Button variant="default" className="flex items-center gap-2 px-4 py-2 rounded-full" onClick={reset}>
