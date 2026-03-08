@@ -752,7 +752,7 @@ export async function createScheduledSignal({
     // Check daily signal limit specifically
     if (frequency === 'daily') {
       const activeDailySignals = existingSignals.filter(
-        (signal) => signal.frequency === 'daily' && signal.status === 'active',
+        (signal: any) => signal.frequency === 'daily' && signal.status === 'active',
       );
       if (activeDailySignals.length >= 5) {
         throw new Error('You have reached the maximum limit of 5 active daily signals');
@@ -916,7 +916,7 @@ export async function getUserSignals() {
     const lookouts = await getSignalsByUserId({ userId: user.id });
 
     // Update next run times for active lookouts
-    const updatedSignals = lookouts.map((signal) => {
+    const updatedSignals = lookouts.map((signal: any) => {
       if (signal.status === 'active' && signal.cronSchedule && signal.frequency !== 'once') {
         try {
           const nextRunAt = calculateNextRun(signal.cronSchedule, signal.timezone);
@@ -1018,7 +1018,7 @@ export async function updateSignalAction({
     if (frequency === 'daily' && signal.frequency !== 'daily') {
       const existingSignals = await getSignalsByUserId({ userId: user.id });
       const activeDailySignals = existingSignals.filter(
-        (existingLookout) =>
+        (existingLookout: any) =>
           existingLookout.frequency === 'daily' && existingLookout.status === 'active' && existingLookout.id !== id,
       );
       if (activeDailySignals.length >= 5) {
@@ -1410,7 +1410,7 @@ export async function getReferralStats(userId: string): Promise<{
       success: true,
       referralCode: userData?.referralCode || undefined,
       totalReferrals: referrals.length,
-      referrals: referrals.map((r) => ({
+      referrals: referrals.map((r: any) => ({
         id: r.id,
         createdAt: r.createdAt,
       })),

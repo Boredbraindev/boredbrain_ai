@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface RegisteredAgent {
   id: string;
@@ -43,23 +48,94 @@ interface RegistryStats {
   totalEarnings: number;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-green-500/15 text-green-400 border-green-500/30',
-  pending: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  verified: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  suspended: 'bg-red-500/15 text-red-400 border-red-500/30',
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  active: {
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-400',
+    border: 'border-emerald-500/20',
+    dot: 'bg-emerald-500',
+  },
+  pending: {
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-400',
+    border: 'border-amber-500/20',
+    dot: 'bg-amber-500',
+  },
+  verified: {
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
+    border: 'border-blue-500/20',
+    dot: 'bg-blue-500',
+  },
+  suspended: {
+    bg: 'bg-red-500/10',
+    text: 'text-red-400',
+    border: 'border-red-500/20',
+    dot: 'bg-red-500',
+  },
 };
 
-const SPEC_COLORS: Record<string, string> = {
-  defi: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
-  nft: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
-  research: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-  trading: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  news: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  security: 'bg-red-500/15 text-red-400 border-red-500/30',
-  creative: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-  general: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
+const SPEC_CONFIG: Record<string, { bg: string; text: string; border: string }> = {
+  defi: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
+  nft: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/20' },
+  research: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/20' },
+  trading: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20' },
+  news: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
+  security: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
+  creative: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
+  general: { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' },
 };
+
+// ---------------------------------------------------------------------------
+// Skeletons
+// ---------------------------------------------------------------------------
+
+function AgentCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div>
+            <Skeleton className="h-4 w-32 mb-1" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <Skeleton className="h-3 w-full mb-1" />
+      <Skeleton className="h-3 w-3/4 mb-4" />
+      <div className="flex gap-1.5 mb-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-5 w-14 rounded" />
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <Skeleton className="h-14 rounded-lg" />
+        <Skeleton className="h-14 rounded-lg" />
+        <Skeleton className="h-14 rounded-lg" />
+      </div>
+      <Skeleton className="h-8 w-full rounded-lg" />
+    </div>
+  );
+}
+
+function StatSkeleton() {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <Skeleton className="h-3 w-16 mb-2" />
+      <Skeleton className="h-6 w-12" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
 function StarRating({ rating }: { rating: number }) {
   const full = Math.floor(rating);
@@ -69,12 +145,12 @@ function StarRating({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
-          className={`w-3.5 h-3.5 ${
+          className={`w-3 h-3 ${
             star <= full
-              ? 'text-yellow-500'
+              ? 'text-amber-500'
               : star === full + 1 && partial > 0
-                ? 'text-yellow-500/50'
-                : 'text-muted-foreground/20'
+                ? 'text-amber-500/40'
+                : 'text-white/[0.06]'
           }`}
           fill="currentColor"
           viewBox="0 0 20 20"
@@ -82,39 +158,137 @@ function StarRating({ rating }: { rating: number }) {
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
-      <span className="ml-1 text-xs text-muted-foreground">{rating.toFixed(1)}</span>
+      <span className="ml-1 text-[10px] text-muted-foreground">{rating.toFixed(1)}</span>
     </div>
   );
 }
 
-function AgentCardSkeleton() {
+function VerificationBadge({ status, verifiedAt }: { status: string; verifiedAt: string | null }) {
+  if (status === 'active' || status === 'verified') {
+    return (
+      <div className="flex items-center gap-1 text-[10px]">
+        <svg className="w-3.5 h-3.5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        <span className="text-blue-400">Verified</span>
+      </div>
+    );
+  }
+  if (status === 'pending') {
+    return (
+      <div className="flex items-center gap-1 text-[10px]">
+        <svg className="w-3.5 h-3.5 text-amber-400 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span className="text-amber-400">Pending</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function AgentCard({ agent }: { agent: RegisteredAgent }) {
+  const statusConfig = STATUS_CONFIG[agent.status] || STATUS_CONFIG.pending;
+  const specConfig = SPEC_CONFIG[agent.specialization.toLowerCase()] || SPEC_CONFIG.general;
+  const truncatedOwner = `${agent.ownerAddress.slice(0, 6)}...${agent.ownerAddress.slice(-4)}`;
+
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <div className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/[0.03] hover:scale-[1.01]">
+      {/* Top accent */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Avatar */}
+            <div className={`w-10 h-10 rounded-full ${specConfig.bg} border ${specConfig.border} flex items-center justify-center shrink-0`}>
+              <span className={`text-sm font-bold ${specConfig.text}`}>
+                {agent.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold truncate group-hover:text-amber-500/90 transition-colors">
+                {agent.name}
+              </h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <VerificationBadge status={agent.status} verifiedAt={agent.verifiedAt} />
+              </div>
+            </div>
+          </div>
+          <span className={`shrink-0 inline-flex items-center gap-1.5 text-[9px] font-mono tracking-widest uppercase px-2 py-1 rounded border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+            {agent.status}
+          </span>
+        </div>
+
+        {/* Description */}
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+          {agent.description}
+        </p>
+
+        {/* Specialization + Rating */}
+        <div className="flex items-center justify-between mb-3">
+          <span className={`inline-flex items-center text-[9px] font-mono tracking-widest uppercase px-2 py-0.5 rounded border ${specConfig.bg} ${specConfig.text} ${specConfig.border}`}>
+            {agent.specialization}
+          </span>
+          <StarRating rating={agent.rating} />
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2 text-center">
+            <p className="text-xs font-bold">{agent.totalCalls.toLocaleString()}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Calls</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2 text-center">
+            <p className="text-xs font-bold text-amber-500">{agent.totalEarned.toLocaleString()}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Earned</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2 text-center">
+            <p className="text-xs font-bold">{agent.stakingAmount.toLocaleString()}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Staked</p>
+          </div>
+        </div>
+
+        {/* Tools */}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {agent.tools.slice(0, 4).map((t) => (
+            <span key={t} className="text-[9px] text-muted-foreground bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 font-mono">
+              {t}
+            </span>
+          ))}
+          {agent.tools.length > 4 && (
+            <span className="text-[9px] text-muted-foreground bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5">
+              +{agent.tools.length - 4}
+            </span>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="h-[1px] bg-white/[0.04] mb-3" />
+
+        {/* Footer */}
         <div className="flex items-center justify-between">
-          <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-5 w-16 rounded-full" />
+          <span className="text-[10px] text-muted-foreground font-mono">{truncatedOwner}</span>
+          <Link href={`/api/agents/${agent.id}/invoke`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] border-white/[0.08] bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all"
+            >
+              Invoke Agent
+            </Button>
+          </Link>
         </div>
-        <Skeleton className="h-4 w-full mt-2" />
-        <Skeleton className="h-4 w-4/5" />
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex gap-1.5">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-5 w-14 rounded-full" />
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 
 export default function AgentRegistryPage() {
   const [agents, setAgents] = useState<RegisteredAgent[]>([]);
@@ -123,6 +297,7 @@ export default function AgentRegistryPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [specFilter, setSpecFilter] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     async function fetchData() {
@@ -146,6 +321,16 @@ export default function AgentRegistryPage() {
 
   const filteredAgents = useMemo(() => {
     let result = [...agents];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q) ||
+          a.specialization.toLowerCase().includes(q),
+      );
+    }
 
     if (statusFilter !== 'all') {
       result = result.filter((a) => a.status === statusFilter);
@@ -178,32 +363,42 @@ export default function AgentRegistryPage() {
     }
 
     return result;
-  }, [agents, statusFilter, specFilter, sortBy]);
+  }, [agents, statusFilter, specFilter, sortBy, searchQuery]);
 
-  // Collect unique specializations from actual data
   const specializations = useMemo(() => {
     const set = new Set(agents.map((a) => a.specialization.toLowerCase()));
     return Array.from(set).sort();
   }, [agents]);
 
   return (
-    <div className="min-h-screen bg-background relative z-1">
-      {/* Header */}
-      <div className="border-b border-border/50 bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Background effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 right-1/3 w-96 h-96 bg-blue-500/[0.02] rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-amber-500/[0.03] rounded-full blur-[120px]" />
+      </div>
+
+      {/* ---- Header Section ---- */}
+      <div className="relative border-b border-white/[0.04]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pt-20">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-mono tracking-widest uppercase mb-3">
+                AGENT REGISTRY
+              </div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Agent Registry</h1>
-              <p className="text-muted-foreground mt-1 max-w-lg">
+              <p className="text-muted-foreground mt-1.5 max-w-lg text-sm leading-relaxed">
                 Discover external AI agents registered on the BBAI network. Each agent is staked, verified, and ready for autonomous inter-agent collaboration.
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 shrink-0">
               <Link href="/agents">
-                <Button variant="outline" size="sm">Marketplace</Button>
+                <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06]">
+                  Marketplace
+                </Button>
               </Link>
               <Link href="/agents/register">
-                <Button size="sm" className="holographic-button text-white border-0">
+                <Button size="sm" className="bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:border-amber-500/40 transition-all">
                   Register Agent
                 </Button>
               </Link>
@@ -211,72 +406,101 @@ export default function AgentRegistryPage() {
           </div>
 
           {/* Stats bar */}
-          {!loading && stats && (
+          {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold">{stats.total}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total Agents</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold text-green-400">{stats.active}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Active</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold text-primary">
-                  {stats.totalStaked.toLocaleString()}
+              {[1, 2, 3, 4].map((i) => (
+                <StatSkeleton key={i} />
+              ))}
+            </div>
+          ) : stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+              {[
+                { label: 'Total Agents', value: stats.total.toString(), color: 'text-white' },
+                {
+                  label: 'Active',
+                  value: stats.active.toString(),
+                  color: 'text-emerald-400',
+                  extra: stats.pending > 0 ? `${stats.pending} pending` : undefined,
+                },
+                { label: 'BBAI Staked', value: stats.totalStaked.toLocaleString(), color: 'text-amber-500' },
+                { label: 'Total Earned', value: stats.totalEarnings.toLocaleString(), color: 'text-white', suffix: 'BBAI' },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 hover:border-white/[0.1] transition-all"
+                >
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{stat.label}</p>
+                  <p className={`text-xl font-bold ${stat.color}`}>
+                    {stat.value}
+                    {stat.suffix && <span className="text-xs text-muted-foreground ml-1">{stat.suffix}</span>}
+                  </p>
+                  {stat.extra && (
+                    <p className="text-[10px] text-amber-400 mt-0.5">{stat.extra}</p>
+                  )}
                 </div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">BBAI Staked</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold">
-                  {stats.totalEarnings.toLocaleString()}
-                </div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total Earned</div>
-              </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* ---- Main Content ---- */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Filter bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground shrink-0">Status:</span>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger size="sm" className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 mb-6">
+          {/* Search */}
+          <div className="relative sm:max-w-xs flex-1 w-full">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <Input
+              placeholder="Search agents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-white/[0.03] border-white/[0.06] focus:border-amber-500/30 transition-colors"
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground shrink-0">Specialization:</span>
-            <Select value={specFilter} onValueChange={setSpecFilter}>
-              <SelectTrigger size="sm" className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {specializations.map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Dropdowns */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">Status:</span>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-white/[0.03] border-white/[0.06]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">Type:</span>
+              <Select value={specFilter} onValueChange={setSpecFilter}>
+                <SelectTrigger className="w-[130px] h-8 text-xs bg-white/[0.03] border-white/[0.06]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {specializations.map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <span className="text-xs text-muted-foreground shrink-0">Sort:</span>
-            <div className="flex gap-1.5">
+          {/* Sort buttons */}
+          <div className="flex items-center gap-1.5 lg:ml-auto">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">Sort:</span>
+            <div className="flex gap-1 flex-wrap">
               {([
                 { value: 'rating', label: 'Rating' },
                 { value: 'calls', label: 'Calls' },
@@ -284,15 +508,17 @@ export default function AgentRegistryPage() {
                 { value: 'staked', label: 'Staked' },
                 { value: 'newest', label: 'Newest' },
               ] as const).map((s) => (
-                <Button
+                <button
                   key={s.value}
-                  variant={sortBy === s.value ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 text-xs"
                   onClick={() => setSortBy(s.value)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
+                    sortBy === s.value
+                      ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20'
+                      : 'text-muted-foreground hover:text-white bg-white/[0.02] border border-white/[0.04]'
+                  }`}
                 >
                   {s.label}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
@@ -306,101 +532,53 @@ export default function AgentRegistryPage() {
             ))}
           </div>
         ) : filteredAgents.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-20">
-              <div className="text-4xl mb-3">&#128270;</div>
-              <p className="text-muted-foreground text-lg font-medium">No agents found</p>
-              <p className="text-muted-foreground text-sm mt-1">
-                Try adjusting your filters or register the first agent.
-              </p>
-              <Link href="/agents/register" className="mt-5">
-                <Button>Register Agent</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] py-20 text-center">
+            <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold mb-1.5">No Agents Found</h3>
+            <p className="text-muted-foreground text-sm mb-5 max-w-sm mx-auto">
+              Try adjusting your filters or register the first agent on the network.
+            </p>
+            <Link href="/agents/register">
+              <Button className="bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:border-amber-500/40 transition-all">
+                Register Agent
+              </Button>
+            </Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAgents.map((agent) => {
-              const statusStyle = STATUS_STYLES[agent.status] || STATUS_STYLES.pending;
-              const specStyle = SPEC_COLORS[agent.specialization] || SPEC_COLORS.general;
-              const truncatedOwner = `${agent.ownerAddress.slice(0, 6)}...${agent.ownerAddress.slice(-4)}`;
-
-              return (
-                <Card
-                  key={agent.id}
-                  className="h-full group hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-base truncate">{agent.name}</CardTitle>
-                      <Badge className={`text-[10px] shrink-0 ${statusStyle}`}>
-                        {agent.status}
-                      </Badge>
-                    </div>
-                    <CardDescription className="line-clamp-2 text-xs">
-                      {agent.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-3">
-                    {/* Specialization + Rating */}
-                    <div className="flex items-center justify-between">
-                      <Badge className={`text-[10px] capitalize ${specStyle}`}>
-                        {agent.specialization}
-                      </Badge>
-                      <StarRating rating={agent.rating} />
-                    </div>
-
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <div className="text-sm font-bold">{agent.totalCalls.toLocaleString()}</div>
-                        <div className="text-[9px] text-muted-foreground uppercase">Calls</div>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <div className="text-sm font-bold text-primary">
-                          {agent.totalEarned.toLocaleString()}
-                        </div>
-                        <div className="text-[9px] text-muted-foreground uppercase">BBAI Earned</div>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <div className="text-sm font-bold">{agent.stakingAmount}</div>
-                        <div className="text-[9px] text-muted-foreground uppercase">Staked</div>
-                      </div>
-                    </div>
-
-                    {/* Tools */}
-                    <div className="flex flex-wrap gap-1">
-                      {agent.tools.slice(0, 4).map((t) => (
-                        <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
-                          {t}
-                        </Badge>
-                      ))}
-                      {agent.tools.length > 4 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          +{agent.tools.length - 4}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <Separator className="my-1" />
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {truncatedOwner}
-                      </span>
-                      <Link href={`/api/agents/${agent.id}/invoke`}>
-                        <Button variant="outline" size="sm" className="h-7 text-xs">
-                          Invoke
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredAgents.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))}
           </div>
         )}
+
+        {/* ---- Registration CTA ---- */}
+        <div className="mt-12 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-r from-amber-500/[0.03] to-blue-500/[0.03] backdrop-blur-sm p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold mb-1">Register Your Agent</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Stake BBAI to register your agent on the network. Verified agents earn revenue from inter-agent collaboration and API calls.
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Link href="/network">
+                <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06]">
+                  View Network
+                </Button>
+              </Link>
+              <Link href="/agents/register">
+                <Button size="sm" className="bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:border-amber-500/40 transition-all">
+                  Register Now
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

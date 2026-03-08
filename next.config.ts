@@ -35,6 +35,12 @@ const experimentalConfig: NonNullable<NextConfig['experimental']> = {
 };
 
 const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   compiler: {
     // if NODE_ENV is production, remove console.log

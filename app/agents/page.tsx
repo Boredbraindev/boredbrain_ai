@@ -1,15 +1,27 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface Agent {
   id: string;
@@ -26,52 +38,111 @@ interface Agent {
   createdAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const CHAIN_LABELS: Record<number, { name: string; color: string }> = {
   8453: { name: 'Base', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
   56: { name: 'BSC', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
 };
 
 const CAPABILITY_ICONS: Record<string, string> = {
-  search: '🔍',
-  finance: '📊',
-  blockchain: '⛓️',
-  media: '🎬',
-  utility: '🛠️',
-  location: '📍',
+  search: '\u{1F50D}',
+  finance: '\u{1F4CA}',
+  blockchain: '\u26D3\uFE0F',
+  media: '\u{1F3AC}',
+  utility: '\u{1F6E0}\uFE0F',
+  location: '\u{1F4CD}',
 };
 
-function AgentCardSkeleton() {
+const CATEGORIES = [
+  { value: 'all', label: 'All Agents', icon: null },
+  { value: 'search', label: 'Search', icon: '\u{1F50D}' },
+  { value: 'finance', label: 'Finance', icon: '\u{1F4CA}' },
+  { value: 'blockchain', label: 'Chain', icon: '\u26D3\uFE0F' },
+  { value: 'media', label: 'Media', icon: '\u{1F3AC}' },
+  { value: 'utility', label: 'Utility', icon: '\u{1F6E0}\uFE0F' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'popular', label: 'Most Popular' },
+  { value: 'revenue', label: 'Top Revenue' },
+  { value: 'rating', label: 'Highest Rated' },
+  { value: 'cheap', label: 'Lowest Price' },
+  { value: 'newest', label: 'Newest First' },
+] as const;
+
+type SortOption = (typeof SORT_OPTIONS)[number]['value'];
+
+// ---------------------------------------------------------------------------
+// Skeleton Components
+// ---------------------------------------------------------------------------
+
+function HeroStatSkeleton() {
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-5 w-16 rounded-full" />
-        </div>
-        <Skeleton className="h-4 w-full mt-2" />
-        <Skeleton className="h-4 w-3/4" />
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-1.5 mb-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-5 w-16 rounded-full" />)}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-5">
+      <Skeleton className="h-7 w-20 mb-1" />
+      <Skeleton className="h-3.5 w-24" />
+    </div>
   );
 }
 
-function StarRating({ rating }: { rating: number }) {
+function AgentCardSkeleton() {
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-11 w-11 rounded-xl" />
+          <div>
+            <Skeleton className="h-5 w-32 mb-1.5" />
+            <Skeleton className="h-3.5 w-20" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+      <Skeleton className="h-4 w-full mb-1.5" />
+      <Skeleton className="h-4 w-3/4 mb-4" />
+      <div className="flex gap-1.5 mb-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-6 w-16 rounded-full" />
+        ))}
+      </div>
+      <div className="flex gap-1.5 mb-5">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-5 w-20 rounded-md" />
+        ))}
+      </div>
+      <Skeleton className="h-px w-full mb-4" />
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-16 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Star Rating
+// ---------------------------------------------------------------------------
+
+function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
   const full = Math.floor(rating);
   const partial = rating - full;
+  const dim = size === 'md' ? 'w-3.5 h-3.5' : 'w-3 h-3';
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
-          className={`w-3 h-3 ${star <= full ? 'text-yellow-500' : star === full + 1 && partial > 0 ? 'text-yellow-500/50' : 'text-muted-foreground/20'}`}
+          className={`${dim} ${
+            star <= full
+              ? 'text-amber-500'
+              : star === full + 1 && partial > 0
+                ? 'text-amber-500/50'
+                : 'text-white/[0.08]'
+          }`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -82,11 +153,64 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Agent Avatar (deterministic gradient from agent name)
+// ---------------------------------------------------------------------------
+
+function AgentAvatar({ name }: { name: string }) {
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const hue = hash % 360;
+  const letter = (name[0] || 'A').toUpperCase();
+
+  return (
+    <div
+      className="relative h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0 overflow-hidden"
+      style={{
+        background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 60) % 360}, 80%, 35%))`,
+      }}
+    >
+      {letter}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Search Icon SVG (inline to avoid extra deps)
+// ---------------------------------------------------------------------------
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
 export default function AgentMarketplacePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
-  const [sortBy, setSortBy] = useState<'popular' | 'rating' | 'cheap'>('popular');
+  const [sortBy, setSortBy] = useState<SortOption>('popular');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // ---- Data Fetch ----------------------------------------------------------
 
   useEffect(() => {
     async function fetchAgents() {
@@ -106,221 +230,389 @@ export default function AgentMarketplacePage() {
     fetchAgents();
   }, []);
 
-  const filteredAgents = useMemo(() => {
-    let result = category === 'all'
-      ? agents
-      : agents.filter((a) => {
-          const caps = a.capabilities as string[];
-          const tools = a.tools as string[];
-          if (category === 'search') return caps.includes('search') || tools.some((t) => t.includes('search'));
-          if (category === 'finance') return caps.includes('finance') || tools.some((t) => ['coin_data', 'stock_chart', 'wallet_analyzer', 'token_retrieval'].includes(t));
-          if (category === 'blockchain') return caps.includes('blockchain') || tools.some((t) => ['wallet_analyzer', 'nft_retrieval', 'token_retrieval'].includes(t));
-          if (category === 'media') return caps.includes('media') || tools.some((t) => ['youtube_search', 'reddit_search', 'movie_or_tv_search'].includes(t));
-          if (category === 'utility') return caps.includes('utility') || tools.some((t) => ['code_interpreter', 'text_translate', 'retrieve'].includes(t));
-          return true;
-        });
+  // ---- Filtering & Sorting -------------------------------------------------
 
+  const filteredAgents = useMemo(() => {
+    let result = agents;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          (a.description || '').toLowerCase().includes(q) ||
+          a.tools.some((t) => t.toLowerCase().includes(q)) ||
+          a.capabilities.some((c) => c.toLowerCase().includes(q)),
+      );
+    }
+
+    // Category filter
+    if (category !== 'all') {
+      result = result.filter((a) => {
+        const caps = a.capabilities as string[];
+        const tools = a.tools as string[];
+        if (category === 'search') return caps.includes('search') || tools.some((t) => t.includes('search'));
+        if (category === 'finance') return caps.includes('finance') || tools.some((t) => ['coin_data', 'stock_chart', 'wallet_analyzer', 'token_retrieval'].includes(t));
+        if (category === 'blockchain') return caps.includes('blockchain') || tools.some((t) => ['wallet_analyzer', 'nft_retrieval', 'token_retrieval'].includes(t));
+        if (category === 'media') return caps.includes('media') || tools.some((t) => ['youtube_search', 'reddit_search', 'movie_or_tv_search'].includes(t));
+        if (category === 'utility') return caps.includes('utility') || tools.some((t) => ['code_interpreter', 'text_translate', 'retrieve'].includes(t));
+        return true;
+      });
+    }
+
+    // Sort
     if (sortBy === 'rating') result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     else if (sortBy === 'cheap') result = [...result].sort((a, b) => parseFloat(a.pricePerQuery) - parseFloat(b.pricePerQuery));
+    else if (sortBy === 'revenue') result = [...result].sort((a, b) => parseFloat(b.totalRevenue || '0') - parseFloat(a.totalRevenue || '0'));
+    else if (sortBy === 'newest') result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     else result = [...result].sort((a, b) => (b.totalExecutions || 0) - (a.totalExecutions || 0));
 
     return result;
-  }, [agents, category, sortBy]);
+  }, [agents, category, sortBy, searchQuery]);
+
+  // ---- Aggregate Stats -----------------------------------------------------
 
   const totalAgents = agents.length;
   const totalExecutions = agents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
-  const avgRating = agents.length > 0 ? (agents.reduce((sum, a) => sum + (a.rating || 0), 0) / agents.length) : 0;
+  const totalRevenue = agents.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
+  const avgRating = agents.length > 0 ? agents.reduce((sum, a) => sum + (a.rating || 0), 0) / agents.length : 0;
+  const maxExec = Math.max(...agents.map((x) => x.totalExecutions || 1), 1);
+
+  // ---- Render ---------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-background relative z-1">
-      {/* Hero Header */}
-      <div className="border-b border-border/50 bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* ================================================================= */}
+      {/* HERO */}
+      {/* ================================================================= */}
+      <div className="relative overflow-hidden border-b border-white/[0.06]">
+        {/* Ambient glow */}
+        <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-amber-500/[0.04] blur-[120px]" />
+        <div className="pointer-events-none absolute -top-20 right-[10%] w-[300px] h-[300px] rounded-full bg-amber-600/[0.03] blur-[80px]" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
+          {/* Top row: title + actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Agent Marketplace</h1>
-              <p className="text-muted-foreground mt-1 max-w-lg">
-                Discover, hire, and deploy AI agents. Each agent is an on-chain NFT with unique capabilities.
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                </div>
+                <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold">
+                  Marketplace
+                </Badge>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">
+                Agent Marketplace
+              </h1>
+              <p className="text-sm text-white/40 mt-2 max-w-lg leading-relaxed">
+                Discover, hire, and deploy AI agents. Each agent is an on-chain NFT with
+                unique capabilities and verifiable performance history.
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 shrink-0">
               <Link href="/">
-                <Button variant="outline" size="sm">Back to Search</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-white transition-all duration-200"
+                >
+                  Back to Search
+                </Button>
               </Link>
               <Link href="/agents/create">
-                <Button size="sm" className="holographic-button text-white border-0">
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
                   Create Agent
                 </Button>
               </Link>
             </div>
           </div>
 
-          {/* Stats Summary */}
-          {!loading && (
-            <div className="grid grid-cols-3 gap-3 mt-8">
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold">{totalAgents}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Active Agents</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold">{totalExecutions.toLocaleString()}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total Executions</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
-                <div className="text-lg sm:text-xl font-bold">{avgRating.toFixed(1)}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Avg Rating</div>
-              </div>
+          {/* Stats row */}
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+              {[1, 2, 3, 4].map((i) => (
+                <HeroStatSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+              {[
+                { label: 'Active Agents', value: totalAgents.toLocaleString(), accent: true },
+                { label: 'Total Executions', value: totalExecutions.toLocaleString(), accent: false },
+                { label: 'BBAI Volume', value: `${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, accent: false },
+                { label: 'Avg Rating', value: avgRating.toFixed(1), accent: false },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 sm:p-5 group hover:border-white/[0.12] transition-all duration-300"
+                >
+                  <div className={`text-xl sm:text-2xl font-bold tracking-tight ${stat.accent ? 'text-amber-500' : 'text-white'}`}>
+                    {stat.value}
+                  </div>
+                  <div className="text-[11px] text-white/30 uppercase tracking-wider mt-0.5 font-medium">
+                    {stat.label}
+                  </div>
+                  {stat.accent && (
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/[0.06] rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Filter & Sort Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <Tabs value={category} onValueChange={setCategory} className="w-full sm:w-auto">
-            <TabsList className="h-9 flex-wrap">
-              {[
-                { value: 'all', label: 'All' },
-                { value: 'search', label: '🔍 Search' },
-                { value: 'finance', label: '📊 Finance' },
-                { value: 'blockchain', label: '⛓️ Chain' },
-                { value: 'media', label: '🎬 Media' },
-                { value: 'utility', label: '🛠️ Utility' },
-              ].map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3">
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+      {/* ================================================================= */}
+      {/* TOOLBAR: Search + Filters + Sort */}
+      {/* ================================================================= */}
+      <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/80 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+            {/* Search */}
+            <div className="relative w-full lg:w-80 shrink-0">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+              <Input
+                placeholder="Search agents, tools, capabilities..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 bg-white/[0.03] border-white/[0.08] text-sm placeholder:text-white/20 focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 transition-all duration-200"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
 
-          <div className="flex gap-2">
-            {([
-              { value: 'popular', label: 'Popular' },
-              { value: 'rating', label: 'Top Rated' },
-              { value: 'cheap', label: 'Cheapest' },
-            ] as const).map((s) => (
-              <Button
-                key={s.value}
-                variant={sortBy === s.value ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setSortBy(s.value)}
-              >
-                {s.label}
-              </Button>
+            {/* Category Tabs */}
+            <Tabs value={category} onValueChange={setCategory} className="w-full lg:w-auto flex-1 min-w-0">
+              <TabsList className="h-9 bg-white/[0.03] border border-white/[0.06] flex-wrap gap-0.5">
+                {CATEGORIES.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="text-xs px-3 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-500 data-[state=active]:shadow-none transition-all duration-200"
+                  >
+                    {tab.icon && <span className="mr-1">{tab.icon}</span>}
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="w-full sm:w-44 h-9 bg-white/[0.03] border-white/[0.08] text-xs shrink-0">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Results count */}
+          {!loading && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-white/30">
+                {filteredAgents.length} agent{filteredAgents.length !== 1 ? 's' : ''}
+                {searchQuery && <> matching &ldquo;{searchQuery}&rdquo;</>}
+                {category !== 'all' && <> in {CATEGORIES.find((c) => c.value === category)?.label}</>}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* AGENT GRID */}
+      {/* ================================================================= */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <AgentCardSkeleton key={i} />
             ))}
           </div>
-        </div>
-
-        {/* Agent Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => <AgentCardSkeleton key={i} />)}
-          </div>
         ) : filteredAgents.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-20">
-              <div className="text-4xl mb-3">🤖</div>
-              <p className="text-muted-foreground text-lg font-medium">No agents found</p>
-              <p className="text-muted-foreground text-sm mt-1">Try a different category or create your own agent.</p>
-              <Link href="/agents/create" className="mt-5">
-                <Button>Create Agent</Button>
+          /* ---- Empty state ---- */
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="h-20 w-20 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <p className="text-white/60 text-lg font-medium mb-1">No agents found</p>
+            <p className="text-white/30 text-sm max-w-sm text-center">
+              {searchQuery
+                ? `No results for "${searchQuery}". Try adjusting your search or filters.`
+                : 'Try a different category or create your own agent.'}
+            </p>
+            <div className="flex gap-3 mt-6">
+              {searchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCategory('all');
+                  }}
+                  className="border-white/[0.08] text-white/50 hover:text-white"
+                >
+                  Clear Filters
+                </Button>
+              )}
+              <Link href="/agents/create">
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold"
+                >
+                  Create Agent
+                </Button>
               </Link>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          /* ---- Card grid ---- */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredAgents.map((a) => {
               const chainInfo = a.chainId ? CHAIN_LABELS[a.chainId] : null;
-              const maxExec = Math.max(...agents.map((x) => x.totalExecutions || 1));
+              const popularityPct = (a.totalExecutions / maxExec) * 100;
+              const revenue = parseFloat(a.totalRevenue || '0');
+
               return (
-                <Link key={a.id} href={`/agents/${a.id}`}>
-                  <Card className="h-full group hover:border-primary/40 transition-all duration-200 cursor-pointer hover:shadow-lg hover:shadow-primary/5">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <CardTitle className="text-base group-hover:text-primary transition-colors truncate">
-                          {a.name}
-                        </CardTitle>
+                <Link key={a.id} href={`/agents/${a.id}`} className="group">
+                  <div className="relative h-full overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm transition-all duration-300 hover:border-amber-500/25 hover:bg-white/[0.04] hover:shadow-2xl hover:shadow-amber-500/[0.04] hover:scale-[1.01]">
+                    {/* Top accent line on hover */}
+                    <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                    <div className="p-5">
+                      {/* Header: Avatar + Name + Chain/NFT badges */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <AgentAvatar name={a.name} />
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-white/90 group-hover:text-amber-500 transition-colors duration-200 truncate">
+                              {a.name}
+                            </h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <StarRating rating={a.rating || 0} />
+                              <span className="text-[10px] text-white/25">{(a.rating || 0).toFixed(1)}</span>
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {a.nftTokenId !== null && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="green" className="text-[10px]">NFT #{a.nftTokenId}</Badge>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  NFT
+                                </span>
                               </TooltipTrigger>
-                              <TooltipContent>On-chain verified agent</TooltipContent>
+                              <TooltipContent>On-chain verified agent #{a.nftTokenId}</TooltipContent>
                             </Tooltip>
                           )}
                           {chainInfo && (
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${chainInfo.color}`}>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${chainInfo.color}`}>
                               {chainInfo.name}
                             </span>
                           )}
                         </div>
                       </div>
-                      <CardDescription className="line-clamp-2 text-xs">
-                        {a.description || 'No description'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-0 space-y-3">
+
+                      {/* Description */}
+                      <p className="text-xs text-white/35 leading-relaxed line-clamp-2 mb-4">
+                        {a.description || 'No description provided for this agent.'}
+                      </p>
+
                       {/* Capabilities */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-3">
                         {(a.capabilities as string[]).map((c) => (
-                          <span key={c} className="inline-flex items-center gap-0.5 text-[10px] bg-muted/80 text-muted-foreground px-2 py-0.5 rounded-full">
-                            {CAPABILITY_ICONS[c] || '•'} {c}
+                          <span
+                            key={c}
+                            className="inline-flex items-center gap-1 text-[10px] bg-white/[0.04] text-white/40 px-2.5 py-1 rounded-full border border-white/[0.06] transition-colors duration-200 group-hover:border-white/[0.1] group-hover:text-white/50"
+                          >
+                            {CAPABILITY_ICONS[c] || '\u2022'} {c}
                           </span>
                         ))}
                       </div>
 
                       {/* Tools */}
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 mb-4">
                         {(a.tools as string[]).slice(0, 4).map((t) => (
-                          <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-mono">{t}</Badge>
+                          <span
+                            key={t}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.03] text-white/30 border border-white/[0.05]"
+                          >
+                            {t}
+                          </span>
                         ))}
                         {(a.tools as string[]).length > 4 && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/[0.06] text-amber-500/60 border border-amber-500/10">
                             +{(a.tools as string[]).length - 4}
-                          </Badge>
+                          </span>
                         )}
                       </div>
 
-                      <Separator className="my-1" />
+                      {/* Divider */}
+                      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent mb-4" />
 
-                      {/* Stats Grid */}
+                      {/* Stats Row */}
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center p-2 rounded-lg bg-muted/50">
-                          <div className="text-sm font-bold text-primary">{a.pricePerQuery}</div>
-                          <div className="text-[9px] text-muted-foreground uppercase">BBAI/query</div>
+                        <div className="text-center p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-amber-500/10 transition-colors duration-300">
+                          <div className="text-sm font-bold text-amber-500">{a.pricePerQuery}</div>
+                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">BBAI/query</div>
                         </div>
-                        <div className="text-center p-2 rounded-lg bg-muted/50">
-                          <div className="text-sm font-bold">{a.totalExecutions.toLocaleString()}</div>
-                          <div className="text-[9px] text-muted-foreground uppercase">Runs</div>
+                        <div className="text-center p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
+                          <div className="text-sm font-bold text-white/80">{a.totalExecutions.toLocaleString()}</div>
+                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">Runs</div>
                         </div>
-                        <div className="text-center p-2 rounded-lg bg-muted/50">
-                          <div className="text-sm font-bold">{a.rating?.toFixed(1) || '0.0'}</div>
-                          <div className="text-[9px] text-muted-foreground uppercase">Rating</div>
+                        <div className="text-center p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
+                          <div className="text-sm font-bold text-white/80">{revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">Earned</div>
                         </div>
                       </div>
 
-                      {/* Popularity bar */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-muted-foreground">
-                          <span>Popularity</span>
-                          <span>{((a.totalExecutions / maxExec) * 100).toFixed(0)}%</span>
+                      {/* Popularity Bar */}
+                      <div className="mt-3 space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-white/20 uppercase tracking-wider">Popularity</span>
+                          <span className="text-[10px] text-white/30 font-medium">{popularityPct.toFixed(0)}%</span>
                         </div>
-                        <Progress value={(a.totalExecutions / maxExec) * 100} className="h-1" />
+                        <div className="h-1 rounded-full bg-white/[0.04] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-500/60 to-amber-500 transition-all duration-500"
+                            style={{ width: `${popularityPct}%` }}
+                          />
+                        </div>
                       </div>
-
-                      {/* Rating Stars */}
-                      <div className="flex items-center justify-between">
-                        <StarRating rating={a.rating || 0} />
-                        <span className="text-[10px] text-muted-foreground">
-                          {parseFloat(a.totalRevenue || '0').toLocaleString()} BBAI earned
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </Link>
               );
             })}
