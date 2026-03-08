@@ -7,6 +7,7 @@ import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 import { UserProvider } from '@/contexts/user-context';
 import { DataStreamProvider } from '@/components/data-stream-provider';
+import { Web3ProviderLazy } from '@/components/providers/web3-provider-lazy';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,19 +43,21 @@ class SafeUserProvider extends Component<{ children: ReactNode }, { hasError: bo
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <SafeUserProvider>
-        <DataStreamProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem={false}
-            disableTransitionOnChange
-            forcedTheme="dark"
-          >
-            <TooltipProvider>{children}</TooltipProvider>
-          </ThemeProvider>
-        </DataStreamProvider>
-      </SafeUserProvider>
+      <Web3ProviderLazy>
+        <SafeUserProvider>
+          <DataStreamProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              enableSystem={false}
+              disableTransitionOnChange
+              forcedTheme="dark"
+            >
+              <TooltipProvider>{children}</TooltipProvider>
+            </ThemeProvider>
+          </DataStreamProvider>
+        </SafeUserProvider>
+      </Web3ProviderLazy>
     </QueryClientProvider>
   );
 }

@@ -13,9 +13,9 @@ export async function GET() {
   } catch (error: any) {
     // Return empty dashboard on error (e.g. DB not connected)
     return NextResponse.json({
-      kpis: { totalRevenue: 0, totalVolume: 0, totalTransactions: 0, dailyRevenue: 0 },
-      streams: [],
-      recentTransactions: [],
+      totalRevenue: 0, totalVolume: 0, totalTransactions: 0, platformFees: 0,
+      dailyRevenue: 0, weeklyRevenue: 0, monthlyRevenue: 0,
+      streams: [], recentTransactions: [], chartData: [],
       error: error.message,
     }, {
       headers: {

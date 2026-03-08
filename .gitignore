@@ -147,3 +147,23 @@ temp/
 # Project specific
 backup/
 *.log
+
+# Migration scripts (contain DB logic)
+scripts/run-migrations.mjs
+
+# Docker env overrides
+.env.docker
+
+# Credentials / key files
+credentials.json
+service-account*.json
+*.key
+*.keystore
+
+# Claude worktrees
+.claude/worktrees/
+
+# Internal / confidential docs
+boredbrain-dd-form.html
+paperclip-integration-proposal.md
+docs/internal/

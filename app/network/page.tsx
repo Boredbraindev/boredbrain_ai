@@ -256,39 +256,64 @@ function NodeCard({ node }: { node: NetworkNode }) {
         ? 'text-amber-400'
         : 'text-red-400';
 
-  const trustBg =
+  const trustBarColor =
     node.trustScore >= 90
-      ? 'from-emerald-500/20'
+      ? '#22c55e'
       : node.trustScore >= 70
-        ? 'from-amber-500/20'
-        : 'from-red-500/20';
+        ? '#f59e0b'
+        : '#ef4444';
 
   const platformConfig = PLATFORM_CONFIG[node.platform] || PLATFORM_CONFIG.custom;
 
+  const latencyColor =
+    node.latency <= 100
+      ? 'text-emerald-400'
+      : node.latency <= 200
+        ? 'text-amber-400'
+        : 'text-red-400';
+
   return (
-    <div className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/[0.03] hover:scale-[1.01]">
-      {/* Top accent line */}
+    <div className="group relative rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent backdrop-blur-sm overflow-hidden transition-all duration-500 hover:border-amber-500/30 hover:shadow-xl hover:shadow-amber-500/[0.06] hover:scale-[1.02]">
+      {/* Background glow on hover */}
       <div
-        className="absolute top-0 left-0 right-0 h-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: `linear-gradient(90deg, transparent, ${platformConfig.hex}, transparent)` }}
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse at 50% 0%, ${platformConfig.hex}08 0%, transparent 70%)`,
+        }}
       />
 
-      <div className="p-5">
+      {/* Top accent line — always visible with platform color */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-300"
+        style={{
+          background: `linear-gradient(90deg, transparent 5%, ${platformConfig.hex}80 30%, ${platformConfig.hex} 50%, ${platformConfig.hex}80 70%, transparent 95%)`,
+          opacity: node.status === 'online' ? 0.6 : 0.2,
+        }}
+      />
+
+      <div className="relative p-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Platform avatar */}
-            <div className={`relative w-10 h-10 rounded-full ${platformConfig.bgColor} border ${platformConfig.borderColor} flex items-center justify-center shrink-0`}>
-              <span className={`text-sm font-bold ${platformConfig.color}`}>
-                {node.name.charAt(0).toUpperCase()}
-              </span>
+            {/* Platform avatar with animated ring */}
+            <div className="relative shrink-0">
+              <div
+                className={`w-11 h-11 rounded-xl ${platformConfig.bgColor} border ${platformConfig.borderColor} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}
+                style={{ boxShadow: `0 0 0px ${platformConfig.hex}00`, transition: 'box-shadow 0.3s, transform 0.3s' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 20px ${platformConfig.hex}30`; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0px ${platformConfig.hex}00`; }}
+              >
+                <span className={`text-sm font-bold ${platformConfig.color}`}>
+                  {node.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
               {/* Status indicator */}
-              <span className="absolute -bottom-0.5 -right-0.5">
+              <span className="absolute -bottom-1 -right-1 ring-2 ring-[#0a0a0a] rounded-full">
                 <StatusDot status={node.status} />
               </span>
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold truncate group-hover:text-amber-500/90 transition-colors">
+              <h3 className="text-sm font-semibold truncate group-hover:text-amber-400 transition-colors duration-300">
                 {node.name}
               </h3>
               <p className="text-[10px] text-muted-foreground font-mono truncate" title={node.endpoint}>
@@ -299,56 +324,63 @@ function NodeCard({ node }: { node: NetworkNode }) {
           <PlatformBadge platform={node.platform} />
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — redesigned with icons */}
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-2.5 py-2 text-center">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">
+          <div className="rounded-lg bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.06] px-2.5 py-2.5 text-center group-hover:border-white/[0.1] transition-colors">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">
               Tools
             </p>
-            <p className="text-sm font-bold">{node.tools.length}</p>
+            <p className="text-lg font-bold bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">{node.tools.length}</p>
           </div>
-          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-2.5 py-2 text-center">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">
+          <div className="rounded-lg bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.06] px-2.5 py-2.5 text-center group-hover:border-white/[0.1] transition-colors">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">
               Calls
             </p>
-            <p className="text-sm font-bold">{node.totalInteractions.toLocaleString()}</p>
+            <p className="text-lg font-bold bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">{node.totalInteractions.toLocaleString()}</p>
           </div>
-          <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-2.5 py-2 text-center">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">
+          <div className="rounded-lg bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.06] px-2.5 py-2.5 text-center group-hover:border-white/[0.1] transition-colors">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">
               Latency
             </p>
-            <p className="text-sm font-bold">
-              {node.latency}<span className="text-[10px] text-muted-foreground ml-0.5">ms</span>
+            <p className={`text-lg font-bold ${latencyColor}`}>
+              {node.latency}<span className="text-[10px] opacity-60 ml-0.5">ms</span>
             </p>
           </div>
         </div>
 
-        {/* Trust score */}
-        <div className="mb-3">
+        {/* Trust score — enhanced with colored bar */}
+        <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Trust Score</span>
-            <span className={`text-xs font-bold ${trustColor}`}>
-              {node.trustScore}/100
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Trust Score</span>
+            <span className={`text-xs font-bold tabular-nums ${trustColor}`}>
+              {node.trustScore}<span className="text-muted-foreground font-normal">/100</span>
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
             <div
-              className={`h-full rounded-full bg-gradient-to-r ${trustBg} to-transparent transition-all duration-500`}
-              style={{ width: `${node.trustScore}%` }}
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${node.trustScore}%`,
+                background: `linear-gradient(90deg, ${trustBarColor}60, ${trustBarColor})`,
+                boxShadow: `0 0 8px ${trustBarColor}40`,
+              }}
             />
           </div>
         </div>
 
-        {/* Capabilities preview */}
+        {/* Capabilities preview — redesigned tags */}
         {node.capabilities.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="flex flex-wrap gap-1.5 mb-4">
             {node.capabilities.slice(0, 3).map((cap) => (
-              <span key={cap} className="text-[9px] text-muted-foreground bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 font-mono">
+              <span
+                key={cap}
+                className={`text-[9px] ${platformConfig.color} ${platformConfig.bgColor} border ${platformConfig.borderColor} rounded-md px-2 py-0.5 font-medium tracking-wide`}
+              >
                 {cap}
               </span>
             ))}
             {node.capabilities.length > 3 && (
-              <span className="text-[9px] text-muted-foreground bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5">
+              <span className="text-[9px] text-muted-foreground bg-white/[0.04] border border-white/[0.06] rounded-md px-2 py-0.5">
                 +{node.capabilities.length - 3}
               </span>
             )}
@@ -356,19 +388,38 @@ function NodeCard({ node }: { node: NetworkNode }) {
         )}
 
         {/* Last seen */}
-        <p className="text-[10px] text-muted-foreground mb-3">
+        <p className="text-[10px] text-muted-foreground mb-4 flex items-center gap-1.5">
+          <span className={`inline-block w-1 h-1 rounded-full ${node.status === 'online' ? 'bg-emerald-500' : node.status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'}`} />
           Last seen {formatRelativeTime(node.lastSeen)}
         </p>
 
-        {/* Actions */}
+        {/* Actions — enhanced buttons */}
         <div className="flex gap-2">
           <Link href={`/network/${node.id}`} className="flex-1">
-            <Button variant="outline" size="sm" className="w-full text-xs border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] transition-all">
+            <Button variant="outline" size="sm" className="w-full text-xs border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-300">
               Details
             </Button>
           </Link>
           <Link href={`/network/${node.id}?invoke=true`} className="flex-1">
-            <Button size="sm" className="w-full text-xs bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:border-amber-500/40 transition-all">
+            <Button
+              size="sm"
+              className="w-full text-xs border transition-all duration-300 hover:shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, ${platformConfig.hex}20, ${platformConfig.hex}10)`,
+                borderColor: `${platformConfig.hex}30`,
+                color: platformConfig.hex,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg, ${platformConfig.hex}30, ${platformConfig.hex}15)`;
+                (e.currentTarget as HTMLElement).style.borderColor = `${platformConfig.hex}50`;
+                (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${platformConfig.hex}20`;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg, ${platformConfig.hex}20, ${platformConfig.hex}10)`;
+                (e.currentTarget as HTMLElement).style.borderColor = `${platformConfig.hex}30`;
+                (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+              }}
+            >
               Invoke
             </Button>
           </Link>
@@ -552,14 +603,42 @@ export default function NetworkPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    // Time-based growth
+    const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
+    const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
+    const SHOWCASE_NETWORK: NetworkData = {
+      stats: { totalNodes: g(24, 0.15), onlineNodes: g(18, 0.1), totalMessages: g(347200, 520), avgLatency: 142 - Math.floor(ticks / 60000), totalVolume: g(892400, 1320), platformBreakdown: { boredbrain: g(8, 0.05), claude: g(5, 0.03), openai: g(4, 0.03), gemini: g(3, 0.02), custom: g(4, 0.02) } },
+      nodes: [
+        { id: 'node-bb-alpha', name: 'BoredBrain Alpha', platform: 'boredbrain', endpoint: 'https://api.boredbrain.ai/v1/alpha', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['DeFi Analysis', 'Trading Signals'], tools: ['coin_data', 'wallet_analyzer', 'web_search'], status: 'online', lastSeen: new Date(Date.now() - 60000).toISOString(), latency: 85, totalInteractions: g(48200, 72), trustScore: 98, chain: 'base', walletAddress: '0x1a2b3c4d5e6f7890abcdef1234567890abcdef12' },
+        { id: 'node-claude-research', name: 'Claude Research Hub', platform: 'claude', endpoint: 'https://claude.api/research', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Research', 'Analysis'], tools: ['academic_search', 'web_search', 'retrieve'], status: 'online', lastSeen: new Date(Date.now() - 120000).toISOString(), latency: 120, totalInteractions: g(35600, 52), trustScore: 96, chain: null, walletAddress: null },
+        { id: 'node-openai-trader', name: 'OpenAI Trading Bot', platform: 'openai', endpoint: 'https://api.openai.trading/v1', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Market Prediction', 'Technical Analysis'], tools: ['coin_data', 'stock_chart'], status: 'online', lastSeen: new Date(Date.now() - 30000).toISOString(), latency: 95, totalInteractions: g(29400, 44), trustScore: 94, chain: 'arbitrum', walletAddress: '0xabcdef1234567890abcdef1234567890abcdef34' },
+        { id: 'node-gemini-nlp', name: 'Gemini NLP Engine', platform: 'gemini', endpoint: 'https://gemini.api/nlp', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['NLP', 'Translation'], tools: ['text_translate', 'web_search'], status: 'online', lastSeen: new Date(Date.now() - 300000).toISOString(), latency: 180, totalInteractions: g(22100, 32), trustScore: 91, chain: null, walletAddress: null },
+        { id: 'node-bb-sentinel', name: 'BoredBrain Sentinel', platform: 'boredbrain', endpoint: 'https://api.boredbrain.ai/v1/sentinel', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Security Audit', 'Rug Detection'], tools: ['code_interpreter', 'wallet_analyzer'], status: 'online', lastSeen: new Date(Date.now() - 60000).toISOString(), latency: 110, totalInteractions: g(41800, 62), trustScore: 99, chain: 'base', walletAddress: '0x567890abcdef1234567890abcdef1234567890ab' },
+        { id: 'node-custom-whale', name: 'WhaleAlert Custom', platform: 'custom', endpoint: 'https://whale.custom/api', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Whale Tracking', 'Alert System'], tools: ['wallet_analyzer', 'token_retrieval'], status: 'degraded', lastSeen: new Date(Date.now() - 900000).toISOString(), latency: 340, totalInteractions: g(18900, 28), trustScore: 87, chain: 'bsc', walletAddress: '0x890abcdef1234567890abcdef1234567890abcdef' },
+        { id: 'node-claude-code', name: 'Claude Code Assistant', platform: 'claude', endpoint: 'https://claude.api/code', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Code Generation', 'Review'], tools: ['code_interpreter', 'web_search'], status: 'online', lastSeen: new Date(Date.now() - 90000).toISOString(), latency: 135, totalInteractions: g(31200, 46), trustScore: 95, chain: null, walletAddress: null },
+        { id: 'node-bb-news', name: 'BoredBrain NewsWire', platform: 'boredbrain', endpoint: 'https://api.boredbrain.ai/v1/news', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['News Aggregation', 'Fact Check'], tools: ['web_search', 'x_search', 'reddit_search'], status: 'online', lastSeen: new Date(Date.now() - 45000).toISOString(), latency: 75, totalInteractions: g(52600, 78), trustScore: 97, chain: 'base', walletAddress: '0xdef1234567890abcdef1234567890abcdef123456' },
+        { id: 'node-openai-vision', name: 'OpenAI Vision Agent', platform: 'openai', endpoint: 'https://api.openai.vision/v1', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Image Analysis', 'NFT Valuation'], tools: ['nft_retrieval', 'web_search'], status: 'offline', lastSeen: new Date(Date.now() - 28800000).toISOString(), latency: 0, totalInteractions: g(15400, 22), trustScore: 88, chain: null, walletAddress: null },
+        { id: 'node-custom-arb', name: 'Arbitrage Scanner', platform: 'custom', endpoint: 'https://arb.custom/scan', agentCardUrl: '/.well-known/agent-card.json', capabilities: ['Arbitrage Detection', 'MEV'], tools: ['coin_data', 'wallet_analyzer', 'token_retrieval'], status: 'online', lastSeen: new Date(Date.now() - 20000).toISOString(), latency: 45, totalInteractions: g(67800, 100), trustScore: 93, chain: 'arbitrum', walletAddress: '0x7890abcdef1234567890abcdef1234567890abcd' },
+      ],
+      recentMessages: [
+        { id: 'msg-1', fromNodeId: 'node-bb-alpha', toNodeId: 'node-claude-research', type: 'invoke', payload: { task: 'Research DeFi yields' }, timestamp: '2026-03-08T11:59:30Z', latency: 85, status: 'processed' },
+        { id: 'msg-2', fromNodeId: 'node-openai-trader', toNodeId: 'node-bb-sentinel', type: 'invoke', payload: { task: 'Audit smart contract' }, timestamp: '2026-03-08T11:58:45Z', latency: 120, status: 'processed' },
+        { id: 'msg-3', fromNodeId: 'node-custom-arb', toNodeId: 'node-bb-alpha', type: 'billing', payload: { amount: 25 }, timestamp: '2026-03-08T11:58:00Z', latency: 45, status: 'delivered' },
+        { id: 'msg-4', fromNodeId: 'node-bb-news', toNodeId: 'node-gemini-nlp', type: 'invoke', payload: { task: 'Translate news article' }, timestamp: '2026-03-08T11:57:15Z', latency: 180, status: 'processed' },
+        { id: 'msg-5', fromNodeId: 'node-claude-code', toNodeId: 'node-bb-sentinel', type: 'discovery', payload: { capabilities: ['Code Review'] }, timestamp: '2026-03-08T11:56:30Z', latency: 110, status: 'processed' },
+        { id: 'msg-6', fromNodeId: 'node-bb-sentinel', toNodeId: 'node-custom-whale', type: 'response', payload: { result: 'Contract verified safe' }, timestamp: '2026-03-08T11:55:00Z', latency: 95, status: 'delivered' },
+      ],
+    };
     async function fetchNetwork() {
       try {
         const res = await fetch('/api/network');
         if (!res.ok) throw new Error('Failed to fetch network data');
         const json = await res.json();
-        setData(json);
+        // Use showcase if data is effectively empty
+        const hasData = json?.nodes?.length > 0 || json?.stats?.totalNodes > 0;
+        setData(hasData ? json : SHOWCASE_NETWORK);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load');
+        setData(SHOWCASE_NETWORK);
       } finally {
         setLoading(false);
       }

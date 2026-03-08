@@ -4,9 +4,17 @@
 import React, { memo, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { GlobeHemisphereWestIcon } from '@phosphor-icons/react';
+import { ChevronDownIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { UserProfile, NavigationMenu } from '@/components/user-profile';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -15,6 +23,59 @@ import { ShareButton } from '@/components/share';
 import { WalletConnectButton } from '@/components/wallet-connect-button';
 
 import { ComprehensiveUserData } from '@/lib/user-data-server';
+
+interface NavItem {
+  href: string;
+  label: string;
+}
+
+function NavDropdown({ label, items, pathname }: { label: string; items: NavItem[]; pathname: string }) {
+  const isGroupActive = items.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href + '/'),
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'text-[11px] font-mono-wide tracking-widest gap-0.5 px-2.5',
+            isGroupActive
+              ? 'text-amber-brand'
+              : 'text-muted-foreground/70 hover:text-amber-brand',
+          )}
+        >
+          {label}
+          <ChevronDownIcon className="size-3 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="center"
+        sideOffset={8}
+        className="min-w-[140px] bg-background/95 backdrop-blur-xl border-white/[0.08]"
+      >
+        {items.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <DropdownMenuItem key={item.href} asChild>
+              <Link
+                href={item.href}
+                className={cn(
+                  'text-[11px] font-mono-wide tracking-widest cursor-pointer',
+                  isActive ? 'text-amber-brand font-semibold' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {item.label}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 type VisibilityType = 'public' | 'private';
 
@@ -53,6 +114,7 @@ const Navbar = memo(
     // Use passed Pro status directly
     const shouldShowNavbarShare = false; // Temporarily hide share button without affecting other share entry points
 
+    const pathname = usePathname();
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
@@ -120,26 +182,46 @@ const Navbar = memo(
             </Link>
           </div>
 
-          {/* Center - Platform Navigation */}
-          <div className="flex items-center justify-center flex-1 gap-1">
-            <Link href="/arena">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Arena</Button>
-            </Link>
-            <Link href="/agents">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Agents</Button>
-            </Link>
-            <Link href="/marketplace">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Market</Button>
-            </Link>
-            <Link href="/playbooks">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Playbooks</Button>
-            </Link>
-            <Link href="/network">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Network</Button>
-            </Link>
-            <Link href="/dashboard/revenue">
-              <Button variant="ghost" size="sm" className="text-[11px] font-mono-wide tracking-widest text-muted-foreground/70 hover:text-amber-brand">Revenue</Button>
-            </Link>
+          {/* Center - Platform Navigation (Grouped Dropdowns) */}
+          <div className="hidden sm:flex items-center justify-center flex-1 gap-0.5">
+            <NavDropdown
+              label="Battle"
+              pathname={pathname}
+              items={[
+                { href: '/arena', label: 'Arena' },
+                { href: '/predict', label: 'Predict' },
+                { href: '/leaderboard', label: 'Leaderboard' },
+              ]}
+            />
+            <NavDropdown
+              label="Agents"
+              pathname={pathname}
+              items={[
+                { href: '/agents', label: 'Agents' },
+                { href: '/marketplace', label: 'Marketplace' },
+                { href: '/playbooks', label: 'Playbooks' },
+                { href: '/prompts', label: 'Prompts' },
+              ]}
+            />
+            <NavDropdown
+              label="Intel"
+              pathname={pathname}
+              items={[
+                { href: '/kol', label: 'KOL Tracker' },
+                { href: '/signals', label: 'Signals' },
+                { href: '/network', label: 'Network' },
+              ]}
+            />
+            <NavDropdown
+              label="Analytics"
+              pathname={pathname}
+              items={[
+                { href: '/dashboard', label: 'Dashboard' },
+                { href: '/dashboard/revenue', label: 'Revenue' },
+                { href: '/stats', label: 'Stats' },
+                { href: '/rewards', label: 'Rewards' },
+              ]}
+            />
           </div>
           <div className="flex items-center gap-1 sm:gap-2 min-w-[80px] justify-end">
             {/* Share functionality using unified component */}

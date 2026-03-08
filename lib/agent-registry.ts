@@ -45,6 +45,7 @@ export interface RegisterAgentInput {
   tools: string[];
   specialization: string;
   stakingAmount: number;
+  isDemo?: boolean;
   metadata?: Record<string, any>;
 }
 
@@ -179,16 +180,28 @@ function toRegisteredAgent(row: typeof externalAgent.$inferSelect): RegisteredAg
 // ---------------------------------------------------------------------------
 
 /**
+ * Count how many demo agents a wallet address has registered.
+ */
+export async function getDemoAgentCount(ownerAddress: string): Promise<number> {
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(externalAgent)
+    .where(
+      and(
+        sql`lower(${externalAgent.ownerAddress}) = ${ownerAddress.toLowerCase()}`,
+        sql`(${externalAgent.metadata}->>'isDemo')::boolean = true`,
+      ),
+    );
+  return result?.count ?? 0;
+}
+
+/**
  * Register a new external agent on the platform.
- * Validates inputs, fetches and validates the agent card URL, creates
- * an agent wallet, and sets status to 'pending'.
- *
- * The agent card is fetched over HTTP and must contain: name, description
- * (or agents), url (or endpoints), and capabilities (or skills/agents).
- * If the agent card URL is unreachable or invalid, registration still
- * proceeds but a warning is recorded in metadata (backward compatible).
+ * Supports demo mode: 1 free agent per wallet with no staking, limited to 50 calls/day.
  */
 export async function registerAgent(data: RegisterAgentInput): Promise<RegisteredAgent> {
+  const isDemo = !!data.isDemo;
+
   // Validate required fields
   if (!data.name || data.name.trim().length < 2) {
     throw new Error('Agent name must be at least 2 characters');
@@ -202,25 +215,37 @@ export async function registerAgent(data: RegisterAgentInput): Promise<Registere
   if (!data.ownerAddress || !data.ownerAddress.startsWith('0x')) {
     throw new Error('Owner address must be a valid Ethereum address starting with 0x');
   }
-  if (!data.agentCardUrl || !isValidUrl(data.agentCardUrl)) {
-    throw new Error('Agent Card URL must be a valid URL');
-  }
-  if (!data.endpoint || !isValidUrl(data.endpoint)) {
-    throw new Error('Agent endpoint must be a valid URL');
+
+  // Demo agents have relaxed URL requirements
+  if (!isDemo) {
+    if (!data.agentCardUrl || !isValidUrl(data.agentCardUrl)) {
+      throw new Error('Agent Card URL must be a valid URL');
+    }
+    if (!data.endpoint || !isValidUrl(data.endpoint)) {
+      throw new Error('Agent endpoint must be a valid URL');
+    }
   }
   if (!data.specialization) {
     throw new Error('Specialization is required');
   }
-  if (data.stakingAmount < 100) {
+  const hasNftWaiver = data.metadata?.nftTier === 'ape' || data.metadata?.stakingWaived;
+  if (!isDemo && !hasNftWaiver && data.stakingAmount < 100) {
     throw new Error('Minimum staking amount is 100 BBAI');
   }
 
-  // Fetch and validate the agent card
-  const { card, error: cardError } = await fetchAndValidateAgentCard(
-    data.agentCardUrl,
-  );
+  // Fetch and validate the agent card (skip for demo agents without URLs)
+  const shouldValidateCard = !isDemo && data.agentCardUrl && isValidUrl(data.agentCardUrl);
+  const { card, error: cardError } = shouldValidateCard
+    ? await fetchAndValidateAgentCard(data.agentCardUrl)
+    : { card: null, error: isDemo ? 'Skipped for demo agent' : 'No valid URL' };
 
   const metadata: Record<string, any> = { ...(data.metadata || {}) };
+
+  if (isDemo) {
+    metadata.isDemo = true;
+    metadata.dailyCallLimit = 50;
+    metadata.demoRegisteredAt = new Date().toISOString();
+  }
 
   if (card) {
     metadata.agentCardValidated = true;

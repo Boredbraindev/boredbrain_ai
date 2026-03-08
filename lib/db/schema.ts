@@ -265,6 +265,7 @@ export const agent = pgTable('agent', {
   totalExecutions: integer('total_executions').default(0),
   totalRevenue: text('total_revenue').default('0'),
   rating: real('rating').default(0),
+  eloRating: integer('elo_rating').notNull().default(1200),
   status: text('status').default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -310,6 +311,7 @@ export const arenaMatch = pgTable('arena_match', {
   totalVotes: integer('total_votes').default(0),
   resultTxHash: text('result_tx_hash'),
   prizePool: text('prize_pool').default('0'),
+  eloChange: integer('elo_change'),
   status: text('status').default('pending'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
@@ -429,6 +431,7 @@ export const externalAgent = pgTable('external_agent', {
   stakingAmount: real('staking_amount').notNull().default(0),
   status: text('status').notNull().default('pending'), // 'pending' | 'verified' | 'active' | 'suspended'
   rating: real('rating').notNull().default(0),
+  eloRating: integer('elo_rating').notNull().default(1200),
   totalCalls: integer('total_calls').notNull().default(0),
   totalEarned: real('total_earned').notNull().default(0),
   registeredAt: timestamp('registered_at').defaultNow().notNull(),

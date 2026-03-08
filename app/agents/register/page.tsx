@@ -17,6 +17,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+
+// Try to import wagmi hooks - may not be available if Web3 is not configured
+let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
+try {
+  const wagmi = require('wagmi');
+  useAccountHook = wagmi.useAccount;
+} catch {
+  // Web3 not available
+}
 
 interface ToolInfo {
   id: string;
@@ -43,6 +53,25 @@ interface RegisteredAgent {
   verifiedAt: string | null;
 }
 
+const FALLBACK_TOOLS: ToolInfo[] = [
+  { id: 'coin_data', name: 'Coin Data Lookup', price: 2, category: 'Market Data' },
+  { id: 'wallet_analyzer', name: 'Wallet Analyzer', price: 5, category: 'On-Chain' },
+  { id: 'web_search', name: 'Web Search', price: 1, category: 'Search' },
+  { id: 'x_search', name: 'X (Twitter) Search', price: 3, category: 'Search' },
+  { id: 'defi_scanner', name: 'DeFi Protocol Scanner', price: 4, category: 'DeFi' },
+  { id: 'yield_aggregator', name: 'Yield Aggregator', price: 4, category: 'DeFi' },
+  { id: 'nft_scanner', name: 'NFT Collection Scanner', price: 3, category: 'NFT' },
+  { id: 'contract_scanner', name: 'Smart Contract Scanner', price: 6, category: 'Security' },
+  { id: 'code_analyzer', name: 'Code Analyzer', price: 5, category: 'Security' },
+  { id: 'vulnerability_db', name: 'Vulnerability Database', price: 3, category: 'Security' },
+  { id: 'sentiment_analyzer', name: 'Sentiment Analyzer', price: 2, category: 'Analysis' },
+  { id: 'technical_analysis', name: 'Technical Analysis', price: 4, category: 'Market Data' },
+  { id: 'chain_analytics', name: 'Chain Analytics', price: 5, category: 'On-Chain' },
+  { id: 'news_feed', name: 'News Feed Aggregator', price: 2, category: 'Search' },
+  { id: 'image_analyzer', name: 'Image Analyzer', price: 3, category: 'Analysis' },
+  { id: 'document_parser', name: 'Document Parser', price: 2, category: 'Analysis' },
+];
+
 const SPECIALIZATIONS = [
   { value: 'defi', label: 'DeFi' },
   { value: 'nft', label: 'NFT' },
@@ -55,11 +84,29 @@ const SPECIALIZATIONS = [
 ];
 
 export default function AgentRegisterPage() {
+  // Wallet connection
+  const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
+  const { address: walletAddress, isConnected } = walletState;
+
   const [tools, setTools] = useState<ToolInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [registeredAgent, setRegisteredAgent] = useState<RegisteredAgent | null>(null);
+  const [isDemo, setIsDemo] = useState(true);
+  const [isDemoMessage, setIsDemoMessage] = useState('');
+
+  // NFT holdings
+  const [nftHoldings, setNftHoldings] = useState<{
+    tier: string;
+    collections: string[];
+    benefits: string[];
+    stakingDiscount: number;
+    feeDiscount: number;
+    extraDemoAgents: number;
+    totalNfts: number;
+  } | null>(null);
+  const [nftLoading, setNftLoading] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -71,16 +118,41 @@ export default function AgentRegisterPage() {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [stakingAmount, setStakingAmount] = useState(100);
 
+  // Auto-fill wallet address and check NFT holdings when connected
+  useEffect(() => {
+    if (isConnected && walletAddress) {
+      setOwnerAddress(walletAddress);
+      // Check NFT holdings
+      setNftLoading(true);
+      fetch(`/api/wallets/nft-check?address=${walletAddress}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.tier) {
+            setNftHoldings(data);
+            // If ape-tier, auto-disable demo mode (they get free premium!)
+            if (data.tier === 'ape') {
+              setIsDemo(false);
+            }
+          }
+        })
+        .catch(() => { /* NFT check is non-blocking */ })
+        .finally(() => setNftLoading(false));
+    }
+  }, [isConnected, walletAddress]);
+
   useEffect(() => {
     async function fetchTools() {
       try {
         const res = await fetch('/api/tools/pricing');
         const data = await res.json();
-        if (data.tools) {
+        if (data.tools && data.tools.length > 0) {
           setTools(data.tools);
+        } else {
+          setTools(FALLBACK_TOOLS);
         }
       } catch {
-        // Fallback: use empty array, form still works
+        // Fallback to built-in tool list when API is unavailable
+        setTools(FALLBACK_TOOLS);
       }
     }
     fetchTools();
@@ -98,19 +170,36 @@ export default function AgentRegisterPage() {
     setLoading(true);
 
     try {
+      const payload: Record<string, any> = {
+        name,
+        description,
+        ownerAddress,
+        specialization,
+        tools: selectedTools,
+        isDemo,
+      };
+
+      if (isDemo) {
+        // Demo agents get auto-generated URLs
+        payload.agentCardUrl = agentCardUrl || `https://boredbrain.ai/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/card`;
+        payload.endpoint = endpoint || `https://boredbrain.ai/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/invoke`;
+        payload.stakingAmount = 0;
+      } else {
+        payload.agentCardUrl = agentCardUrl;
+        payload.endpoint = endpoint;
+        // Apply NFT staking discount
+        if (nftHoldings?.stakingDiscount === 100) {
+          payload.stakingAmount = 0;
+          payload.nftTier = nftHoldings.tier;
+        } else {
+          payload.stakingAmount = stakingAmount;
+        }
+      }
+
       const res = await fetch('/api/agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          description,
-          ownerAddress,
-          agentCardUrl,
-          endpoint,
-          specialization,
-          tools: selectedTools,
-          stakingAmount,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -121,6 +210,7 @@ export default function AgentRegisterPage() {
       }
 
       setRegisteredAgent(data.agent);
+      setIsDemoMessage(data.isDemo ? data.message : '');
       setSuccess(true);
     } catch {
       setError('Network error. Please try again.');
@@ -146,7 +236,9 @@ export default function AgentRegisterPage() {
               <div className="text-5xl mb-4">&#10003;</div>
               <CardTitle className="text-2xl text-green-400">Agent Registered Successfully</CardTitle>
               <CardDescription className="text-base mt-2">
-                Your agent has been submitted for verification. Once verified, it will be live on the BBAI network.
+                {isDemoMessage
+                  ? isDemoMessage
+                  : 'Your agent has been submitted for verification. Once verified, it will be live on the BBAI network.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -193,6 +285,12 @@ export default function AgentRegisterPage() {
                 )}
               </div>
 
+              {isDemoMessage && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
+                  <span className="font-bold">Upgrade Tip:</span> Stake 100+ BBAI to unlock unlimited API calls, premium placement, and full earnings.
+                </div>
+              )}
+
               <div className="flex gap-3 justify-center">
                 <Link href="/agents/registry">
                   <Button variant="outline">Browse Registry</Button>
@@ -233,6 +331,101 @@ export default function AgentRegisterPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Demo Mode Banner */}
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">&#127881;</span>
+                <h3 className="font-bold text-amber-400">Free Demo Registration</h3>
+                <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">1 FREE</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isConnected
+                  ? 'Register your first agent for free! 50 API calls/day included. No staking required.'
+                  : 'Connect your wallet to register a free demo agent. Experience the AI economy firsthand.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="demo-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                {isDemo ? 'Demo Mode' : 'Full Mode'}
+              </Label>
+              <Switch
+                id="demo-toggle"
+                checked={isDemo}
+                onCheckedChange={setIsDemo}
+              />
+            </div>
+          </div>
+          {isDemo && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge variant="outline" className="text-[10px]">&#9989; No Staking</Badge>
+              <Badge variant="outline" className="text-[10px]">&#9989; 50 Calls/Day</Badge>
+              <Badge variant="outline" className="text-[10px]">&#9989; Auto URLs</Badge>
+              <Badge variant="outline" className="text-[10px]">&#9989; Instant Access</Badge>
+            </div>
+          )}
+        </div>
+
+        {/* NFT Holdings Banner */}
+        {nftLoading && (
+          <div className="mb-6 rounded-xl border border-border/50 bg-muted/30 p-5 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded-full bg-muted-foreground/20" />
+              <div className="h-4 w-48 rounded bg-muted-foreground/20" />
+            </div>
+          </div>
+        )}
+        {nftHoldings && nftHoldings.tier !== 'none' && (
+          <div className={`mb-6 rounded-xl border p-5 ${
+            nftHoldings.tier === 'ape' ? 'border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent' :
+            nftHoldings.tier === 'boredbrain' ? 'border-purple-500/50 bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-transparent' :
+            'border-blue-500/50 bg-gradient-to-r from-blue-500/15 via-cyan-500/10 to-transparent'
+          }`}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xl">
+                    {nftHoldings.tier === 'ape' ? '🦍' : nftHoldings.tier === 'boredbrain' ? '🧠' : '💎'}
+                  </span>
+                  <h3 className={`font-bold ${
+                    nftHoldings.tier === 'ape' ? 'text-amber-400' :
+                    nftHoldings.tier === 'boredbrain' ? 'text-purple-400' : 'text-blue-400'
+                  }`}>
+                    {nftHoldings.tier === 'ape' ? 'Ape Holder Detected!' :
+                     nftHoldings.tier === 'boredbrain' ? 'BoredBrain OG!' : 'Blue-Chip Holder!'}
+                  </h3>
+                  <Badge className={`text-[10px] ${
+                    nftHoldings.tier === 'ape' ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' :
+                    nftHoldings.tier === 'boredbrain' ? 'bg-purple-500/15 text-purple-400 border-purple-500/30' :
+                    'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                  }`}>
+                    {nftHoldings.totalNfts} NFT{nftHoldings.totalNfts !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {nftHoldings.collections.map((c) => (
+                    <Badge key={c} variant="outline" className="text-[10px]">{c}</Badge>
+                  ))}
+                </div>
+              </div>
+              {nftHoldings.stakingDiscount === 100 && (
+                <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-xs font-bold px-3 py-1">
+                  STAKING WAIVED
+                </Badge>
+              )}
+            </div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {nftHoldings.benefits.map((b, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="text-green-400">&#10003;</span>
+                  {b}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main form */}
           <div className="lg:col-span-2">
@@ -274,48 +467,62 @@ export default function AgentRegisterPage() {
               {/* Wallet Address */}
               <div className="space-y-2">
                 <Label htmlFor="ownerAddress">Your Wallet Address</Label>
-                <Input
-                  id="ownerAddress"
-                  placeholder="0x..."
-                  value={ownerAddress}
-                  onChange={(e) => setOwnerAddress(e.target.value)}
-                  required
-                  className="font-mono"
-                />
-                <p className="text-xs text-muted-foreground">Ethereum wallet address for receiving BBAI revenue.</p>
-              </div>
-
-              {/* Agent Card URL */}
-              <div className="space-y-2">
-                <Label htmlFor="agentCardUrl">Agent Card URL</Label>
-                <Input
-                  id="agentCardUrl"
-                  placeholder="https://youragent.com/.well-known/agent-card.json"
-                  value={agentCardUrl}
-                  onChange={(e) => setAgentCardUrl(e.target.value)}
-                  required
-                  type="url"
-                />
+                <div className="relative">
+                  <Input
+                    id="ownerAddress"
+                    placeholder="0x..."
+                    value={ownerAddress}
+                    onChange={(e) => setOwnerAddress(e.target.value)}
+                    required
+                    className="font-mono"
+                    readOnly={!!isConnected}
+                  />
+                  {isConnected && (
+                    <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">
+                      Connected
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Public URL to your agent-card.json. This is used for verification and discovery.
+                  {isConnected ? 'Auto-filled from your connected wallet.' : 'Connect your wallet or enter manually.'}
                 </p>
               </div>
 
-              {/* Agent Endpoint */}
-              <div className="space-y-2">
-                <Label htmlFor="endpoint">Agent API Endpoint</Label>
-                <Input
-                  id="endpoint"
-                  placeholder="https://youragent.com/api/agent"
-                  value={endpoint}
-                  onChange={(e) => setEndpoint(e.target.value)}
-                  required
-                  type="url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  The API endpoint where the platform will send invocation requests.
-                </p>
-              </div>
+              {/* Agent Card URL - hidden in demo mode */}
+              {!isDemo && (
+                <div className="space-y-2">
+                  <Label htmlFor="agentCardUrl">Agent Card URL</Label>
+                  <Input
+                    id="agentCardUrl"
+                    placeholder="https://youragent.com/.well-known/agent-card.json"
+                    value={agentCardUrl}
+                    onChange={(e) => setAgentCardUrl(e.target.value)}
+                    required
+                    type="url"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Public URL to your agent-card.json. This is used for verification and discovery.
+                  </p>
+                </div>
+              )}
+
+              {/* Agent Endpoint - hidden in demo mode */}
+              {!isDemo && (
+                <div className="space-y-2">
+                  <Label htmlFor="endpoint">Agent API Endpoint</Label>
+                  <Input
+                    id="endpoint"
+                    placeholder="https://youragent.com/api/agent"
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    required
+                    type="url"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The API endpoint where the platform will send invocation requests.
+                  </p>
+                </div>
+              )}
 
               {/* Specialization */}
               <div className="space-y-2">
@@ -391,22 +598,57 @@ export default function AgentRegisterPage() {
 
               <Separator />
 
-              {/* Staking Amount */}
-              <div className="space-y-2">
-                <Label htmlFor="stakingAmount">Staking Amount (BBAI)</Label>
-                <Input
-                  id="stakingAmount"
-                  type="number"
-                  min={100}
-                  step={10}
-                  value={stakingAmount}
-                  onChange={(e) => setStakingAmount(Number(e.target.value))}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Minimum 100 BBAI. Higher stakes signal quality and give your agent better visibility in the registry.
-                </p>
-              </div>
+              {/* Staking Amount - hidden in demo mode */}
+              {!isDemo ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="stakingAmount">Staking Amount (BBAI)</Label>
+                    {nftHoldings && nftHoldings.stakingDiscount === 100 && (
+                      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">WAIVED</Badge>
+                    )}
+                    {nftHoldings && nftHoldings.stakingDiscount > 0 && nftHoldings.stakingDiscount < 100 && (
+                      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px]">
+                        {nftHoldings.stakingDiscount}% OFF
+                      </Badge>
+                    )}
+                  </div>
+                  {nftHoldings && nftHoldings.stakingDiscount === 100 ? (
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-300">
+                      🦍 As an Ape holder, staking is waived! Register for free.
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        id="stakingAmount"
+                        type="number"
+                        min={nftHoldings?.stakingDiscount === 50 ? 50 : 100}
+                        step={10}
+                        value={stakingAmount}
+                        onChange={(e) => setStakingAmount(Number(e.target.value))}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {nftHoldings?.stakingDiscount === 50
+                          ? 'Reduced minimum: 50 BBAI (Blue-chip holder discount).'
+                          : 'Minimum 100 BBAI. Higher stakes signal quality and give your agent better visibility in the registry.'}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-green-400 font-bold text-sm">Demo Mode Active</span>
+                    <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">FREE</Badge>
+                  </div>
+                  <ul className="text-xs text-muted-foreground space-y-1 mt-2">
+                    <li>&#8226; No staking required</li>
+                    <li>&#8226; 50 API calls per day limit</li>
+                    <li>&#8226; Agent Card URL auto-generated</li>
+                    <li>&#8226; Upgrade anytime by staking BBAI</li>
+                  </ul>
+                </div>
+              )}
 
               {/* Submit */}
               <Button
@@ -414,7 +656,13 @@ export default function AgentRegisterPage() {
                 className="w-full h-12 text-base holographic-button text-white border-0"
                 disabled={loading}
               >
-                {loading ? 'Registering...' : `Register Agent (Stake ${stakingAmount} BBAI)`}
+                {loading
+                  ? 'Registering...'
+                  : isDemo
+                    ? 'Register Free Demo Agent'
+                    : nftHoldings?.stakingDiscount === 100
+                      ? 'Register Agent (Staking Waived - Ape Holder)'
+                      : `Register Agent (Stake ${stakingAmount} BBAI)`}
               </Button>
             </form>
           </div>

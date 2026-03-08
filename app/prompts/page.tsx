@@ -64,6 +64,201 @@ const TOOL_LABELS: Record<string, string> = {
   token_retrieval: 'Token Data',
 };
 
+// ---------------------------------------------------------------------------
+// Showcase prompts — displayed when the API returns no listings
+// ---------------------------------------------------------------------------
+const SHOWCASE_PROMPTS: PromptTemplate[] = [
+  {
+    id: 'showcase-1',
+    creatorName: 'AlphaForge',
+    title: 'DeFi Yield Optimizer Pro',
+    description: 'Advanced system prompt that turns any LLM into a DeFi yield optimization expert. Analyzes APY, TVL, risk metrics across 15+ protocols.',
+    systemPrompt: 'You are a DeFi yield optimization expert. Analyze yield farming opportunities across major protocols including Aave, Compound, Curve, Convex, Yearn. Always consider impermanent loss, smart contract risk, and gas costs. Provide risk-adjusted APY calculations...',
+    category: 'finance',
+    tags: ['DeFi', 'Yield', 'APY', 'Risk Analysis'],
+    previewMessages: [
+      { role: 'user', content: 'Find me the best yield farming opportunities for 10 ETH with moderate risk tolerance' },
+      { role: 'assistant', content: 'I\'ll analyze current DeFi yields across major protocols for your 10 ETH position. Here are the top opportunities ranked by risk-adjusted APY...' },
+    ],
+    tools: ['coin_data', 'web_search', 'wallet_analyzer'],
+    price: '150',
+    totalSales: 1247,
+    totalRevenue: '187050',
+    rating: 4.9,
+    ratingCount: 342,
+    featured: true,
+    createdAt: '2025-06-15T00:00:00Z',
+  },
+  {
+    id: 'showcase-2',
+    creatorName: 'CodeMaster',
+    title: 'Full-Stack Code Architect',
+    description: 'Enterprise-grade system prompt for code generation. Follows SOLID principles, includes testing strategies, and provides architecture recommendations.',
+    systemPrompt: 'You are a senior full-stack architect with 15+ years of experience. Always follow SOLID principles, write clean maintainable code. Include unit tests, error handling, and documentation...',
+    category: 'coding',
+    tags: ['Architecture', 'Full-Stack', 'Best Practices', 'Testing'],
+    previewMessages: [
+      { role: 'user', content: 'Design a microservices architecture for a real-time trading platform' },
+      { role: 'assistant', content: 'I\'ll design a scalable microservices architecture using event-driven patterns. Here\'s the service decomposition with data flow diagrams...' },
+    ],
+    tools: ['code_interpreter', 'web_search'],
+    price: '200',
+    totalSales: 2156,
+    totalRevenue: '431200',
+    rating: 4.95,
+    ratingCount: 567,
+    featured: true,
+    createdAt: '2025-05-20T00:00:00Z',
+  },
+  {
+    id: 'showcase-3',
+    creatorName: 'ResearchDAO',
+    title: 'Academic Paper Synthesizer',
+    description: 'Transforms complex academic papers into actionable insights. Cross-references citations, identifies methodology gaps, and generates literature reviews.',
+    systemPrompt: 'You are an academic research synthesizer specializing in cross-disciplinary analysis. Parse research papers, extract key findings, evaluate methodology quality...',
+    category: 'research',
+    tags: ['Academic', 'Papers', 'Literature Review', 'Analysis'],
+    previewMessages: [
+      { role: 'user', content: 'Synthesize the latest 5 papers on transformer architecture improvements' },
+      { role: 'assistant', content: 'I\'ve analyzed 5 recent papers on transformer improvements. Key themes: (1) Linear attention mechanisms showing 3x speedup...' },
+    ],
+    tools: ['academic_search', 'web_search', 'retrieve'],
+    price: '120',
+    totalSales: 893,
+    totalRevenue: '107160',
+    rating: 4.8,
+    ratingCount: 234,
+    featured: true,
+    createdAt: '2025-07-10T00:00:00Z',
+  },
+  {
+    id: 'showcase-4',
+    creatorName: 'SentimentAI',
+    title: 'Crypto Sentiment Analyzer',
+    description: 'Real-time crypto sentiment analysis combining Twitter/X feeds, Reddit discussions, and on-chain whale activity into actionable trading signals.',
+    systemPrompt: 'You are a crypto sentiment analysis expert. Combine social media sentiment from Twitter/X and Reddit with on-chain data to generate trading signals...',
+    category: 'finance',
+    tags: ['Sentiment', 'Trading', 'Social', 'Signals'],
+    previewMessages: [
+      { role: 'user', content: 'What\'s the current sentiment for $ETH across social media?' },
+      { role: 'assistant', content: 'Current ETH sentiment analysis: Twitter/X: 72% bullish (↑5% from yesterday). Reddit r/ethereum: Moderately positive with focus on upcoming upgrades...' },
+    ],
+    tools: ['x_search', 'reddit_search', 'coin_data', 'web_search'],
+    price: '180',
+    totalSales: 1589,
+    totalRevenue: '286020',
+    rating: 4.85,
+    ratingCount: 421,
+    featured: false,
+    createdAt: '2025-08-05T00:00:00Z',
+  },
+  {
+    id: 'showcase-5',
+    creatorName: 'ContentPro',
+    title: 'Viral Content Framework',
+    description: 'Battle-tested content creation framework used by 50+ crypto projects. Generates threads, blog posts, and marketing copy that consistently goes viral.',
+    systemPrompt: 'You are a viral content strategist specializing in crypto and Web3. Create engaging hooks, compelling narratives, and call-to-actions optimized for engagement...',
+    category: 'marketing',
+    tags: ['Content', 'Viral', 'Marketing', 'Growth'],
+    previewMessages: [
+      { role: 'user', content: 'Create a Twitter thread announcing our new NFT collection launch' },
+      { role: 'assistant', content: '🧵 Thread: Why this NFT collection will redefine digital ownership (1/12)\n\nMost NFT projects focus on art. We focused on utility. Here\'s why that changes everything...' },
+    ],
+    tools: ['x_search', 'web_search'],
+    price: '100',
+    totalSales: 3421,
+    totalRevenue: '342100',
+    rating: 4.7,
+    ratingCount: 876,
+    featured: false,
+    createdAt: '2025-04-15T00:00:00Z',
+  },
+  {
+    id: 'showcase-6',
+    creatorName: 'ArtificerAI',
+    title: 'Creative Worldbuilder',
+    description: 'Immersive worldbuilding system prompt for game designers and writers. Creates consistent lore, character arcs, and narrative structures with deep coherence.',
+    systemPrompt: 'You are a master worldbuilder and narrative designer. Create rich, internally consistent worlds with detailed lore, cultures, magic systems, and character motivations...',
+    category: 'creative',
+    tags: ['Worldbuilding', 'Narrative', 'Game Design', 'Lore'],
+    previewMessages: [
+      { role: 'user', content: 'Build a fantasy world where magic is powered by memories' },
+      { role: 'assistant', content: 'Welcome to Mnemosia — a world where memories are the currency of power. The Rememberers guild controls the flow of memory-magic, harvesting experiences...' },
+    ],
+    tools: ['web_search'],
+    price: '80',
+    totalSales: 1876,
+    totalRevenue: '150080',
+    rating: 4.9,
+    ratingCount: 512,
+    featured: false,
+    createdAt: '2025-09-01T00:00:00Z',
+  },
+  {
+    id: 'showcase-7',
+    creatorName: 'WhaleWatch',
+    title: 'On-Chain Whale Tracker',
+    description: 'Monitors and interprets whale wallet movements across EVM chains. Identifies accumulation patterns, smart money flows, and potential market-moving transactions.',
+    systemPrompt: 'You are an on-chain analyst specializing in whale behavior and smart money tracking. Analyze wallet movements, identify accumulation/distribution patterns...',
+    category: 'finance',
+    tags: ['Whales', 'On-chain', 'Smart Money', 'Analytics'],
+    previewMessages: [
+      { role: 'user', content: 'Track the top 10 whale wallets for ETH movements in the last 24h' },
+      { role: 'assistant', content: 'Whale Activity Report (Last 24h):\n🐋 Wallet 0x1a...3f: Accumulated 5,200 ETH ($15.6M) across 3 transactions...' },
+    ],
+    tools: ['wallet_analyzer', 'coin_data', 'web_search'],
+    price: '250',
+    totalSales: 967,
+    totalRevenue: '241750',
+    rating: 4.85,
+    ratingCount: 298,
+    featured: false,
+    createdAt: '2025-07-28T00:00:00Z',
+  },
+  {
+    id: 'showcase-8',
+    creatorName: 'NFTScope',
+    title: 'NFT Collection Analyzer',
+    description: 'Deep analysis of NFT collections including rarity scoring, wash-trade detection, holder distribution, and floor price prediction models.',
+    systemPrompt: 'You are an NFT market analyst expert. Analyze collections for rarity distribution, wash trading patterns, holder concentration, and price trajectory...',
+    category: 'research',
+    tags: ['NFT', 'Analysis', 'Rarity', 'Market Intelligence'],
+    previewMessages: [
+      { role: 'user', content: 'Analyze the BAYC collection: holder distribution and wash trade percentage' },
+      { role: 'assistant', content: 'BAYC Collection Analysis:\n📊 Unique Holders: 5,847 (58.5% of supply)\n🔴 Wash Trade Volume: ~12% of 30d volume detected...' },
+    ],
+    tools: ['nft_retrieval', 'web_search', 'wallet_analyzer'],
+    price: '160',
+    totalSales: 1234,
+    totalRevenue: '197440',
+    rating: 4.75,
+    ratingCount: 345,
+    featured: false,
+    createdAt: '2025-06-22T00:00:00Z',
+  },
+  {
+    id: 'showcase-9',
+    creatorName: 'SmartAudit',
+    title: 'Smart Contract Auditor',
+    description: 'Automated smart contract security review prompt. Identifies common vulnerabilities, gas optimizations, and best practice violations in Solidity code.',
+    systemPrompt: 'You are a smart contract security auditor. Analyze Solidity code for reentrancy, overflow, access control, and other OWASP smart contract vulnerabilities...',
+    category: 'coding',
+    tags: ['Security', 'Audit', 'Solidity', 'Smart Contracts'],
+    previewMessages: [
+      { role: 'user', content: 'Audit this ERC-20 token contract for security vulnerabilities' },
+      { role: 'assistant', content: 'Security Audit Report:\n🔴 CRITICAL: Reentrancy vulnerability in withdraw() function (line 47)\n🟡 MEDIUM: Missing zero-address check in transfer()...' },
+    ],
+    tools: ['code_interpreter', 'web_search'],
+    price: '300',
+    totalSales: 756,
+    totalRevenue: '226800',
+    rating: 4.95,
+    ratingCount: 189,
+    featured: false,
+    createdAt: '2025-08-18T00:00:00Z',
+  },
+];
+
 function PromptCardSkeleton() {
   return (
     <Card className="h-full">
@@ -115,9 +310,11 @@ export default function PromptMarketplacePage() {
       try {
         const res = await fetch('/api/prompts?limit=50');
         const data = await res.json();
-        setPrompts(data.prompts || []);
+        const apiPrompts = data.prompts || [];
+        setPrompts(apiPrompts.length > 0 ? apiPrompts : SHOWCASE_PROMPTS);
       } catch (error) {
         console.error('Failed to fetch prompts:', error);
+        setPrompts(SHOWCASE_PROMPTS);
       } finally {
         setLoading(false);
       }

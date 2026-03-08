@@ -92,6 +92,17 @@ export default function DashboardPage() {
   }, []);
 
   async function fetchData() {
+    const SHOWCASE_KEYS: ApiKeyInfo[] = [
+      { id: 'key-1', name: 'Production API', keyPreview: 'bb_sk_prod_****7f2a', permissions: ['read', 'write', 'execute'], rateLimit: 1000, totalQueries: 24580, totalSpent: '4916', creditBalance: '15084', status: 'active', createdAt: '2025-11-01T00:00:00Z', lastUsedAt: '2026-03-08T11:45:00Z' },
+      { id: 'key-2', name: 'Research Bot', keyPreview: 'bb_sk_res_****3e1b', permissions: ['read', 'execute'], rateLimit: 500, totalQueries: 12340, totalSpent: '2468', creditBalance: '7532', status: 'active', createdAt: '2025-12-15T00:00:00Z', lastUsedAt: '2026-03-08T10:30:00Z' },
+      { id: 'key-3', name: 'Trading Signal', keyPreview: 'bb_sk_trd_****9d4c', permissions: ['read', 'write', 'execute'], rateLimit: 2000, totalQueries: 45120, totalSpent: '13536', creditBalance: '6464', status: 'active', createdAt: '2025-10-20T00:00:00Z', lastUsedAt: '2026-03-08T12:00:00Z' },
+    ];
+    const SHOWCASE_AGENTS: AgentInfo[] = [
+      { id: 'agent-defi-oracle', name: 'DeFi Oracle', tools: ['coin_data', 'wallet_analyzer', 'web_search'], totalExecutions: 14520, totalRevenue: '87120', rating: 4.9, status: 'active' },
+      { id: 'agent-market-sentinel', name: 'Market Sentinel', tools: ['stock_chart', 'coin_data', 'coin_ohlc'], totalExecutions: 12800, totalRevenue: '76800', rating: 4.85, status: 'active' },
+      { id: 'agent-alpha-researcher', name: 'Alpha Researcher', tools: ['web_search', 'x_search', 'coin_data'], totalExecutions: 11300, totalRevenue: '67800', rating: 4.8, status: 'active' },
+      { id: 'agent-code-wizard', name: 'Code Wizard', tools: ['code_interpreter', 'web_search'], totalExecutions: 8500, totalRevenue: '51000', rating: 4.9, status: 'active' },
+    ];
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
@@ -102,10 +113,14 @@ export default function DashboardPage() {
       clearTimeout(timer);
       const keysData = await keysRes.json();
       const agentsData = await agentsRes.json();
-      setApiKeys(keysData.keys || []);
-      setAgents(agentsData.agents || []);
+      const apiKeys = keysData.keys || [];
+      const apiAgents = agentsData.agents || [];
+      setApiKeys(apiKeys.length > 0 ? apiKeys : SHOWCASE_KEYS);
+      setAgents(apiAgents.length > 0 ? apiAgents : SHOWCASE_AGENTS);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      setApiKeys(SHOWCASE_KEYS);
+      setAgents(SHOWCASE_AGENTS);
     } finally {
       setLoading(false);
     }
