@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { Component, ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
@@ -20,10 +20,29 @@ const queryClient = new QueryClient({
   },
 });
 
+class SafeUserProvider extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.error('[SafeUserProvider] UserProvider crashed, rendering without user context:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <>{this.props.children}</>;
+    }
+    return <UserProvider>{this.props.children}</UserProvider>;
+  }
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <UserProvider>
+      <SafeUserProvider>
         <DataStreamProvider>
           <ThemeProvider
             attribute="class"
@@ -35,7 +54,7 @@ export function Providers({ children }: { children: ReactNode }) {
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>
         </DataStreamProvider>
-      </UserProvider>
+      </SafeUserProvider>
     </QueryClientProvider>
   );
 }

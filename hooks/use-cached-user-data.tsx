@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import { useUserData } from '@/hooks/use-user-data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { type ComprehensiveUserData } from '@/lib/user-data';
-import { shouldBypassRateLimits } from '@/ai/providers';
+import { type ComprehensiveUserData } from '@/lib/user-data-server';
+import { shouldBypassRateLimits } from '@/lib/rate-limit-utils';
 
 export function useCachedUserData() {
   // Get fresh data from the existing hook

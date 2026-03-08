@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useCachedUserData } from '@/hooks/use-cached-user-data';
-import { type ComprehensiveUserData } from '@/lib/user-data';
+import { type ComprehensiveUserData } from '@/lib/user-data-server';
 
 interface UserContextType {
   // Core user data
