@@ -2,31 +2,111 @@
 // next/server.js eagerly require()s ALL exports including userAgent → ua-parser-js → __dirname
 import { NextResponse } from 'next/dist/server/web/spec-extension/response';
 import type { NextRequest } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 
+/** Add common security headers to a response. */
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  return response;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const allowGuestAccess =
-    (process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? process.env.ALLOW_GUEST_ACCESS ?? 'false') !== 'false';
 
-  // Public API routes that don't require authentication
-  if (
-    pathname.startsWith('/api/raycast') ||
-    pathname.startsWith('/api/tools') ||
-    pathname.startsWith('/api/a2a') ||
-    pathname.startsWith('/api/mcp') ||
-    pathname.startsWith('/api/arena') ||
-    pathname.startsWith('/api/agents') ||
-    pathname.startsWith('/api/keys') ||
-    pathname.startsWith('/api/revenue') ||
-    pathname.startsWith('/api/playbooks') ||
-    pathname.startsWith('/api/marketplace') ||
-    pathname.startsWith('/api/network') ||
-    pathname.startsWith('/.well-known')
-  ) {
+  // ── Rate-limit all /api/* routes: 60 req/min per IP ──────────────
+  if (pathname.startsWith('/api/')) {
+    const { success, remaining, resetAt } = rateLimit(request, {
+      maxRequests: 60,
+      windowMs: 60_000,
+    });
+
+    if (!success) {
+      return applySecurityHeaders(
+        NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again later.' },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(Math.ceil((resetAt - Date.now()) / 1000)),
+              'X-RateLimit-Limit': '60',
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.ceil(resetAt / 1000)),
+            },
+          },
+        ),
+      );
+    }
+
+    // Attach rate-limit + security headers to successful API responses
+    const response = NextResponse.next();
+    applySecurityHeaders(response);
+    response.headers.set('X-RateLimit-Limit', '60');
+    response.headers.set('X-RateLimit-Remaining', String(remaining));
+    response.headers.set('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
+
+    // For public API routes, return early with rate-limit headers
+    if (
+      pathname.startsWith('/api/raycast') ||
+      pathname.startsWith('/api/tools') ||
+      pathname.startsWith('/api/a2a') ||
+      pathname.startsWith('/api/mcp') ||
+      pathname.startsWith('/api/arena') ||
+      pathname.startsWith('/api/agents') ||
+      pathname.startsWith('/api/keys') ||
+      pathname.startsWith('/api/revenue') ||
+      pathname.startsWith('/api/playbooks') ||
+      pathname.startsWith('/api/marketplace') ||
+      pathname.startsWith('/api/network') ||
+      pathname.startsWith('/api/auth')
+    ) {
+      return response;
+    }
+
+    // For other /api/* routes, check auth below but carry rate-limit headers.
+    // Guest-access bypass
+    const allowGuestApi =
+      (process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? process.env.ALLOW_GUEST_ACCESS ?? 'false') !== 'false';
+    if (allowGuestApi) return response;
+
+    // Auth check for remaining API routes
+    const apiSessionToken =
+      request.cookies.get('better-auth.session_token')?.value ||
+      request.cookies.get('better_auth.session_token')?.value ||
+      request.cookies.get('__Secure-better-auth.session_token')?.value;
+
+    if (!apiSessionToken) {
+      return applySecurityHeaders(
+        NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          {
+            status: 401,
+            headers: {
+              'X-RateLimit-Limit': '60',
+              'X-RateLimit-Remaining': String(remaining),
+              'X-RateLimit-Reset': String(Math.ceil(resetAt / 1000)),
+            },
+          },
+        ),
+      );
+    }
+
+    return response;
+  }
+
+  // ── Non-API routes below ─────────────────────────────────────────
+
+  // .well-known (no rate-limiting needed)
+  if (pathname.startsWith('/.well-known')) {
     return NextResponse.next();
   }
+
+  const allowGuestAccess =
+    (process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? process.env.ALLOW_GUEST_ACCESS ?? 'false') !== 'false';
 
   // Public frontend pages
   if (
@@ -39,7 +119,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/network') ||
     pathname.startsWith('/playbooks')
   ) {
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   // If guest access is allowed, let everyone through
@@ -67,14 +147,6 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // API routes
-    if (pathname.startsWith('/api/')) {
-      if (pathname.startsWith('/api/auth')) {
-        return NextResponse.next();
-      }
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     // Allow _next paths
     if (pathname.startsWith('/_next')) {
       return NextResponse.next();
@@ -83,7 +155,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {

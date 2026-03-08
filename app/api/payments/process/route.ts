@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   processToolPayment,
   processAgentInvocation,
@@ -8,119 +8,111 @@ import {
   type PaymentType,
   type ChainId,
 } from '@/lib/payment-pipeline';
+import {
+  apiError,
+  apiSuccess,
+  parseJsonBody,
+  validateBody,
+  sanitizeString,
+  type Schema,
+} from '@/lib/api-utils';
+
+const VALID_PAYMENT_TYPES = ['tool_call', 'agent_invoke', 'prompt_purchase', 'arena_entry', 'staking'] as const;
+const VALID_CHAINS = ['base', 'bsc', 'apechain', 'arbitrum'] as const;
+
+const paymentSchema: Schema = {
+  type: { type: 'string', required: true, enum: VALID_PAYMENT_TYPES },
+  fromAgentId: { type: 'string', required: true, maxLength: 100 },
+  toAgentId: { type: 'string', required: false, maxLength: 100 },
+  amount: { type: 'number', required: false, min: 0.000001, max: 10_000_000 },
+  chain: { type: 'string', required: false, enum: VALID_CHAINS },
+  toolName: { type: 'string', required: false, maxLength: 200 },
+  promptId: { type: 'string', required: false, maxLength: 100 },
+  matchId: { type: 'string', required: false, maxLength: 100 },
+};
 
 /**
  * POST /api/payments/process - Process a new payment.
- *
- * Body:
- *   {
- *     type: 'tool_call' | 'agent_invoke' | 'prompt_purchase' | 'arena_entry' | 'staking',
- *     fromAgentId: string,
- *     toAgentId?: string,       // required for agent_invoke
- *     amount?: number,          // required for prompt_purchase, arena_entry, staking
- *     chain?: 'base' | 'bsc' | 'apechain' | 'arbitrum',
- *     toolName?: string,        // required for tool_call
- *     tools?: string[],         // required for agent_invoke
- *     promptId?: string,        // for prompt_purchase
- *     matchId?: string,         // for arena_entry
- *   }
  */
 export async function POST(request: NextRequest) {
-  let body: {
-    type: PaymentType;
-    fromAgentId: string;
-    toAgentId?: string;
-    amount?: number;
-    chain?: ChainId;
-    toolName?: string;
-    tools?: string[];
-    promptId?: string;
-    matchId?: string;
-  };
+  // Safe JSON parse
+  const parsed = await parseJsonBody(request);
+  if ('error' in parsed) return parsed.error;
+  const body = parsed.data as Record<string, unknown>;
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  // Schema validation
+  const { valid, errors, sanitized } = validateBody(body, paymentSchema);
+  if (!valid) {
+    return apiError(errors.join('; '), 400);
   }
 
-  if (!body.type || !body.fromAgentId) {
-    return NextResponse.json(
-      { error: 'type and fromAgentId are required' },
-      { status: 400 },
-    );
-  }
+  const paymentType = sanitized.type as PaymentType;
+  const fromAgentId = sanitized.fromAgentId as string;
+  const chain = (sanitized.chain as ChainId) || 'base';
 
-  const chain = body.chain || 'base';
+  // Sanitize tools array if present
+  const rawTools = Array.isArray(body.tools) ? body.tools : [];
+  const tools = rawTools
+    .filter((t): t is string => typeof t === 'string')
+    .map((t) => sanitizeString(t, 100))
+    .filter((t) => t.length > 0)
+    .slice(0, 20);
 
   try {
-    switch (body.type) {
+    switch (paymentType) {
       case 'tool_call': {
-        if (!body.toolName) {
-          return NextResponse.json(
-            { error: 'toolName is required for tool_call payments' },
-            { status: 400 },
-          );
+        const toolName = sanitized.toolName as string | undefined;
+        if (!toolName) {
+          return apiError('toolName is required for tool_call payments', 400);
         }
-        const tx = await processToolPayment(body.fromAgentId, body.toolName, chain);
-        return NextResponse.json({ transaction: tx });
+        const tx = await processToolPayment(fromAgentId, toolName, chain);
+        return apiSuccess({ transaction: tx });
       }
 
       case 'agent_invoke': {
-        if (!body.toAgentId) {
-          return NextResponse.json(
-            { error: 'toAgentId is required for agent_invoke payments' },
-            { status: 400 },
-          );
+        const toAgentId = sanitized.toAgentId as string | undefined;
+        if (!toAgentId) {
+          return apiError('toAgentId is required for agent_invoke payments', 400);
         }
-        const tools = body.tools || ['web_search'];
-        const tx = await processAgentInvocation(body.fromAgentId, body.toAgentId, tools, chain);
-        return NextResponse.json({ transaction: tx });
+        const invokeTools = tools.length > 0 ? tools : ['web_search'];
+        const tx = await processAgentInvocation(fromAgentId, toAgentId, invokeTools, chain);
+        return apiSuccess({ transaction: tx });
       }
 
       case 'prompt_purchase': {
-        if (!body.amount || body.amount <= 0) {
-          return NextResponse.json(
-            { error: 'A positive amount is required for prompt_purchase' },
-            { status: 400 },
-          );
+        const amount = sanitized.amount as number | undefined;
+        if (!amount || amount <= 0) {
+          return apiError('A positive amount is required for prompt_purchase', 400);
         }
-        const promptId = body.promptId || `prompt_${Date.now().toString(36)}`;
-        const tx = await processPromptPurchase(body.fromAgentId, promptId, body.amount, chain);
-        return NextResponse.json({ transaction: tx });
+        const promptId = sanitizeString(sanitized.promptId ?? `prompt_${Date.now().toString(36)}`, 100);
+        const tx = await processPromptPurchase(fromAgentId, promptId, amount, chain);
+        return apiSuccess({ transaction: tx });
       }
 
       case 'arena_entry': {
-        if (!body.amount || body.amount <= 0) {
-          return NextResponse.json(
-            { error: 'A positive amount is required for arena_entry' },
-            { status: 400 },
-          );
+        const amount = sanitized.amount as number | undefined;
+        if (!amount || amount <= 0) {
+          return apiError('A positive amount is required for arena_entry', 400);
         }
-        const matchId = body.matchId || `match_${Date.now().toString(36)}`;
-        const tx = await processArenaEntry(body.fromAgentId, matchId, body.amount, chain);
-        return NextResponse.json({ transaction: tx });
+        const matchId = sanitizeString(sanitized.matchId ?? `match_${Date.now().toString(36)}`, 100);
+        const tx = await processArenaEntry(fromAgentId, matchId, amount, chain);
+        return apiSuccess({ transaction: tx });
       }
 
       case 'staking': {
-        if (!body.amount || body.amount <= 0) {
-          return NextResponse.json(
-            { error: 'A positive amount is required for staking' },
-            { status: 400 },
-          );
+        const amount = sanitized.amount as number | undefined;
+        if (!amount || amount <= 0) {
+          return apiError('A positive amount is required for staking', 400);
         }
-        const tx = await processStaking(body.fromAgentId, body.amount, chain);
-        return NextResponse.json({ transaction: tx });
+        const tx = await processStaking(fromAgentId, amount, chain);
+        return apiSuccess({ transaction: tx });
       }
 
       default:
-        return NextResponse.json(
-          { error: `Unknown payment type: ${body.type}` },
-          { status: 400 },
-        );
+        return apiError(`Unknown payment type: ${paymentType}`, 400);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Payment processing failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

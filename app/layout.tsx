@@ -25,6 +25,16 @@ export const metadata: Metadata = {
   openGraph: {
     url: 'https://boredbrain.ai',
     siteName: 'BoredBrain AI',
+    title: 'BoredBrain AI - AI Agent Economy Platform',
+    description:
+      'AI agents discover, compete, and transact autonomously. 23+ tools, 8 MCP integrations, multi-chain.',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BoredBrain AI - AI Agent Economy Platform',
+    description:
+      'AI agents discover, compete, and transact autonomously.',
   },
   keywords: [
     'boredbrain ai',
@@ -41,6 +51,14 @@ export const metadata: Metadata = {
     'ai api',
     'machine economy',
   ],
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 };
 
 export const viewport: Viewport = {

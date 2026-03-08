@@ -1,80 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 import { db } from '@/lib/db';
 import { arenaMatch, agent, arenaEscrow } from '@/lib/db/schema';
 import { generateId } from 'ai';
 import { inArray } from 'drizzle-orm';
+import {
+  apiError,
+  apiSuccess,
+  parseJsonBody,
+  validateBody,
+  sanitizeString,
+  type Schema,
+} from '@/lib/api-utils';
+
+const createMatchSchema: Schema = {
+  topic: { type: 'string', required: true, maxLength: 500 },
+  matchType: { type: 'string', required: true, enum: ['debate', 'search_race', 'research'] },
+  prizePool: { type: 'string', required: false, maxLength: 50 },
+};
 
 /**
  * POST /api/arena/create - Create a new arena match
  *
- * Body: { topic: string; matchType: 'debate' | 'search_race' | 'research'; agentIds: string[]; prizePool?: string }
- *
  * Persists match to the database and creates an escrow pool for wagering.
  */
 export async function POST(request: NextRequest) {
-  let body: {
-    topic: string;
-    matchType: 'debate' | 'search_race' | 'research';
-    agentIds: string[];
-    prizePool?: string;
-  };
+  // Safe JSON parse
+  const parsed = await parseJsonBody(request);
+  if ('error' in parsed) return parsed.error;
+  const body = parsed.data as Record<string, unknown>;
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  // Schema validation
+  const { valid, errors, sanitized } = validateBody(body, createMatchSchema);
+  if (!valid) {
+    return apiError(errors.join('; '), 400);
   }
 
-  // Validation
-  if (!body.topic || typeof body.topic !== 'string' || body.topic.trim().length === 0) {
-    return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+  // Validate agentIds (array field handled separately)
+  const agentIds = body.agentIds;
+  if (!Array.isArray(agentIds) || agentIds.length < 2) {
+    return apiError('At least 2 agentIds are required', 400);
+  }
+  if (agentIds.length > 4) {
+    return apiError('Maximum 4 agents per match', 400);
+  }
+  const sanitizedAgentIds = agentIds
+    .filter((id): id is string => typeof id === 'string')
+    .map((id) => sanitizeString(id, 100))
+    .filter((id) => id.length > 0);
+  if (sanitizedAgentIds.length !== agentIds.length) {
+    return apiError('All agentIds must be non-empty strings', 400);
   }
 
-  const validTypes = ['debate', 'search_race', 'research'];
-  if (!body.matchType || !validTypes.includes(body.matchType)) {
-    return NextResponse.json(
-      { error: 'matchType must be one of: debate, search_race, research' },
-      { status: 400 },
-    );
-  }
-
-  if (!body.agentIds || !Array.isArray(body.agentIds) || body.agentIds.length < 2) {
-    return NextResponse.json(
-      { error: 'At least 2 agentIds are required' },
-      { status: 400 },
-    );
-  }
-
-  if (body.agentIds.length > 4) {
-    return NextResponse.json({ error: 'Maximum 4 agents per match' }, { status: 400 });
-  }
+  const topic = sanitized.topic as string;
+  const matchType = sanitized.matchType as string;
+  const prizePool = sanitizeString(sanitized.prizePool ?? '0', 50);
 
   // Verify all agents exist (check both DB and mock data)
-  const mockAgentIds = MOCK_AGENTS.map((a) => a.id);
+  const mockAgentIds = MOCK_AGENTS.map((a: any) => a.id);
 
   try {
     // Check DB agents
     const dbAgents = await db
       .select({ id: agent.id })
       .from(agent)
-      .where(inArray(agent.id, body.agentIds));
-    const dbAgentIds = new Set(dbAgents.map((a) => a.id));
+      .where(inArray(agent.id, sanitizedAgentIds));
+    const dbAgentIds = new Set(dbAgents.map((a: any) => a.id));
 
     // Validate all agent IDs exist somewhere
-    const invalidIds = body.agentIds.filter(
+    const invalidIds = sanitizedAgentIds.filter(
       (id) => !mockAgentIds.includes(id) && !dbAgentIds.has(id)
     );
 
     if (invalidIds.length > 0) {
-      return NextResponse.json(
-        { error: `Unknown agent IDs: ${invalidIds.join(', ')}` },
-        { status: 400 },
-      );
+      return apiError(`Unknown agent IDs: ${invalidIds.join(', ')}`, 400);
     }
 
     // Seed mock agents into DB if they don't exist yet
-    const missingMockIds = body.agentIds.filter(
+    const missingMockIds = sanitizedAgentIds.filter(
       (id) => mockAgentIds.includes(id) && !dbAgentIds.has(id)
     );
 
@@ -100,13 +103,12 @@ export async function POST(request: NextRequest) {
 
     // Generate match ID and persist
     const matchId = generateId();
-    const prizePool = body.prizePool || '0';
 
     await db.insert(arenaMatch).values({
       id: matchId,
-      topic: body.topic.trim(),
-      matchType: body.matchType,
-      agents: body.agentIds,
+      topic,
+      matchType,
+      agents: sanitizedAgentIds,
       status: 'pending',
       prizePool,
       createdAt: new Date(),
@@ -125,9 +127,9 @@ export async function POST(request: NextRequest) {
 
     const match = {
       id: matchId,
-      topic: body.topic.trim(),
-      matchType: body.matchType,
-      agents: body.agentIds,
+      topic,
+      matchType,
+      agents: sanitizedAgentIds,
       winnerId: null,
       rounds: null,
       totalVotes: 0,
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
       completedAt: null,
     };
 
-    return NextResponse.json({ match }, { status: 201 });
+    return apiSuccess({ match }, 201);
   } catch (error) {
     console.error('[arena/create] DB error:', error);
 
@@ -146,22 +148,19 @@ export async function POST(request: NextRequest) {
     const matchId = `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const match = {
       id: matchId,
-      topic: body.topic.trim(),
-      matchType: body.matchType,
-      agents: body.agentIds,
+      topic,
+      matchType,
+      agents: sanitizedAgentIds,
       winnerId: null,
       rounds: null,
       totalVotes: 0,
       resultTxHash: null,
-      prizePool: body.prizePool || '0',
+      prizePool,
       status: 'pending',
       createdAt: new Date().toISOString(),
       completedAt: null,
     };
 
-    return NextResponse.json(
-      { match, _warning: 'Stored in-memory only (DB unavailable)' },
-      { status: 201 },
-    );
+    return apiSuccess({ match, _warning: 'Stored in-memory only (DB unavailable)' }, 201);
   }
 }
