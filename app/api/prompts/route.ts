@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { promptTemplate, user } from '@/lib/db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { generateId } from 'ai';
+import { SHOWCASE_PROMPTS } from '@/lib/showcase-prompts';
 
 export const MOCK_PROMPTS = [
   {
@@ -534,8 +535,12 @@ export async function GET(request: NextRequest) {
     // DB connection failed, fall through to mock data
   }
 
-  // Mock data fallback
-  let mockData = MOCK_PROMPTS;
+  // Mock data fallback — merge MOCK_PROMPTS (detailed) + SHOWCASE_PROMPTS
+  const allMock = [
+    ...MOCK_PROMPTS,
+    ...SHOWCASE_PROMPTS.filter((sp) => !MOCK_PROMPTS.some((mp) => mp.id === sp.id)),
+  ];
+  let mockData = allMock;
   if (category && category !== 'all') {
     mockData = mockData.filter((p) => p.category === category);
   }
