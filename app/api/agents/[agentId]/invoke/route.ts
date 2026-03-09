@@ -260,6 +260,16 @@ export async function POST(
   // -------------------------------------------------------------------------
   // 7. Billing — settle between caller and provider
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Calculate quality score (0-5 scale) for rating update
+  // -------------------------------------------------------------------------
+  const latencyScore = Math.max(0, 5 - (latencyMs / 2000)); // <2s = 5, >10s = 0
+  const tokenEfficiency = execution.tokensUsed > 0 ? Math.min(5, 5000 / execution.tokensUsed) : 2.5;
+  const toolSuccess = execution.toolCalls?.length
+    ? (execution.toolCalls.filter((t: Record<string, unknown>) => !('error' in ((t.output as Record<string, unknown>) ?? {}))).length / execution.toolCalls.length) * 5
+    : 3;
+  const callQuality = (latencyScore + tokenEfficiency + toolSuccess) / 3;
+
   let billingInfo: Record<string, unknown>;
 
   if (callerAgentId) {
@@ -289,6 +299,7 @@ export async function POST(
             .set({
               totalCalls: sql`${externalAgent.totalCalls} + 1`,
               totalEarned: sql`${externalAgent.totalEarned} + ${providerEarning}`,
+              rating: sql`CASE WHEN ${externalAgent.rating} > 0 THEN ${externalAgent.rating} * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END`,
             })
             .where(eq(externalAgent.id, agentId)),
           new Promise<never>((_, reject) =>
@@ -313,6 +324,7 @@ export async function POST(
             .update(externalAgent)
             .set({
               totalCalls: sql`${externalAgent.totalCalls} + 1`,
+              rating: sql`CASE WHEN ${externalAgent.rating} > 0 THEN ${externalAgent.rating} * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END`,
             })
             .where(eq(externalAgent.id, agentId)),
           new Promise<never>((_, reject) =>

@@ -37,6 +37,7 @@ interface DiscoveryAgent {
   endpoint: string;
   rating?: number;
   totalCalls?: number;
+  badge?: 'verified' | 'community';
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,11 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
         10;
       const currency = (a.metadata as any)?.currency ?? 'BBAI';
 
+      const badge: 'verified' | 'community' =
+        a.ownerAddress === 'platform-fleet' || a.verifiedAt != null
+          ? 'verified'
+          : 'community';
+
       merged.push({
         id: a.id,
         name: a.name,
@@ -104,6 +110,7 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
         endpoint: `/api/agents/${a.id}/invoke`,
         rating: a.rating,
         totalCalls: a.totalCalls,
+        badge,
       });
       seenIds.add(a.id);
       seenNames.add(a.name);
@@ -131,6 +138,7 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
       pricing: { averageCostPerQuery: avgCost, currency: 'BBAI' },
       status: mock.status === 'active' ? 'online' : 'offline',
       endpoint: `/api/agents/${mock.id}/invoke`,
+      badge: 'verified',
     });
     seenIds.add(mock.id);
   }
