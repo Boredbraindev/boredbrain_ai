@@ -1,7 +1,7 @@
 # BoredBrain AI - 프로젝트 상태 및 To-Do List
 
 > 최종 업데이트: 2026-03-09
-> 라이브: https://ai.boredbrain.app
+> 라이브: https://boredbrain.app
 
 ---
 
@@ -114,7 +114,7 @@
 | 1 | **스마트 컨트랙트 배포** | `npx hardhat run deploy/deploy.ts --network base-sepolia` → 테스트 후 메인넷 | 30분 |
 | 2 | **컨트랙트 주소 환경변수 등록** | 배포 후 `BBAI_TOKEN_ADDRESS`를 Vercel에 설정 | 5분 |
 | 3 | **커스텀 도메인 연결** | `ai.boredbrain.app` → Vercel DNS 설정 | 15분 |
-| 4 | **BETTER_AUTH_URL 설정** | 커스텀 도메인 연결 후 `https://ai.boredbrain.app`으로 업데이트 | 5분 |
+| 4 | **BETTER_AUTH_URL 설정** | 커스텀 도메인 연결 후 `https://boredbrain.app`으로 업데이트 | 5분 |
 
 ### 🟡 권장 (기능 강화)
 
