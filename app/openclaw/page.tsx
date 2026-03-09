@@ -120,8 +120,6 @@ export default function OpenClawPage() {
   const [agents, setAgents] = useState<DiscoveryAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [seedResult, setSeedResult] = useState<string | null>(null);
   const [agentPage, setAgentPage] = useState(0);
   const AGENTS_PER_PAGE = 24;
 
@@ -162,15 +160,15 @@ export default function OpenClawPage() {
         const res = await fetch('/api/agents/seed');
         const json = await res.json();
         if (json.success) {
-          setFleetStats(json.data.stats);
-          setCategories(json.data.categories || []);
+          setFleetStats(json.data?.stats ?? json.stats);
+          setCategories(json.data?.categories ?? json.categories ?? []);
         }
       } catch {
         // silent
       }
     }
     loadFleetStats();
-  }, [seedResult]);
+  }, []);
 
   // Fetch agents (with optional filter)
   useEffect(() => {
@@ -194,28 +192,7 @@ export default function OpenClawPage() {
     }
     loadAgents();
     setAgentPage(0);
-  }, [selectedSpec, seedResult]);
-
-  // Seed fleet
-  const handleSeed = useCallback(async () => {
-    setSeeding(true);
-    setSeedResult(null);
-    try {
-      const res = await fetch('/api/agents/seed', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        setSeedResult(
-          `Seeded ${json.data.inserted} agents (${json.data.skipped} skipped). Total: ${json.data.totalAgents}`,
-        );
-      } else {
-        setSeedResult(`Error: ${json.error}`);
-      }
-    } catch {
-      setSeedResult('Failed to seed agents');
-    } finally {
-      setSeeding(false);
-    }
-  }, []);
+  }, [selectedSpec]);
 
   // Verify identity
   const handleVerify = useCallback(async () => {
@@ -298,30 +275,6 @@ export default function OpenClawPage() {
     }
   }, [regForm]);
 
-  // Boost activity
-  const [boosting, setBoosting] = useState(false);
-  const [boostResult, setBoostResult] = useState<string | null>(null);
-  const handleBoost = useCallback(async () => {
-    setBoosting(true);
-    setBoostResult(null);
-    try {
-      const res = await fetch('/api/agents/boost', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        const d = json.data ?? json;
-        setBoostResult(`${d.scenariosRun ?? 0} calls executed, ${(d.totalBilled ?? 0).toFixed(2)} BBAI billed`);
-        // Trigger data refresh
-        setSeedResult((prev) => (prev ?? '') + ' ');
-      } else {
-        setBoostResult(`Error: ${json.error}`);
-      }
-    } catch {
-      setBoostResult('Boost failed');
-    } finally {
-      setBoosting(false);
-    }
-  }, []);
-
   // Paginated agents
   const paginatedAgents = agents.slice(
     agentPage * AGENTS_PER_PAGE,
@@ -394,31 +347,7 @@ export default function OpenClawPage() {
           ))}
         </section>
 
-        {/* --------------------------------------------------------------- */}
-        {/* Seed Fleet Button                                                */}
-        {/* --------------------------------------------------------------- */}
-        <section className="flex flex-wrap items-center gap-4">
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-all"
-          >
-            {seeding ? 'Seeding Agents...' : 'Seed Agent Fleet'}
-          </button>
-          <button
-            onClick={handleBoost}
-            disabled={boosting}
-            className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-all"
-          >
-            {boosting ? 'Running Agent Calls...' : 'Boost Activity'}
-          </button>
-          {seedResult && (
-            <p className="text-sm text-emerald-400/80">{seedResult}</p>
-          )}
-          {boostResult && (
-            <p className="text-sm text-cyan-400/80">{boostResult}</p>
-          )}
-        </section>
+        {/* Admin buttons hidden — use /api/agents/seed (POST) and /api/agents/boost (POST) directly */}
 
         {/* --------------------------------------------------------------- */}
         {/* Category Filter                                                  */}
