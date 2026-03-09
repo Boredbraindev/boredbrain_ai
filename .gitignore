@@ -166,8 +166,26 @@ contracts/cache/
 contracts/typechain-types/
 contracts/node_modules/
 
-# Claude worktrees
-.claude/worktrees/
+# Claude
+.claude/
+
+# Docker env overrides
+.env.docker
+
+# Large binary/business docs (internal)
+*.pdf
+footer-logo.png
+footer.png
+BOREDBRAIN-BM-REVENUE.html
+BOREDBRAIN-BM-REVENUE.md
+BOREDBRAIN-FEATURE-SPEC.html
+MARKETING_STRATEGY.md
+PROJECT_ANALYSIS.md
+TODO.html
+bbai-token-utility.html
+boredbrain-utilities.html
+Bored Brain AI - BAYC-First Trading Intelligence.html
+Bored Brain AI - BAYC-First Trading Intelligence_files/
 
 # Internal / confidential docs
 boredbrain-dd-form.html

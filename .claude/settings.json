@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:boredbrain.net)",
-      "Bash(npm run build:*)"
-    ]
-  }
-}
