@@ -213,7 +213,7 @@ export default function ArenaPage() {
 
     setCreateLoading(true);
     try {
-      const res = await fetch('/api/arena/create', {
+      const res = await fetch('/api/arena', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -606,12 +606,14 @@ export default function ArenaPage() {
                                         {round.score}
                                       </span>
                                     </div>
-                                    <Progress
-                                      value={(round.score / maxScore) * 100}
-                                      className={`h-1.5 bg-white/[0.04] ${
-                                        isWinner ? '[&>[data-slot=progress-indicator]]:bg-emerald-500' : '[&>[data-slot=progress-indicator]]:bg-white/20'
-                                      }`}
-                                    />
+                                    <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                          isWinner ? 'bg-emerald-500' : 'bg-white/20'
+                                        }`}
+                                        style={{ width: `${(round.score / maxScore) * 100}%` }}
+                                      />
+                                    </div>
                                     <div className="flex flex-wrap gap-1 mt-2.5">
                                       {round.toolsUsed.map((tool) => (
                                         <span
@@ -726,14 +728,14 @@ export default function ArenaPage() {
                           </div>
                           {/* Execution bar */}
                           <div className="mt-2.5 max-w-xs">
-                            <Progress
-                              value={(a.totalExecutions / maxExec) * 100}
-                              className={`h-1 bg-white/[0.04] ${
-                                isTopThree
-                                  ? '[&>[data-slot=progress-indicator]]:bg-amber-500/60'
-                                  : '[&>[data-slot=progress-indicator]]:bg-white/10'
-                              }`}
-                            />
+                            <div className="h-1 w-full bg-white/[0.04] rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isTopThree ? 'bg-amber-500/60' : 'bg-white/10'
+                                }`}
+                                style={{ width: `${(a.totalExecutions / maxExec) * 100}%` }}
+                              />
+                            </div>
                           </div>
                         </div>
 

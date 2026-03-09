@@ -94,6 +94,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/agents', label: 'Agents' },
       { href: '/marketplace', label: 'Marketplace' },
+      { href: '/playground', label: 'Playground' },
       { href: '/agents/register', label: 'Register' },
       { href: '/agents/tokenize', label: 'Tokenize' },
       { href: '/playbooks', label: 'Playbooks' },
@@ -102,13 +103,28 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'Economy',
+    items: [
+      { href: '/economy', label: 'Economy' },
+      { href: '/skills', label: 'Skills' },
+      { href: '/dao', label: 'DAO' },
+      { href: '/rewards/verify', label: 'Verify & Earn' },
+      { href: '/rewards', label: 'Rewards' },
+    ],
+  },
+  {
+    label: 'Ecosystem',
+    items: [
+      { href: '/openclaw', label: 'ClawHub' },
+      { href: '/network', label: 'Network' },
+    ],
+  },
+  {
     label: 'Analytics',
     items: [
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/dashboard/revenue', label: 'Revenue' },
       { href: '/stats', label: 'Stats' },
-      { href: '/network', label: 'Network' },
-      { href: '/rewards', label: 'Rewards' },
     ],
   },
 ];
