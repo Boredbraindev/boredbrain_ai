@@ -5,9 +5,17 @@ import {
   createAgentWallet,
 } from '@/lib/agent-wallet';
 import { getToolInfo } from '@/lib/tool-pricing';
+import { getPooledClient, releasePooledClient } from '@/lib/mcp/client';
+import {
+  getProviderConfig,
+  isProviderConfigured,
+  getStaticToolList,
+} from '@/lib/mcp/providers';
+import { getIntegrationById } from '@/lib/external-integrations';
 
 // ---------------------------------------------------------------------------
 // Mock tool execution - generates descriptive results based on tool + args
+// (used for internal BoredBrain tools only)
 // ---------------------------------------------------------------------------
 
 function generateMockResult(
@@ -69,6 +77,30 @@ function generateMockResult(
 }
 
 // ---------------------------------------------------------------------------
+// In-memory usage tracking for external MCP calls
+// ---------------------------------------------------------------------------
+
+interface UsageEntry {
+  integrationId: string;
+  toolName: string;
+  agentId: string | null;
+  timestamp: string;
+  durationMs: number;
+  success: boolean;
+  error?: string;
+}
+
+const usageLog: UsageEntry[] = [];
+const MAX_USAGE_LOG = 1000;
+
+function trackUsage(entry: UsageEntry): void {
+  usageLog.push(entry);
+  if (usageLog.length > MAX_USAGE_LOG) {
+    usageLog.splice(0, usageLog.length - MAX_USAGE_LOG);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CORS headers
 // ---------------------------------------------------------------------------
 
@@ -80,6 +112,10 @@ const corsHeaders = {
 
 // ---------------------------------------------------------------------------
 // POST /api/mcp/execute - Execute a tool via MCP protocol
+//
+// Supports two modes:
+//   1. Internal tools (method: "tools/call") - existing mock tool system
+//   2. External MCP providers (integrationId in body) - connects to real MCP servers
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
@@ -94,6 +130,10 @@ export async function POST(request: NextRequest) {
       paymentMethod?: string;
     };
     id?: string | number;
+    // External MCP provider fields
+    integrationId?: string;
+    toolName?: string;
+    args?: Record<string, unknown>;
   };
 
   try {
@@ -111,6 +151,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Route to external MCP provider execution if integrationId is present
+  // ---------------------------------------------------------------------------
+  if (body.integrationId) {
+    return handleExternalMCPExecution(body);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal tool execution (existing behavior)
+  // ---------------------------------------------------------------------------
+
   // Validate MCP method
   const method = body.method;
   if (method !== 'tools/call') {
@@ -118,7 +169,7 @@ export async function POST(request: NextRequest) {
       {
         error: {
           code: -32601,
-          message: `Method not supported: "${method}". Use "tools/call" to execute tools.`,
+          message: `Method not supported: "${method}". Use "tools/call" to execute tools, or provide "integrationId" for external MCP providers.`,
         },
         isError: true,
       },
@@ -278,6 +329,312 @@ export async function POST(request: NextRequest) {
         mode: 'demo',
         timestamp: new Date().toISOString(),
       },
+    },
+    { headers: corsHeaders },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// External MCP provider execution
+// POST body: { integrationId, toolName, args, meta?: { agentId } }
+// ---------------------------------------------------------------------------
+
+async function handleExternalMCPExecution(body: {
+  integrationId?: string;
+  toolName?: string;
+  args?: Record<string, unknown>;
+  meta?: { agentId?: string };
+}) {
+  const { integrationId, toolName, args = {}, meta } = body;
+  const agentId = meta?.agentId ?? null;
+  const startTime = Date.now();
+
+  // Validate integrationId
+  if (!integrationId || typeof integrationId !== 'string') {
+    return NextResponse.json(
+      {
+        error: { code: -32602, message: 'Missing required field: integrationId' },
+        isError: true,
+      },
+      { status: 400, headers: corsHeaders },
+    );
+  }
+
+  // Validate toolName
+  if (!toolName || typeof toolName !== 'string') {
+    return NextResponse.json(
+      {
+        error: { code: -32602, message: 'Missing required field: toolName' },
+        isError: true,
+      },
+      { status: 400, headers: corsHeaders },
+    );
+  }
+
+  // Validate the integration exists in our registry
+  const integration = getIntegrationById(integrationId);
+  if (!integration) {
+    return NextResponse.json(
+      {
+        error: {
+          code: -32602,
+          message: `Unknown integration: "${integrationId}". Use GET /api/integrations to list available integrations.`,
+        },
+        isError: true,
+      },
+      { status: 404, headers: corsHeaders },
+    );
+  }
+
+  // Validate the tool exists in the integration's tool list
+  const knownTools = getStaticToolList(integrationId);
+  const toolExists =
+    integration.tools.includes(toolName) ||
+    knownTools.some((t) => t.name === toolName);
+
+  if (!toolExists) {
+    return NextResponse.json(
+      {
+        error: {
+          code: -32602,
+          message: `Unknown tool "${toolName}" for integration "${integration.name}". Use GET /api/mcp/tools?integrationId=${integrationId} to list available tools.`,
+        },
+        isError: true,
+        availableTools: integration.tools,
+      },
+      { status: 400, headers: corsHeaders },
+    );
+  }
+
+  // Check provider config and env vars
+  const providerConfig = getProviderConfig(integrationId);
+  if (!providerConfig) {
+    return NextResponse.json(
+      {
+        error: {
+          code: -32603,
+          message: `No MCP connection config found for "${integrationId}". Provider may not be fully configured.`,
+        },
+        isError: true,
+      },
+      { status: 501, headers: corsHeaders },
+    );
+  }
+
+  if (!isProviderConfigured(integrationId)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: -32603,
+          message: `Provider "${integration.name}" is missing required environment variables. Contact the admin to configure MCP access.`,
+        },
+        isError: true,
+        provider: {
+          id: integrationId,
+          name: integration.name,
+          transport: providerConfig.transport,
+          status: 'unconfigured',
+        },
+      },
+      { status: 503, headers: corsHeaders },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Billing for external MCP calls (2 BBAI per call)
+  // ---------------------------------------------------------------------------
+  const externalToolCost = 2;
+
+  if (agentId && typeof agentId === 'string') {
+    let wallet = await getAgentWallet(agentId);
+    if (!wallet) {
+      wallet = await createAgentWallet(agentId);
+    }
+
+    if (wallet.balance < externalToolCost) {
+      return NextResponse.json(
+        {
+          content: [
+            {
+              type: 'text',
+              text: `Insufficient BBAI balance for external MCP call. Required: ${externalToolCost} BBAI, Available: ${wallet.balance} BBAI.`,
+            },
+          ],
+          isError: true,
+          billing: {
+            cost: 0,
+            unit: 'BBAI',
+            error: 'insufficient_balance',
+            required: externalToolCost,
+            available: wallet.balance,
+          },
+        },
+        { status: 402, headers: corsHeaders },
+      );
+    }
+
+    const deductResult = await deductBalance(
+      agentId,
+      externalToolCost,
+      `mcp-external: ${integrationId}/${toolName}`,
+    );
+
+    if (!deductResult.success) {
+      return NextResponse.json(
+        {
+          content: [
+            {
+              type: 'text',
+              text: 'Payment failed for external MCP call.',
+            },
+          ],
+          isError: true,
+          billing: {
+            cost: 0,
+            unit: 'BBAI',
+            error: 'payment_failed',
+            remaining: deductResult.remaining,
+          },
+        },
+        { status: 402, headers: corsHeaders },
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Connect to MCP server and execute the tool
+  // ---------------------------------------------------------------------------
+  try {
+    const client = await getPooledClient(providerConfig);
+
+    const result = await client.executeTool(toolName, args);
+
+    const durationMs = Date.now() - startTime;
+
+    // Track usage
+    trackUsage({
+      integrationId,
+      toolName,
+      agentId,
+      timestamp: new Date().toISOString(),
+      durationMs,
+      success: !result.isError,
+      error: result.isError
+        ? result.content?.[0]?.text ?? 'Unknown error'
+        : undefined,
+    });
+
+    return NextResponse.json(
+      {
+        content: result.content,
+        isError: result.isError ?? false,
+        provider: {
+          id: integrationId,
+          name: integration.name,
+          transport: providerConfig.transport,
+        },
+        billing: agentId
+          ? {
+              cost: externalToolCost,
+              unit: 'BBAI',
+              agentId,
+            }
+          : {
+              cost: 0,
+              unit: 'BBAI',
+              mode: 'demo',
+            },
+        _meta: {
+          tool: toolName,
+          integration: integrationId,
+          durationMs,
+          timestamp: new Date().toISOString(),
+        },
+      },
+      { headers: corsHeaders },
+    );
+  } catch (err) {
+    const durationMs = Date.now() - startTime;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    // Track failed usage
+    trackUsage({
+      integrationId,
+      toolName,
+      agentId,
+      timestamp: new Date().toISOString(),
+      durationMs,
+      success: false,
+      error: errorMessage,
+    });
+
+    // Release the broken connection from the pool
+    await releasePooledClient(integrationId).catch(() => {});
+
+    console.error(
+      `[mcp/execute] External MCP error for ${integrationId}/${toolName}:`,
+      errorMessage,
+    );
+
+    return NextResponse.json(
+      {
+        content: [
+          {
+            type: 'text',
+            text: `Failed to execute tool "${toolName}" on provider "${integration.name}": ${errorMessage}`,
+          },
+        ],
+        isError: true,
+        provider: {
+          id: integrationId,
+          name: integration.name,
+          transport: providerConfig.transport,
+          status: 'error',
+        },
+        _meta: {
+          tool: toolName,
+          integration: integrationId,
+          durationMs,
+          timestamp: new Date().toISOString(),
+        },
+      },
+      { status: 502, headers: corsHeaders },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/mcp/execute - Usage stats for external MCP calls
+// ---------------------------------------------------------------------------
+
+export async function GET() {
+  const totalCalls = usageLog.length;
+  const successCalls = usageLog.filter((e) => e.success).length;
+  const failCalls = totalCalls - successCalls;
+
+  // Group by integration
+  const byIntegration: Record<string, number> = {};
+  for (const entry of usageLog) {
+    byIntegration[entry.integrationId] = (byIntegration[entry.integrationId] ?? 0) + 1;
+  }
+
+  // Average duration
+  const avgDuration =
+    totalCalls > 0
+      ? Math.round(usageLog.reduce((s, e) => s + e.durationMs, 0) / totalCalls)
+      : 0;
+
+  return NextResponse.json(
+    {
+      usage: {
+        totalCalls,
+        successCalls,
+        failCalls,
+        successRate: totalCalls > 0 ? ((successCalls / totalCalls) * 100).toFixed(1) + '%' : 'N/A',
+        averageDurationMs: avgDuration,
+        byIntegration,
+      },
+      recentCalls: usageLog.slice(-20).reverse(),
     },
     { headers: corsHeaders },
   );

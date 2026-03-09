@@ -3,8 +3,9 @@ import { authenticateRequest } from '@/lib/agent-api/auth';
 import { db } from '@/lib/db';
 import { agent, toolUsage } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
-import { getTool } from '@/lib/agent-api/tool-registry';
 import { generateId } from 'ai';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/agents/[agentId]/execute - Execute an agent's task
@@ -52,6 +53,7 @@ export async function POST(
   let totalCost = 0;
 
   for (const toolName of agentTools) {
+    const { getTool } = await import('@/lib/agent-api/tool-registry');
     const toolMeta = getTool(toolName);
     if (!toolMeta) continue;
 

@@ -6,6 +6,7 @@ import { eq, desc, inArray } from 'drizzle-orm';
 import { generateId } from 'ai';
 import { MOCK_ARENA_MATCHES } from '@/lib/mock-data';
 import { dynamicMatchStore } from '@/lib/arena-store';
+import { battleEngine } from '@/lib/arena/battle-engine';
 import {
   apiError,
   apiSuccess,
@@ -46,7 +47,23 @@ export async function GET(request: NextRequest) {
     const matches = await Promise.race([dbPromise, timeout]);
 
     if (matches.length > 0) {
-      return NextResponse.json({ success: true, matches }, {
+      // Enrich matches with battle status where available
+      const enriched = matches.map((m) => {
+        const battle = battleEngine.getBattleStatus(m.id);
+        return {
+          ...m,
+          battleStatus: battle
+            ? {
+                currentRound: battle.currentRound,
+                status: battle.status,
+                cumulativeScores: battle.cumulativeScores,
+                winnerId: battle.winnerId,
+              }
+            : null,
+        };
+      });
+
+      return NextResponse.json({ success: true, matches: enriched }, {
         headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
       });
     }

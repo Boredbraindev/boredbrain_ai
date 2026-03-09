@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getToolCatalog } from '@/lib/agent-api/tool-registry';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /.well-known/agent-card.json
@@ -13,7 +14,13 @@ import { getToolCatalog } from '@/lib/agent-api/tool-registry';
  *  - Available skills catalog
  */
 export async function GET() {
-  const catalog = getToolCatalog();
+  const { getToolCatalog } = await import('@/lib/agent-api/tool-registry');
+  let catalog: any[] = [];
+  try {
+    catalog = getToolCatalog();
+  } catch {
+    catalog = [];
+  }
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://boredbrain.ai';
 
   // Unique tool names across all agents

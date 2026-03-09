@@ -124,19 +124,36 @@ export const auth = betterAuth({
       subscription,
     },
   }),
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true,
+  },
   socialProviders: {
-    github: {
-      clientId: serverEnv.GITHUB_CLIENT_ID,
-      clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
-    },
-    google: {
-      clientId: serverEnv.GOOGLE_CLIENT_ID,
-      clientSecret: serverEnv.GOOGLE_CLIENT_SECRET,
-    },
-    twitter: {
-      clientId: serverEnv.TWITTER_CLIENT_ID,
-      clientSecret: serverEnv.TWITTER_CLIENT_SECRET,
-    },
+    // Only enable OAuth providers when both client ID and secret are set
+    ...(serverEnv.GITHUB_CLIENT_ID && serverEnv.GITHUB_CLIENT_SECRET
+      ? {
+          github: {
+            clientId: serverEnv.GITHUB_CLIENT_ID,
+            clientSecret: serverEnv.GITHUB_CLIENT_SECRET,
+          },
+        }
+      : {}),
+    ...(serverEnv.GOOGLE_CLIENT_ID && serverEnv.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: serverEnv.GOOGLE_CLIENT_ID,
+            clientSecret: serverEnv.GOOGLE_CLIENT_SECRET,
+          },
+        }
+      : {}),
+    ...(serverEnv.TWITTER_CLIENT_ID && serverEnv.TWITTER_CLIENT_SECRET
+      ? {
+          twitter: {
+            clientId: serverEnv.TWITTER_CLIENT_ID,
+            clientSecret: serverEnv.TWITTER_CLIENT_SECRET,
+          },
+        }
+      : {}),
   },
   pluginRoutes: {
     autoNamespace: true,

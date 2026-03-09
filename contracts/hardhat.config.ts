@@ -11,16 +11,22 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true,
     },
   },
   networks: {
-    // Base Mainnet
+    // Local development
+    hardhat: {
+      chainId: 31337,
+    },
+    // Base Mainnet (primary deployment target)
     base: {
       url: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
       chainId: 8453,
       accounts: [DEPLOYER_PRIVATE_KEY],
+      gasPrice: 'auto' as unknown as number,
     },
-    // Base Sepolia Testnet
+    // Base Sepolia Testnet (for testing before mainnet)
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
       chainId: 84532,
@@ -74,6 +80,24 @@ const config: HardhatUserConfig = {
       arbitrum: process.env.ARBISCAN_API_KEY || '',
       arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
     },
+    customChains: [
+      {
+        network: 'base',
+        chainId: 8453,
+        urls: {
+          apiURL: 'https://api.basescan.org/api',
+          browserURL: 'https://basescan.org',
+        },
+      },
+      {
+        network: 'baseSepolia',
+        chainId: 84532,
+        urls: {
+          apiURL: 'https://api-sepolia.basescan.org/api',
+          browserURL: 'https://sepolia.basescan.org',
+        },
+      },
+    ],
   },
 };
 

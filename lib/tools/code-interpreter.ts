@@ -1,7 +1,5 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { Daytona } from '@daytonaio/sdk';
-import { serverEnv } from '@/env/server';
 import { SNAPSHOT_NAME } from '@/lib/constants';
 
 export const codeInterpreterTool = tool({
@@ -19,6 +17,9 @@ export const codeInterpreterTool = tool({
     console.log('Code:', code);
     console.log('Title:', title);
     console.log('Icon:', icon);
+
+    const { Daytona } = await import('@daytonaio/sdk');
+    const { serverEnv } = await import('@/env/server');
 
     const daytona = new Daytona({
       apiKey: serverEnv.DAYTONA_API_KEY,
