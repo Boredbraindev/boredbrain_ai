@@ -293,27 +293,15 @@ export default function PlaybooksPage() {
     }
   }
 
-  async function handleBuy(playbookId: string, price: number) {
+  async function handleBuy(playbookId: string, _price: number) {
     setBuying(playbookId);
-    try {
-      const res = await fetch('/api/playbooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'purchase',
-          playbookId,
-          buyerId: 'demo-user',
-        }),
-      });
-      if (res.ok) {
-        fetchPlaybooks();
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setBuying(null);
-    }
+    // Simulate brief loading then show connect wallet prompt
+    await new Promise((r) => setTimeout(r, 800));
+    setBuying(null);
+    setPurchasePrompt(true);
   }
+
+  const [purchasePrompt, setPurchasePrompt] = useState(false);
 
   const sortedPlaybooks = useMemo(() => {
     let result = [...playbooks];
@@ -521,6 +509,34 @@ export default function PlaybooksPage() {
           </div>
         </div>
       </div>
+
+      {/* Connect Wallet Prompt */}
+      {purchasePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPurchasePrompt(false)}>
+          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-8 max-w-sm mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+              <svg className="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet</h3>
+            <p className="text-sm text-white/40 mb-6">Connect your wallet with BBAI tokens to purchase playbooks.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPurchasePrompt(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-white/50 text-sm hover:bg-white/[0.04] transition-colors"
+              >
+                Cancel
+              </button>
+              <Link href="/sign-in" className="flex-1">
+                <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black text-sm font-semibold hover:from-amber-400 hover:to-orange-400 transition-all">
+                  Connect
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

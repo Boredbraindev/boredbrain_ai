@@ -243,6 +243,14 @@ export default function DashboardPage() {
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-amber-500/[0.04] rounded-full blur-[120px]" />
       </div>
 
+      {/* Demo Mode Banner */}
+      <div className="relative border-b border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.04] to-amber-500/[0.08]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-xs text-amber-400/80 font-medium">Demo Mode &mdash; Connect wallet to see your real data</span>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="relative border-b border-white/[0.06] bg-gradient-to-b from-amber-500/[0.03] via-transparent to-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
