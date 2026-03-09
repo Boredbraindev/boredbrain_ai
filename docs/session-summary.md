@@ -20,7 +20,7 @@
 - [x] Network — A2A 네트워크 노드 시각화
 - [x] Dashboard — 수익/분석 대시보드
 - [x] Stats — 플랫폼 통계
-- [x] Integrations Hub — 8개 MCP 프로바이더 브라우징/연결
+- [x] Integrations Hub — 16개 MCP 프로바이더 브라우징/연결
 - [x] Sign In / Sign Up — 이메일/비밀번호 + 조건부 OAuth
 
 ### 백엔드 시스템
@@ -36,7 +36,7 @@
   - 시뮬레이션 모드 폴백
 - [x] MCP 클라이언트 (`lib/mcp/client.ts`)
   - stdio/HTTP/SSE 3종 트랜스포트
-  - 8개 프로바이더 커넥션 설정
+  - 16개 프로바이더 커넥션 설정 (+Hyperliquid, DexPaprika, Solana, Lightning 등)
   - 커넥션 풀링 (5분 idle TTL)
   - 도구 리스트 캐싱
 - [x] 온체인 결제 파이프라인 (`lib/blockchain/payment-service.ts`)
@@ -49,7 +49,7 @@
   - Tavily API 연동 (웹 검색)
   - 17개 도구 등록 (실제 + 목업)
 
-### 스마트 컨트랙트 (배포 준비 완료)
+### 스마트 컨트랙트 (배포 준비 완료 — Solidity 0.8.27, Cancun EVM)
 - [x] $BBAI ERC-20 토큰 (`contracts/contracts/BBToken.sol`)
   - 총 공급량: 10억 BBAI
   - 15% 플랫폼 수수료 함수
@@ -59,8 +59,36 @@
   - 100 BBAI 스테이킹 (30일 락업)
   - NFT 티어 할인 (Ape 50%, Bluechip 25%)
   - 온체인 NFT 보유 검증
-- [x] Hardhat 설정 (Base Mainnet + Sepolia)
+- [x] Bonding Curve (`contracts/contracts/BondingCurve.sol`)
+  - 선형 본딩 커브 에이전트 토크나이제이션
+  - 1% 플랫폼 수수료 + 5% 크리에이터 로열티
+  - 슬리피지 보호, 에이전트별 일시중지
+  - 클라이언트 라이브러리 (`lib/bonding-curve.ts`)
+- [x] ERC-8004 Agent Registry (`contracts/contracts/AgentRegistry8004.sol`)
+  - BNB Chain 온체인 에이전트 등록 표준
+  - BBAI 스테이킹 기반 등록, 30일 락업
+  - 클라이언트 라이브러리 (`lib/erc8004/registry-client.ts`)
+  - API 라우트 (`app/api/agents/onchain/`)
+- [x] Hardhat 설정 (Base, BSC, Arbitrum, ApeChain — Mainnet + Testnet)
 - [x] 배포 스크립트 (`contracts/deploy/deploy.ts`)
+
+### 크로스체인 & 확장
+- [x] 크로스체인 브릿지 (`lib/bridge/`)
+  - LayerZero/Wormhole 지원
+  - Base, BSC, Arbitrum, ApeChain 간 12개 루트
+  - 견적/실행/상태 추적 API (`app/api/bridge/`)
+  - 0.1% 플랫폼 수수료
+  - 시뮬레이션 모드 폴백
+- [x] 모바일 반응형 최적화
+  - AgenticHub, Arena, Marketplace 모바일 레이아웃
+  - 48px 최소 탭 타겟, 그리드 반응형 전환
+- [x] 다국어 지원 (한국어/영어)
+  - `lib/i18n/` — 50개+ 번역 키
+  - `useTranslation()` 훅, localStorage 저장
+  - 언어 전환 컴포넌트 (`components/language-switcher.tsx`)
+- [x] PWA 고도화
+  - Service Worker (`public/sw.js`) — 캐시/오프라인 폴백
+  - Web App Manifest 업데이트 (아이콘, 쇼트컷, 스크린샷)
 
 ### 인프라 & 보안
 - [x] 프로덕션 DB — Neon PostgreSQL 연결 + ELO 마이그레이션 완료
@@ -99,15 +127,15 @@
 | 5 | Sentry 에러 모니터링 | `SENTRY_DSN` 설정 | 선택사항 |
 | 6 | Alchemy API 키 | `ALCHEMY_API_KEY` — NFT 보유 검증 실데이터 | 없으면 시뮬레이션 |
 
-### 🟢 런칭 후 확장
+### 🟢 런칭 후 확장 (전부 완료)
 
-- [ ] 에이전트 토크나이제이션 (본딩 커브 컨트랙트)
-- [ ] 추가 MCP 통합 확장 (Hyperliquid, DexPaprika, MemOS 등)
-- [ ] ERC-8004 온체인 에이전트 등록
-- [ ] 크로스체인 브릿지 (Wormhole/LayerZero)
-- [ ] 모바일 반응형 최적화
-- [ ] 다국어 지원 (한국어/영어)
-- [ ] PWA 고도화
+- [x] 에이전트 토크나이제이션 — BondingCurve.sol + lib/bonding-curve.ts
+- [x] 추가 MCP 통합 확장 — 8개 → 16개 (+Hyperliquid, DexPaprika, Solana, Lightning 등)
+- [x] ERC-8004 온체인 에이전트 등록 — AgentRegistry8004.sol + API
+- [x] 크로스체인 브릿지 — LayerZero/Wormhole, 4체인 12루트
+- [x] 모바일 반응형 최적화 — AgenticHub, Arena, Marketplace
+- [x] 다국어 지원 (한국어/영어) — lib/i18n/, language-switcher
+- [x] PWA 고도화 — Service Worker, 오프라인 폴백, 매니페스트
 
 ---
 
@@ -175,22 +203,30 @@ boredbrain-master/
 │       ├── auth/                   # Better Auth
 │       ├── mcp/execute/            # MCP 도구 실행
 │       ├── mcp/tools/              # MCP 도구 목록
+│       ├── agents/onchain/          # ERC-8004 온체인 등록 API
+│       ├── bridge/                  # 크로스체인 브릿지 API
 │       ├── payments/               # 결제 처리
 │       └── ...                     # 기타 API
 ├── contracts/
 │   ├── contracts/BBToken.sol       # $BBAI ERC-20
 │   ├── contracts/AgentStaking.sol  # 스테이킹 컨트랙트
+│   ├── contracts/BondingCurve.sol  # 본딩 커브 토크나이제이션
+│   ├── contracts/AgentRegistry8004.sol # ERC-8004 에이전트 레지스트리
 │   ├── deploy/deploy.ts            # 배포 스크립트
-│   └── hardhat.config.ts           # Base chain 설정
+│   └── hardhat.config.ts           # 멀티체인 설정 (Base/BSC/Arb/Ape)
 ├── lib/
 │   ├── agent-executor.ts           # LLM 실행 엔진
 │   ├── arena/battle-engine.ts      # 배틀 엔진
 │   ├── arena/scoring.ts            # ELO 스코어링
 │   ├── blockchain/payment-service.ts # 온체인 결제
 │   ├── blockchain/config.ts        # 체인 설정
+│   ├── bonding-curve.ts            # 본딩 커브 수학 라이브러리
+│   ├── bridge/                     # 크로스체인 브릿지 서비스
 │   ├── contracts/bbai-abi.ts       # 토큰 ABI
+│   ├── erc8004/registry-client.ts  # ERC-8004 클라이언트
+│   ├── i18n/                       # 다국어 (한국어/영어)
 │   ├── mcp/client.ts               # MCP 클라이언트
-│   ├── mcp/providers/index.ts      # MCP 프로바이더 설정
+│   ├── mcp/providers/index.ts      # MCP 프로바이더 설정 (16개)
 │   ├── tools/tool-executor.ts      # 도구 실행기
 │   ├── tools/coin-data-executor.ts # CoinGecko 연동
 │   ├── tools/web-search-executor.ts # Tavily 연동
