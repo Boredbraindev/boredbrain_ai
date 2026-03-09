@@ -635,6 +635,95 @@ export const playbookPurchase = pgTable('playbook_purchase', {
 });
 
 // ============================================
+// Skills Marketplace Tables
+// ============================================
+
+// Skill registry (marketplace catalog)
+export const skill = pgTable('skill', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  price: real('price').notNull().default(0), // BBAI per call
+  category: text('category').notNull().default('data'), // 'data' | 'analysis' | 'blockchain' | 'ai'
+  version: text('version').notNull().default('1.0.0'),
+  author: text('author').notNull().default('BoredBrain'),
+  totalCalls: integer('total_calls').notNull().default(0),
+  totalRevenue: real('total_revenue').notNull().default(0),
+  rating: real('rating').notNull().default(0),
+  status: text('status').notNull().default('active'), // 'active' | 'deprecated'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Skill installations (agent ↔ skill binding)
+export const skillInstallation = pgTable('skill_installation', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  skillId: text('skill_id').notNull(),
+  agentId: text('agent_id').notNull(),
+  installedAt: timestamp('installed_at').defaultNow().notNull(),
+  usageCount: integer('usage_count').notNull().default(0),
+  totalBilled: real('total_billed').notNull().default(0),
+  status: text('status').notNull().default('active'), // 'active' | 'suspended' | 'expired'
+});
+
+// ============================================
+// User Rewards (daily check-in / BBAI tokens)
+// ============================================
+
+export const userReward = pgTable('user_reward', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  balance: integer('balance').notNull().default(0),
+  streak: integer('streak').notNull().default(0),
+  currentDay: integer('current_day').notNull().default(1),
+  lastClaimDate: text('last_claim_date'),
+  weeklyStreaksCompleted: integer('weekly_streaks_completed').notNull().default(0),
+  claimedDays: json('claimed_days').$type<number[]>().default([]),
+  missions: json('missions').$type<Record<string, { progress: number; completed: boolean }>>().default({}),
+  history: json('history')
+    .$type<Array<{ id: string; date: string; amount: number; type: string }>>()
+    .default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ============================================
+// DAO Governance Tables
+// ============================================
+
+// DAO proposals
+export const daoProposal = pgTable('dao_proposal', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  proposer: text('proposer').notNull(),
+  type: text('type').notNull().default('parameter_change'), // 'parameter_change' | 'treasury_spend' | 'skill_approval' | 'agent_ban' | 'protocol_upgrade' | 'fee_adjustment'
+  options: json('options').$type<Array<{ label: string; votes: number }>>().notNull().default([]),
+  status: text('status').notNull().default('active'), // 'active' | 'passed' | 'rejected' | 'executed'
+  totalVotes: integer('total_votes').notNull().default(0),
+  quorum: integer('quorum').notNull().default(1000),
+  category: text('category'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  executedAt: timestamp('executed_at'),
+});
+
+// DAO votes (one per voter per proposal)
+export const daoVote = pgTable('dao_vote', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  proposalId: text('proposal_id').notNull(),
+  voter: text('voter').notNull(),
+  optionIndex: integer('option_index').notNull(),
+  weight: integer('weight').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================
 // Type exports
 // ============================================
 
@@ -674,3 +763,8 @@ export type AgentToken = InferSelectModel<typeof agentToken>;
 export type AgentTokenTrade = InferSelectModel<typeof agentTokenTrade>;
 export type Playbook = InferSelectModel<typeof playbook>;
 export type PlaybookPurchase = InferSelectModel<typeof playbookPurchase>;
+export type Skill = InferSelectModel<typeof skill>;
+export type SkillInstallation = InferSelectModel<typeof skillInstallation>;
+export type UserReward = InferSelectModel<typeof userReward>;
+export type DaoProposal = InferSelectModel<typeof daoProposal>;
+export type DaoVote = InferSelectModel<typeof daoVote>;

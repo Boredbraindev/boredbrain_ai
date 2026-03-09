@@ -78,6 +78,13 @@
       "when": 1760125298593,
       "tag": "0010_add_wallet_referral_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1760125298594,
+      "tag": "0014_dao_governance",
+      "breakpoints": true
     }
   ]
 }

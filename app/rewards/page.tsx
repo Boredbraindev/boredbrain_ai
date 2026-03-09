@@ -290,14 +290,55 @@ export default function RewardsPage() {
   const [claimAnimation, setClaimAnimation] = useState(false);
   const [lastClaimedAmount, setLastClaimedAmount] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
-  // Load state from localStorage on mount
+  // Load state: try API first (DB-backed), fall back to localStorage
   useEffect(() => {
-    setState(loadState());
-    setMounted(true);
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch('/api/rewards');
+        if (res.ok) {
+          const json = await res.json();
+          if (!cancelled && json.success) {
+            const dbBacked = json.source === 'db';
+            setIsLoggedIn(dbBacked || json.source === 'default');
+            // If the API returned DB data, use it; otherwise check localStorage
+            if (dbBacked) {
+              setState(json.reward);
+              // Sync DB state to localStorage as backup
+              saveState(json.reward);
+              setIsLoggedIn(true);
+              setMounted(true);
+              return;
+            }
+            // source === 'default' means logged in but no DB row yet
+            // Check if we can try the API (user may be logged in)
+            // Try to detect login by checking if the response source differs
+            setIsLoggedIn(true);
+          }
+        }
+      } catch {
+        // API unavailable — fall back to localStorage
+      }
+
+      // Fallback: load from localStorage
+      if (!cancelled) {
+        setState(loadState());
+        setMounted(true);
+      }
+    }
+
+    load().then(() => {
+      if (!cancelled) setMounted(true);
+    });
+
+    return () => { cancelled = true; };
   }, []);
 
-  // Persist state changes
+  // Persist state changes to localStorage (always, as fallback)
   useEffect(() => {
     if (mounted) {
       saveState(state);
@@ -305,16 +346,39 @@ export default function RewardsPage() {
   }, [state, mounted]);
 
   const today = getToday();
-  const canClaim = state.lastClaimDate !== today;
+  const canClaim = state.lastClaimDate !== today && !claiming;
   const todayReward = DAILY_REWARDS[state.currentDay - 1];
 
-  const handleClaim = useCallback(() => {
+  const handleClaim = useCallback(async () => {
     if (!canClaim || !todayReward) return;
 
     setClaimAnimation(true);
     setLastClaimedAmount(todayReward.amount);
     setTimeout(() => setClaimAnimation(false), 800);
+    setClaiming(true);
 
+    // Try API claim first (DB-backed)
+    try {
+      const res = await fetch('/api/rewards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'claim' }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.reward) {
+          setState(json.reward);
+          saveState(json.reward);
+          setClaiming(false);
+          return;
+        }
+      }
+    } catch {
+      // API unavailable — fall through to localStorage-only claim
+    }
+
+    // Fallback: localStorage-only claim (same logic as before)
     setState((prev) => {
       const newClaimedDays = [...prev.claimedDays, prev.currentDay];
       const newStreak = prev.streak + 1;
@@ -358,6 +422,8 @@ export default function RewardsPage() {
         history: newHistory,
       };
     });
+
+    setClaiming(false);
   }, [canClaim, todayReward, today]);
 
   const missions: Mission[] = MISSIONS_CONFIG.map((m) => ({
@@ -565,7 +631,7 @@ export default function RewardsPage() {
             <div className="mt-6 flex justify-center">
               <Button
                 size="lg"
-                disabled={!canClaim}
+                disabled={!canClaim || claiming}
                 onClick={handleClaim}
                 className={`min-w-[200px] text-base font-bold transition-all ${
                   canClaim
