@@ -160,6 +160,12 @@ service-account*.json
 *.key
 *.keystore
 
+# Hardhat / Solidity build artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/node_modules/
+
 # Claude worktrees
 .claude/worktrees/
 

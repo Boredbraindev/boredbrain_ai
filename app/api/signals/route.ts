@@ -25,7 +25,7 @@ import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
 // Import extreme search tool
-import { extremeSearchTool } from '@/lib/tools';
+import { extremeSearchTool } from '@/lib/tools/extreme-search';
 import { ChatMessage } from '@/lib/types';
 
 // Helper function to determine pro access in Telegram mini app

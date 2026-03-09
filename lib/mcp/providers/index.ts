@@ -108,6 +108,105 @@ export const MCP_PROVIDER_CONFIGS: Record<string, MCPConnectionConfig> = {
     },
     timeout: 30_000,
   },
+
+  'hyperliquid-mcp': {
+    providerId: 'hyperliquid-mcp',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', 'hyperliquid-mcp-server'],
+    requiredEnvVars: ['HYPERLIQUID_PRIVATE_KEY'],
+    env: {
+      HYPERLIQUID_PRIVATE_KEY: process.env.HYPERLIQUID_PRIVATE_KEY ?? '',
+      HYPERLIQUID_TESTNET: process.env.HYPERLIQUID_TESTNET ?? 'false',
+    },
+    timeout: 30_000,
+  },
+
+  'dexpaprika-mcp': {
+    providerId: 'dexpaprika-mcp',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@coinpaprika/dexpaprika-mcp'],
+    requiredEnvVars: [],
+    env: {
+      DEXPAPRIKA_API_KEY: process.env.DEXPAPRIKA_API_KEY ?? '',
+    },
+    timeout: 30_000,
+  },
+
+  'free-crypto-news': {
+    providerId: 'free-crypto-news',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', 'free-crypto-news'],
+    requiredEnvVars: [],
+    env: {},
+    timeout: 20_000,
+  },
+
+  'memos-mcp': {
+    providerId: 'memos-mcp',
+    transport: 'http',
+    url: process.env.MEMOS_MCP_URL ?? 'http://localhost:8484/mcp',
+    requiredEnvVars: [],
+    headers: {
+      Authorization: `Bearer ${process.env.MEMOS_API_KEY ?? ''}`,
+    },
+    timeout: 15_000,
+  },
+
+  'lightning-mcp': {
+    providerId: 'lightning-mcp',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', 'lightning-mcp'],
+    requiredEnvVars: ['LND_REST_URL', 'LND_MACAROON'],
+    env: {
+      LND_REST_URL: process.env.LND_REST_URL ?? '',
+      LND_MACAROON: process.env.LND_MACAROON ?? '',
+      LND_TLS_CERT: process.env.LND_TLS_CERT ?? '',
+    },
+    timeout: 20_000,
+  },
+
+  'base-usdc-transfer': {
+    providerId: 'base-usdc-transfer',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', 'mcp-free-usdc-transfer'],
+    requiredEnvVars: ['BASE_PRIVATE_KEY'],
+    env: {
+      BASE_PRIVATE_KEY: process.env.BASE_PRIVATE_KEY ?? '',
+      BASE_RPC_URL: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org',
+    },
+    timeout: 30_000,
+  },
+
+  'marinade-finance-mcp': {
+    providerId: 'marinade-finance-mcp',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', 'marinade-finance-mcp-server'],
+    requiredEnvVars: ['SOLANA_RPC_URL'],
+    env: {
+      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com',
+      SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY ?? '',
+    },
+    timeout: 30_000,
+  },
+
+  'solana-mcp': {
+    providerId: 'solana-mcp',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@sendaifun/solana-mcp'],
+    requiredEnvVars: ['SOLANA_RPC_URL'],
+    env: {
+      SOLANA_RPC_URL: process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com',
+      SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY ?? '',
+    },
+    timeout: 30_000,
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -286,6 +385,113 @@ export const STATIC_TOOL_LISTS: Record<string, MCPToolDefinition[]> = {
     { name: 'getAgentReputation', description: 'Get reputation score for an agent' },
     { name: 'createEscrow', description: 'Create a payment escrow for a task' },
     { name: 'releaseEscrow', description: 'Release escrow payment to the provider' },
+  ],
+
+  'hyperliquid-mcp': [
+    { name: 'placeOrder', description: 'Place a perpetual futures order on Hyperliquid' },
+    { name: 'cancelOrder', description: 'Cancel an open order on Hyperliquid' },
+    { name: 'cancelAllOrders', description: 'Cancel all open orders for a market' },
+    { name: 'getOpenOrders', description: 'List all open orders on Hyperliquid' },
+    { name: 'getPositions', description: 'Get all open perpetual positions' },
+    { name: 'closePosition', description: 'Close a perpetual futures position' },
+    { name: 'setLeverage', description: 'Set leverage for a trading pair' },
+    { name: 'getAccountInfo', description: 'Get Hyperliquid account summary and margins' },
+    { name: 'getFundingRates', description: 'Get current funding rates for perpetual markets' },
+    { name: 'getOrderbook', description: 'Get real-time orderbook for a market' },
+    { name: 'getMarketInfo', description: 'Get market metadata and trading parameters' },
+    { name: 'getTradeHistory', description: 'Get recent trade history for an account' },
+    { name: 'getTicker', description: 'Get 24h ticker data for a market' },
+    { name: 'withdrawUSDC', description: 'Withdraw USDC from Hyperliquid to Arbitrum' },
+    { name: 'getBalances', description: 'Get account balances on Hyperliquid' },
+  ],
+
+  'dexpaprika-mcp': [
+    { name: 'getNetworks', description: 'List all supported blockchain networks' },
+    { name: 'getTopDexes', description: 'Get top DEXes ranked by volume on a network' },
+    { name: 'getPoolsByDex', description: 'List liquidity pools for a specific DEX' },
+    { name: 'searchPools', description: 'Search for pools by token pair or name' },
+    { name: 'getPoolDetails', description: 'Get detailed pool information and metrics' },
+    { name: 'getPoolOHLCV', description: 'Get OHLCV candlestick data for a pool' },
+    { name: 'getPoolTransactions', description: 'Get recent swap transactions for a pool' },
+    { name: 'getTokenDetails', description: 'Get token metadata and market information' },
+    { name: 'getTokenPools', description: 'List all pools containing a specific token' },
+    { name: 'getTopPools', description: 'Get top pools by volume across all DEXes' },
+    { name: 'getTopMovers', description: 'Get tokens with the largest price movements' },
+    { name: 'getTokenPrice', description: 'Get current token price from DEX data' },
+  ],
+
+  'free-crypto-news': [
+    { name: 'getLatestNews', description: 'Fetch the latest crypto news headlines' },
+    { name: 'searchNews', description: 'Search crypto news articles by keyword' },
+    { name: 'getSentiment', description: 'Get sentiment score for a token or topic' },
+    { name: 'getTrendingTopics', description: 'Get currently trending crypto topics' },
+    { name: 'getNewsByToken', description: 'Get news articles for a specific token' },
+    { name: 'getNewsByCategory', description: 'Get news filtered by category (DeFi, NFT, etc.)' },
+    { name: 'getSourceCredibility', description: 'Get credibility rating for a news source' },
+    { name: 'getSentimentTimeline', description: 'Get historical sentiment data over time' },
+  ],
+
+  'memos-mcp': [
+    { name: 'storeMemory', description: 'Store a new memory entry for the agent' },
+    { name: 'recallMemory', description: 'Recall a specific memory by ID or key' },
+    { name: 'searchMemories', description: 'Semantic search across stored memories' },
+    { name: 'deleteMemory', description: 'Delete a memory entry by ID' },
+    { name: 'updateMemory', description: 'Update an existing memory entry' },
+    { name: 'getMemoryGraph', description: 'Get the relationship graph of stored memories' },
+    { name: 'createMemoryCollection', description: 'Create a new memory collection namespace' },
+    { name: 'listCollections', description: 'List all memory collections' },
+    { name: 'getSessionContext', description: 'Get aggregated context for the current session' },
+    { name: 'mergeMemories', description: 'Merge duplicate or related memories' },
+  ],
+
+  'lightning-mcp': [
+    { name: 'createInvoice', description: 'Create a Lightning Network BOLT11 invoice' },
+    { name: 'payInvoice', description: 'Pay a Lightning Network invoice' },
+    { name: 'getBalance', description: 'Get Lightning node channel and on-chain balance' },
+    { name: 'getChannels', description: 'List active Lightning payment channels' },
+    { name: 'decodeInvoice', description: 'Decode a BOLT11 invoice to view details' },
+    { name: 'getPaymentStatus', description: 'Check the status of a Lightning payment' },
+  ],
+
+  'base-usdc-transfer': [
+    { name: 'transferUSDC', description: 'Transfer USDC to a recipient on Base' },
+    { name: 'batchTransferUSDC', description: 'Send USDC to multiple recipients on Base' },
+    { name: 'getUSDCBalance', description: 'Get USDC balance for an address on Base' },
+    { name: 'getTransactionStatus', description: 'Check status of a USDC transfer on Base' },
+  ],
+
+  'marinade-finance-mcp': [
+    { name: 'stakeSOL', description: 'Stake SOL via Marinade to receive mSOL' },
+    { name: 'unstakeSOL', description: 'Unstake mSOL back to SOL via Marinade' },
+    { name: 'getStakeInfo', description: 'Get current Marinade staking position details' },
+    { name: 'getmSOLBalance', description: 'Get mSOL balance for a wallet' },
+    { name: 'getValidators', description: 'List Marinade validator set and performance' },
+    { name: 'getRewards', description: 'Get accumulated staking rewards' },
+    { name: 'convertNativeStake', description: 'Convert native stake account to Marinade' },
+    { name: 'getAPY', description: 'Get current Marinade staking APY' },
+  ],
+
+  'solana-mcp': [
+    { name: 'getBalance', description: 'Get SOL balance for an address' },
+    { name: 'getTokenBalance', description: 'Get SPL token balance for an address' },
+    { name: 'transferSOL', description: 'Transfer SOL to a recipient' },
+    { name: 'transferSPL', description: 'Transfer SPL tokens to a recipient' },
+    { name: 'getTransaction', description: 'Get transaction details by signature' },
+    { name: 'getBlock', description: 'Get block details by slot number' },
+    { name: 'getAccountInfo', description: 'Get account info for a Solana address' },
+    { name: 'getTokenAccounts', description: 'List all token accounts for a wallet' },
+    { name: 'createToken', description: 'Create a new SPL token mint' },
+    { name: 'mintToken', description: 'Mint SPL tokens to an address' },
+    { name: 'burnToken', description: 'Burn SPL tokens from an account' },
+    { name: 'freezeAccount', description: 'Freeze a token account' },
+    { name: 'thawAccount', description: 'Thaw a frozen token account' },
+    { name: 'mintNFT', description: 'Mint an NFT on Solana via Metaplex' },
+    { name: 'getSignaturesForAddress', description: 'Get recent transaction signatures for an address' },
+    { name: 'simulateTransaction', description: 'Simulate a transaction without sending' },
+    { name: 'sendTransaction', description: 'Send a signed transaction to the network' },
+    { name: 'getProgramAccounts', description: 'Get all accounts owned by a program' },
+    { name: 'getSlot', description: 'Get the current slot number' },
+    { name: 'getEpochInfo', description: 'Get current epoch information' },
   ],
 };
 

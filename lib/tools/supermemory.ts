@@ -1,8 +1,8 @@
-import { supermemoryTools } from '@supermemory/tools/ai-sdk';
 import { Tool } from 'ai';
-import { serverEnv } from '@/env/server';
 
-export function createMemoryTools(userId: string) {
+export async function createMemoryTools(userId: string) {
+  const { supermemoryTools } = await import('@supermemory/tools/ai-sdk');
+  const { serverEnv } = await import('@/env/server');
   return supermemoryTools(serverEnv.SUPERMEMORY_API_KEY, {
     containerTags: [userId],
   });

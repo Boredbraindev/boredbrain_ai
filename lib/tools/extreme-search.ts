@@ -7,7 +7,7 @@
 
 import Exa from 'exa-js';
 import { tavily } from '@tavily/core';
-import { Daytona } from '@daytonaio/sdk';
+// Daytona imported dynamically to avoid build-time init errors
 import { generateObject, generateText, stepCountIs, tool } from 'ai';
 import type { UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
@@ -31,12 +31,20 @@ const pythonLibsAvailable = [
   'scikit-learn',
 ];
 
-const daytona = new Daytona({
-  apiKey: serverEnv.DAYTONA_API_KEY,
-  target: 'us',
-});
+let _daytona: any = null;
+async function getDaytona() {
+  if (!_daytona) {
+    const { Daytona } = await import('@daytonaio/sdk');
+    _daytona = new Daytona({
+      apiKey: serverEnv.DAYTONA_API_KEY,
+      target: 'us',
+    });
+  }
+  return _daytona;
+}
 
 const runCode = async (code: string, installLibs: string[] = []) => {
+  const daytona = await getDaytona();
   const sandbox = await daytona.create({
     snapshot: SNAPSHOT_NAME,
   });
@@ -50,9 +58,17 @@ const runCode = async (code: string, installLibs: string[] = []) => {
   return result;
 };
 
-// Use Tavily instead of Exa for web search
-const tavilyClient = tavily({ apiKey: serverEnv.TAVILY_API_KEY });
-const firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
+// Lazy init to avoid build-time errors when API keys are missing
+let _tavilyClient: any = null;
+function getTavilyClient() {
+  if (!_tavilyClient) _tavilyClient = tavily({ apiKey: serverEnv.TAVILY_API_KEY });
+  return _tavilyClient;
+}
+let _firecrawl: any = null;
+function getFirecrawl() {
+  if (!_firecrawl) _firecrawl = new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY });
+  return _firecrawl;
+}
 
 type SearchResult = {
   title: string;
@@ -80,7 +96,7 @@ enum SearchCategory {
 const searchWeb = async (query: string, category?: SearchCategory, include_domains?: string[]) => {
   console.log(`searchWeb called with query: "${query}", category: ${category}`);
   try {
-    const response = await tavilyClient.search(query, {
+    const response = await getTavilyClient().search(query, {
       maxResults: 5,
       searchDepth: 'basic',
       includeImages: false,
@@ -124,7 +140,7 @@ const getContents = async (links: string[]) => {
 
     for (const url of failedUrls) {
       try {
-        const scrapeResponse = await firecrawl.scrape(url, {
+        const scrapeResponse = await getFirecrawl().scrape(url, {
           formats: ['markdown'],
           proxy: 'auto',
           storeInCache: true,

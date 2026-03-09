@@ -1,10 +1,10 @@
 /**
- * Agent Tokenization - Virtuals Protocol Model
+ * Agent Tokenization - Bonding Curve Model
  *
  * Each agent can be tokenized with 1B supply tokens.
- * Bonding curve pricing: price = basePrice * (1 + sqrt(supply_ratio) * 10)
+ * Linear bonding curve: price = basePrice + (supply * slope)
+ * 1% platform fee + 5% creator fee on all trades.
  * 50% of agent revenue triggers automatic buybacks.
- * 1% trade fee goes to platform.
  */
 
 import { db } from '@/lib/db';
@@ -12,15 +12,31 @@ import { agentToken, agentTokenTrade, paymentTransaction } from '@/lib/db/schema
 import { eq, desc, sql } from 'drizzle-orm';
 import { generateId } from 'ai';
 import { generateTxHash, generateBlockNumber } from '@/lib/payment-pipeline';
+import {
+  getCurrentPrice as bcGetCurrentPrice,
+  calculateBuyPrice,
+  calculateSellPrice,
+  DEFAULT_BASE_PRICE,
+  DEFAULT_SLOPE,
+  DEFAULT_MAX_SUPPLY,
+  PLATFORM_FEE_BPS,
+  CREATOR_FEE_BPS,
+  BPS_DENOMINATOR,
+  type BondingCurveParams,
+} from '@/lib/bonding-curve';
 
-const BASE_PRICE = 0.001;
-const TOTAL_SUPPLY = 1_000_000_000;
 const TOKENIZATION_FEE = 500;
-const TRADE_FEE_PERCENT = 0.01;
+
+function getParams(token?: { totalSupply: number }): BondingCurveParams {
+  return {
+    basePrice: DEFAULT_BASE_PRICE,
+    slope: DEFAULT_SLOPE,
+    maxSupply: token?.totalSupply ?? DEFAULT_MAX_SUPPLY,
+  };
+}
 
 function calculatePrice(circulatingSupply: number): number {
-  const supplyRatio = circulatingSupply / TOTAL_SUPPLY;
-  return BASE_PRICE * (1 + Math.sqrt(supplyRatio) * 10);
+  return bcGetCurrentPrice(circulatingSupply, getParams());
 }
 
 export async function tokenizeAgent(params: {
@@ -87,20 +103,19 @@ export async function tradeAgentToken(params: {
   const [token] = await db.select().from(agentToken).where(eq(agentToken.id, tokenId));
   if (!token) throw new Error('Token not found');
 
-  const currentPrice = calculatePrice(token.circulatingSupply);
-  const totalCost = currentPrice * amount;
-  const platformFee = totalCost * TRADE_FEE_PERCENT;
+  const params = getParams(token);
 
-  let newCirculating = token.circulatingSupply;
+  let quote;
   if (type === 'buy') {
-    newCirculating += amount;
-    if (newCirculating > token.totalSupply) throw new Error('Exceeds total supply');
+    if (token.circulatingSupply + amount > token.totalSupply) throw new Error('Exceeds total supply');
+    quote = calculateBuyPrice(token.circulatingSupply, amount, params);
   } else {
-    newCirculating -= amount;
-    if (newCirculating < 0) throw new Error('Insufficient supply to sell');
+    if (amount > token.circulatingSupply) throw new Error('Insufficient supply to sell');
+    quote = calculateSellPrice(token.circulatingSupply, amount, params);
   }
 
-  const newPrice = calculatePrice(newCirculating);
+  const newCirculating = quote.newSupply;
+  const newPrice = quote.newPrice;
   const newMarketCap = newPrice * newCirculating;
 
   const [trade] = await db.insert(agentTokenTrade).values({
@@ -109,9 +124,9 @@ export async function tradeAgentToken(params: {
     traderId,
     type,
     amount,
-    price: currentPrice,
-    totalCost,
-    platformFee,
+    price: quote.averagePrice,
+    totalCost: quote.total,
+    platformFee: quote.platformFee,
     txHash: generateTxHash(`trade-${tokenId}-${traderId}`),
     timestamp: new Date(),
   }).returning();
@@ -120,22 +135,41 @@ export async function tradeAgentToken(params: {
     circulatingSupply: newCirculating,
     price: newPrice,
     marketCap: newMarketCap,
-    totalVolume: sql`${agentToken.totalVolume} + ${totalCost}`,
+    totalVolume: sql`${agentToken.totalVolume} + ${quote.total}`,
     holders: type === 'buy' ? sql`${agentToken.holders} + 1` : sql`greatest(${agentToken.holders} - 1, 0)`,
     updatedAt: new Date(),
   }).where(eq(agentToken.id, tokenId));
 
-  if (platformFee > 0) {
+  // Record platform fee (1%)
+  if (quote.platformFee > 0) {
     await db.insert(paymentTransaction).values({
       id: generateId(),
       type: 'tool_call',
       fromAgentId: traderId,
       toAgentId: 'platform',
-      amount: platformFee,
-      platformFee,
+      amount: quote.platformFee,
+      platformFee: quote.platformFee,
       providerShare: 0,
       chain: token.chain,
       txHash: generateTxHash(`trade-fee-${trade.id}`),
+      status: 'confirmed',
+      timestamp: new Date(),
+      blockNumber: generateBlockNumber(),
+    });
+  }
+
+  // Record creator fee (5%)
+  if (quote.creatorFee > 0) {
+    await db.insert(paymentTransaction).values({
+      id: generateId(),
+      type: 'agent_invoke',
+      fromAgentId: traderId,
+      toAgentId: token.agentId,
+      amount: quote.creatorFee,
+      platformFee: 0,
+      providerShare: quote.creatorFee,
+      chain: token.chain,
+      txHash: generateTxHash(`creator-fee-${trade.id}`),
       status: 'confirmed',
       timestamp: new Date(),
       blockNumber: generateBlockNumber(),

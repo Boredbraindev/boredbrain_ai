@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/agent-api/auth';
-import { getTool, hasTool } from '@/lib/agent-api/tool-registry';
+
+export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 import { toolUsage, apiKey as apiKeyTable } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -15,6 +16,9 @@ export async function POST(
   { params }: { params: Promise<{ toolName: string }> }
 ) {
   const { toolName } = await params;
+
+  // Dynamic import to avoid Daytona SDK init at build time
+  const { hasTool, getTool } = await import('@/lib/agent-api/tool-registry');
 
   // Check tool exists
   if (!hasTool(toolName)) {
@@ -127,11 +131,12 @@ export async function GET(
 ) {
   const { toolName } = await params;
 
-  if (!hasTool(toolName)) {
+  const { hasTool: hasT, getTool: getT } = await import('@/lib/agent-api/tool-registry');
+  if (!hasT(toolName)) {
     return NextResponse.json({ error: `Tool '${toolName}' not found` }, { status: 404 });
   }
 
-  const toolMeta = getTool(toolName)!;
+  const toolMeta = getT(toolName)!;
 
   return NextResponse.json({
     name: toolMeta.name,

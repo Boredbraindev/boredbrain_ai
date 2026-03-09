@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/agent-api/auth';
-import { getTool, hasTool } from '@/lib/agent-api/tool-registry';
+
+export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 import { toolUsage, apiKey as apiKeyTable } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -19,6 +20,7 @@ interface BatchRequest {
  * Max 10 tools per batch
  */
 export async function POST(request: NextRequest) {
+  const { getTool, hasTool } = await import('@/lib/agent-api/tool-registry');
   // Authenticate
   const authResult = await authenticateRequest(request);
   if (authResult.error) {

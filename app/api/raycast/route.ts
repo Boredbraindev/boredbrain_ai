@@ -1,4 +1,4 @@
-import { webSearchTool } from '@/lib/tools';
+import { webSearchTool } from '@/lib/tools/web-search';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { groq } from '@ai-sdk/groq';
 import { openai } from '@ai-sdk/openai';

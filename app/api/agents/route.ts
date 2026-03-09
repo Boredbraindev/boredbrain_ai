@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { agent } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { generateId } from 'ai';
-import { hasTool } from '@/lib/agent-api/tool-registry';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 
 /**
@@ -78,7 +77,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'name and tools are required' }, { status: 400 });
   }
 
-  // Validate tools exist
+  // Validate tools exist (dynamic import to avoid Daytona SDK init at build time)
+  const { hasTool } = await import('@/lib/agent-api/tool-registry');
   for (const toolName of body.tools) {
     if (!hasTool(toolName)) {
       return NextResponse.json({ error: `Tool '${toolName}' not found` }, { status: 400 });

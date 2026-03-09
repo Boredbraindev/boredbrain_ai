@@ -420,7 +420,7 @@ function ComparisonModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 py-4 bg-[#0c0c0e]/95 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10">
               <ScaleIcon className="w-4 h-4 text-amber-400" />
@@ -434,8 +434,8 @@ function ComparisonModal({
         </div>
 
         {/* Agent headers row */}
-        <div className="px-6 py-4 border-b border-white/[0.04]">
-          <div className={`grid gap-4`} style={{ gridTemplateColumns: `repeat(${agents.length}, 1fr)` }}>
+        <div className="px-4 sm:px-6 py-4 border-b border-white/[0.04]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {agents.map((agent) => (
               <div key={agent.agentId} className="text-center space-y-2">
                 <div className="flex items-center justify-center gap-1.5">
@@ -462,7 +462,7 @@ function ComparisonModal({
         </div>
 
         {/* Comparison metrics */}
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-4 sm:px-6 py-5 space-y-5">
           {/* Rating */}
           <MetricBar
             label="Rating"
@@ -526,7 +526,7 @@ function ComparisonModal({
           {/* Tools / Capabilities */}
           <div className="space-y-1.5">
             <div className="text-[11px] text-white/40 font-medium uppercase tracking-wider">Tools & Capabilities</div>
-            <div className={`grid gap-4`} style={{ gridTemplateColumns: `repeat(${agents.length}, 1fr)` }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {agents.map((agent) => (
                 <div key={agent.agentId} className="flex flex-wrap gap-1">
                   {agent.tools.map((tool) => (
@@ -545,7 +545,7 @@ function ComparisonModal({
           {/* Weekly Growth */}
           <div className="space-y-1.5">
             <div className="text-[11px] text-white/40 font-medium uppercase tracking-wider">Weekly Growth</div>
-            <div className={`grid gap-4`} style={{ gridTemplateColumns: `repeat(${agents.length}, 1fr)` }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {agents.map((agent) => (
                 <div key={agent.agentId} className="text-center">
                   <GrowthBadge agent={agent} />
@@ -556,7 +556,7 @@ function ComparisonModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 px-6 py-4 bg-[#0c0c0e]/95 backdrop-blur-xl border-t border-white/[0.06] flex justify-end gap-3">
+        <div className="sticky bottom-0 px-4 sm:px-6 py-4 bg-[#0c0c0e]/95 backdrop-blur-xl border-t border-white/[0.06] flex justify-end gap-3">
           <Button
             variant="outline"
             size="sm"
@@ -736,7 +736,7 @@ function AgentCardSkeleton() {
 
 function FeaturedCard({ agent }: { agent: AgentListing }) {
   return (
-    <Link href={`/marketplace/${agent.agentId}`} className="block min-w-[340px] max-w-[400px] group">
+    <Link href={`/marketplace/${agent.agentId}`} className="block min-w-[280px] sm:min-w-[340px] max-w-[400px] group">
       <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-amber-500/50 via-amber-600/30 to-orange-500/50 group-hover:from-amber-400/70 group-hover:via-amber-500/50 group-hover:to-orange-400/70 transition-all duration-500 group-hover:shadow-lg group-hover:shadow-amber-500/10">
         <div className="relative h-full rounded-xl bg-[#0a0a0b]/95 backdrop-blur-xl p-5 overflow-hidden">
           {/* Ambient glow */}
@@ -879,8 +879,8 @@ function AgentCard({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <GrowthBadge agent={agent} />
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <span className="hidden sm:inline-flex"><GrowthBadge agent={agent} /></span>
                 <Badge
                   variant="outline"
                   className="text-[10px] border-white/[0.08] text-white/50 bg-white/[0.02] font-medium"
@@ -1312,7 +1312,7 @@ export default function MarketplaceBrowsePage() {
                 )}
 
                 {/* Sort tabs */}
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
                   {SORT_OPTIONS.map((opt) => {
                     const isActive = sortBy === opt.value;
                     return (
@@ -1320,7 +1320,7 @@ export default function MarketplaceBrowsePage() {
                         key={opt.value}
                         onClick={() => setSortBy(opt.value)}
                         className={`
-                          h-7 px-2.5 rounded-md text-[11px] font-medium transition-all duration-200
+                          h-7 px-2.5 rounded-md text-[11px] font-medium transition-all duration-200 whitespace-nowrap shrink-0
                           ${isActive
                             ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
                             : 'text-white/30 hover:text-white/50 hover:bg-white/[0.04]'

@@ -54,7 +54,6 @@ import {
   youtubeSearchTool,
   retrieveTool,
   weatherTool,
-  codeInterpreterTool,
   findPlaceOnMapTool,
   nearbyPlacesSearchTool,
   flightTrackerTool,
@@ -63,7 +62,6 @@ import {
   coinOhlcTool,
   datetimeTool,
   greetingTool,
-  // mcpSearchTool,
   redditSearchTool,
   extremeSearchTool,
   createConnectorsSearchTool,
@@ -71,6 +69,7 @@ import {
   tokenRetrievalTool,
   walletAnalyzerTool,
 } from '@/lib/tools';
+import { codeInterpreterTool } from '@/lib/tools/code-interpreter';
 import { GroqProviderOptions } from '@ai-sdk/groq';
 import { markdownJoinerTransform } from '@/lib/parser';
 import { ChatMessage } from '@/lib/types';
@@ -455,6 +454,16 @@ export async function POST(req: Request) {
 
       const streamStartTime = Date.now();
 
+      // Pre-compute memory tools (async) before passing into sync tools IIFE
+      let precomputedMemoryTools: any = null;
+      if (user) {
+        try {
+          precomputedMemoryTools = await createMemoryTools(user.id);
+        } catch {
+          // Supermemory not configured, skip
+        }
+      }
+
       const result = streamText({
         model: boredbrain.languageModel(model),
         messages: convertToModelMessages(messages),
@@ -532,15 +541,14 @@ export async function POST(req: Request) {
             greeting: greetingTool(timezone),
           };
 
-          if (!user) {
+          if (!user || !precomputedMemoryTools) {
             return baseTools;
           }
 
-          const memoryTools = createMemoryTools(user.id);
           return {
             ...baseTools,
-            search_memories: memoryTools.searchMemories as any,
-            add_memory: memoryTools.addMemory as any,
+            search_memories: precomputedMemoryTools.searchMemories as any,
+            add_memory: precomputedMemoryTools.addMemory as any,
             connectors_search: createConnectorsSearchTool(user.id, selectedConnectors),
           } as any;
         })(),

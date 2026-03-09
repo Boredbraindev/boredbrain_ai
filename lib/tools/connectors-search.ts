@@ -1,11 +1,16 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import Supermemory from 'supermemory';
 import { CONNECTOR_CONFIGS, type ConnectorProvider } from '@/lib/connectors';
 
-const client = new Supermemory({
-    apiKey: process.env.SUPERMEMORY_API_KEY!
-});
+let _client: any = null;
+function getClient() {
+    if (!_client) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Supermemory = require('supermemory').default;
+        _client = new Supermemory({ apiKey: process.env.SUPERMEMORY_API_KEY! });
+    }
+    return _client;
+}
 
 export function createConnectorsSearchTool(userId: string, selectedConnectors?: ConnectorProvider[]) {
     // Create dynamic provider enum based on selected connectors
@@ -34,7 +39,7 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
                     const searchPromises = providersToSearch.map(async (providerKey) => {
                         try {
                             const config = CONNECTOR_CONFIGS[providerKey];
-                            const result = await client.search.documents({
+                            const result = await getClient().search.documents({
                                 q: query,
                                 containerTags: [userId, config.syncTag],
                                 limit: 15,
@@ -56,7 +61,7 @@ export function createConnectorsSearchTool(userId: string, selectedConnectors?: 
                 } else {
                     // Search specific provider
                     const config = CONNECTOR_CONFIGS[provider as ConnectorProvider];
-                    const result = await client.search.documents({
+                    const result = await getClient().search.documents({
                         q: query,
                         containerTags: [userId, config.syncTag],
                         limit: 15,

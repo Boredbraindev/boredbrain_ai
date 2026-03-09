@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getToolCatalog } from '@/lib/agent-api/tool-registry';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/tools - Discover available tools, their schemas, and pricing
  * Public endpoint - no authentication required for discovery
  */
 export async function GET() {
+  const { getToolCatalog } = await import('@/lib/agent-api/tool-registry');
   const catalog = getToolCatalog();
 
   return NextResponse.json({

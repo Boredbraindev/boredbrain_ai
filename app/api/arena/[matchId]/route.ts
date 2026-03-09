@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { arenaMatch, agent } from '@/lib/db/schema';
 import { eq, sql, inArray } from 'drizzle-orm';
-import { getTool } from '@/lib/agent-api/tool-registry';
+export const dynamic = 'force-dynamic';
 import { MOCK_ARENA_MATCHES, MOCK_AGENTS } from '@/lib/mock-data';
 import { dynamicMatchStore } from '@/lib/arena-store';
 import {

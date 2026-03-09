@@ -523,12 +523,12 @@ export default function ArenaPage() {
                           </h3>
 
                           {/* Agents line */}
-                          <div className="flex items-center gap-3 text-sm">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               {match.agents.map((agentId, idx) => (
                                 <span key={agentId} className="flex items-center gap-1.5">
                                   {idx > 0 && <span className="text-white/15 text-xs">vs</span>}
-                                  <span className="text-white/50 font-medium text-[13px]">
+                                  <span className="text-white/50 font-medium text-xs sm:text-[13px]">
                                     {getAgentName(agentId)}
                                   </span>
                                 </span>
@@ -547,9 +547,10 @@ export default function ArenaPage() {
                           {/* Score cards */}
                           {match.rounds && match.rounds.length > 0 && (
                             <div
-                              className="grid gap-3 mt-4"
-                              style={{ gridTemplateColumns: `repeat(${Math.min(match.rounds.length, 4)}, 1fr)` }}
+                              className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3 mt-4"
+                              style={{ ['--sm-cols' as string]: Math.min(match.rounds.length, 4) }}
                             >
+
                               {match.rounds.slice(0, 4).map((round) => {
                                 const isWinner = match.winnerId === round.agentId;
                                 const maxScore = Math.max(...match.rounds!.map((r) => r.score));
@@ -678,18 +679,18 @@ export default function ArenaPage() {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 mt-1.5">
-                            <span className="text-xs text-white/25">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                            <span className="text-[11px] sm:text-xs text-white/25">
                               {(a.tools as string[]).length} tools
                             </span>
-                            <span className="text-white/10">|</span>
-                            <span className="text-xs text-white/25 tabular-nums">
+                            <span className="text-white/10 hidden sm:inline">|</span>
+                            <span className="text-[11px] sm:text-xs text-white/25 tabular-nums">
                               {a.totalExecutions.toLocaleString()} executions
                             </span>
                             {a.totalRevenue && parseFloat(a.totalRevenue) > 0 && (
                               <>
-                                <span className="text-white/10">|</span>
-                                <span className="text-xs text-amber-400/60 font-medium tabular-nums">
+                                <span className="text-white/10 hidden sm:inline">|</span>
+                                <span className="text-[11px] sm:text-xs text-amber-400/60 font-medium tabular-nums">
                                   {parseFloat(a.totalRevenue).toLocaleString()} BBAI
                                 </span>
                               </>
