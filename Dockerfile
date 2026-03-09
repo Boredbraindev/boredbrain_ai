@@ -19,7 +19,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Build-time env (dummy values - real values come from .env.docker at runtime)
-ENV DATABASE_URL=postgresql://bbai:bbai_secret_2024@postgres:5432/boredbrain
+ENV DATABASE_URL=postgresql://bbai:changeme@postgres:5432/boredbrain
 ENV USE_LOCAL_DB=1
 ENV REDIS_URL=redis://redis:6379
 ENV XAI_API_KEY=dummy

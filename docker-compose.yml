@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: bbai
-      POSTGRES_PASSWORD: bbai_secret_2024
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: boredbrain
     ports:
       - "5433:5432"
@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        DATABASE_URL: postgresql://bbai:bbai_secret_2024@postgres:5432/boredbrain
+        DATABASE_URL: postgresql://bbai:${POSTGRES_PASSWORD:-changeme}@postgres:5432/boredbrain
         REDIS_URL: redis://redis:6379
     container_name: bbai-app
     restart: unless-stopped
