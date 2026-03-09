@@ -32,11 +32,21 @@ function verifyCron(request: NextRequest): boolean {
   // Dev mode: allow if CRON_SECRET is not configured
   if (!secret) return true;
 
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader) return false;
+  // Vercel cron sends this header automatically
+  if (request.headers.get('x-vercel-cron') === '1') return true;
 
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-  return token === secret;
+  // Bearer token auth
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    if (token === secret) return true;
+  }
+
+  // Query param for manual testing
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get('secret') === secret) return true;
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------
