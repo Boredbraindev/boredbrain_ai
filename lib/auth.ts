@@ -170,6 +170,8 @@ export const auth = betterAuth({
     'http://127.0.0.1:3009',
     'https://boredbrain.ai',
     'https://www.boredbrain.ai',
+    'https://ai.boredbrain.app',
+    'https://boredbrain.app',
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
     ...(process.env.NODE_ENV !== 'production'
       ? (process.env.NGROK_HOST || process.env.NGROK_HOSTS || '')
@@ -185,6 +187,8 @@ export const auth = betterAuth({
     'http://127.0.0.1:3009',
     'https://boredbrain.ai',
     'https://www.boredbrain.ai',
+    'https://ai.boredbrain.app',
+    'https://boredbrain.app',
     ...(process.env.NODE_ENV !== 'production'
       ? (process.env.NGROK_HOST || process.env.NGROK_HOSTS || '')
           .split(',')

@@ -139,8 +139,8 @@ npx hardhat run scripts/deploy-bsc.ts --network bsc
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/boredbrain.git
-cd boredbrain
+git clone https://github.com/Boredbraindev/boredbrain_ai.git
+cd boredbrain_ai
 
 # Install dependencies
 pnpm install
