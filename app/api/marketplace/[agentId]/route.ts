@@ -5,6 +5,9 @@ import {
   getPerformance,
 } from '@/lib/agent-marketplace';
 import { MOCK_MARKETPLACE_LISTINGS } from '@/lib/mock-marketplace';
+import { db } from '@/lib/db';
+import { externalAgent } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 // Generate deterministic mock performance from listing data
 function mockPerformance(agentId: string, period: '24h' | '7d' | '30d', listing: typeof MOCK_MARKETPLACE_LISTINGS[0]) {
@@ -80,17 +83,63 @@ export async function GET(
 
   // Fallback to mock marketplace listings
   const mock = MOCK_MARKETPLACE_LISTINGS.find((l) => l.agentId === agentId);
-  if (!mock) {
-    return NextResponse.json({ error: 'Agent not found in marketplace' }, { status: 404 });
+  if (mock) {
+    return NextResponse.json({
+      listing: mock,
+      reviews: mockReviews(agentId, mock),
+      performance: {
+        '24h': mockPerformance(agentId, '24h', mock),
+        '7d': mockPerformance(agentId, '7d', mock),
+        '30d': mockPerformance(agentId, '30d', mock),
+      },
+    });
   }
 
-  return NextResponse.json({
-    listing: mock,
-    reviews: mockReviews(agentId, mock),
-    performance: {
-      '24h': mockPerformance(agentId, '24h', mock),
-      '7d': mockPerformance(agentId, '7d', mock),
-      '30d': mockPerformance(agentId, '30d', mock),
-    },
-  });
+  // Fallback to DB externalAgent (fleet agents)
+  try {
+    const [agent] = await Promise.race([
+      db.select().from(externalAgent).where(eq(externalAgent.id, agentId)).limit(1),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]);
+
+    if (agent) {
+      const pricePerQuery = (agent.metadata as any)?.pricePerQuery ?? 10;
+      const fakeListing = {
+        agentId: agent.id,
+        name: agent.name,
+        description: agent.description ?? '',
+        longDescription: agent.description ?? '',
+        specialization: agent.specialization,
+        tools: (agent.tools as string[]) ?? [],
+        pricing: { perCall: pricePerQuery, subscription: null },
+        rating: agent.rating ?? 0,
+        reviewCount: 0,
+        totalCalls: agent.totalCalls ?? 0,
+        successRate: 95,
+        avgResponseTime: 2500,
+        featured: false,
+        verified: agent.ownerAddress === 'platform-fleet',
+        createdAt: agent.createdAt?.toISOString?.() ?? new Date().toISOString(),
+        tags: [agent.specialization],
+        developer: {
+          address: agent.ownerAddress ?? 'platform-fleet',
+          name: agent.ownerAddress === 'platform-fleet' ? 'BoredBrain Fleet' : agent.ownerAddress ?? 'Unknown',
+          agentCount: 1,
+        },
+      };
+      return NextResponse.json({
+        listing: fakeListing,
+        reviews: [],
+        performance: {
+          '24h': { agentId, period: '24h', totalCalls: agent.totalCalls ?? 0, successfulCalls: agent.totalCalls ?? 0, failedCalls: 0, avgResponseTime: 2500, totalEarned: agent.totalEarned ?? 0, uniqueCallers: Math.max(1, Math.floor((agent.totalCalls ?? 0) * 0.35)), topTools: ((agent.tools as string[]) ?? []).map((t, i) => ({ tool: t, calls: Math.max(1, Math.floor((agent.totalCalls ?? 1) / (i + 1.5))) })), hourlyActivity: [] },
+          '7d': { agentId, period: '7d', totalCalls: agent.totalCalls ?? 0, successfulCalls: agent.totalCalls ?? 0, failedCalls: 0, avgResponseTime: 2500, totalEarned: agent.totalEarned ?? 0, uniqueCallers: Math.max(1, Math.floor((agent.totalCalls ?? 0) * 0.35)), topTools: [], hourlyActivity: [] },
+          '30d': { agentId, period: '30d', totalCalls: agent.totalCalls ?? 0, successfulCalls: agent.totalCalls ?? 0, failedCalls: 0, avgResponseTime: 2500, totalEarned: agent.totalEarned ?? 0, uniqueCallers: Math.max(1, Math.floor((agent.totalCalls ?? 0) * 0.35)), topTools: [], hourlyActivity: [] },
+        },
+      });
+    }
+  } catch {
+    // DB unavailable
+  }
+
+  return NextResponse.json({ error: 'Agent not found in marketplace' }, { status: 404 });
 }

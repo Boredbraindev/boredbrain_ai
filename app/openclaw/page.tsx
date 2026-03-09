@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -297,6 +298,30 @@ export default function OpenClawPage() {
     }
   }, [regForm]);
 
+  // Boost activity
+  const [boosting, setBoosting] = useState(false);
+  const [boostResult, setBoostResult] = useState<string | null>(null);
+  const handleBoost = useCallback(async () => {
+    setBoosting(true);
+    setBoostResult(null);
+    try {
+      const res = await fetch('/api/agents/boost', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        const d = json.data ?? json;
+        setBoostResult(`${d.scenariosRun ?? 0} calls executed, ${(d.totalBilled ?? 0).toFixed(2)} BBAI billed`);
+        // Trigger data refresh
+        setSeedResult((prev) => (prev ?? '') + ' ');
+      } else {
+        setBoostResult(`Error: ${json.error}`);
+      }
+    } catch {
+      setBoostResult('Boost failed');
+    } finally {
+      setBoosting(false);
+    }
+  }, []);
+
   // Paginated agents
   const paginatedAgents = agents.slice(
     agentPage * AGENTS_PER_PAGE,
@@ -380,8 +405,18 @@ export default function OpenClawPage() {
           >
             {seeding ? 'Seeding Agents...' : 'Seed Agent Fleet'}
           </button>
+          <button
+            onClick={handleBoost}
+            disabled={boosting}
+            className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-all"
+          >
+            {boosting ? 'Running Agent Calls...' : 'Boost Activity'}
+          </button>
           {seedResult && (
             <p className="text-sm text-emerald-400/80">{seedResult}</p>
+          )}
+          {boostResult && (
+            <p className="text-sm text-cyan-400/80">{boostResult}</p>
           )}
         </section>
 
@@ -454,9 +489,10 @@ export default function OpenClawPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {paginatedAgents.map((agent) => (
-                  <div
+                  <Link
+                    href={`/marketplace/${agent.id}`}
                     key={agent.id}
-                    className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group"
+                    className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
@@ -511,7 +547,7 @@ export default function OpenClawPage() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
 
