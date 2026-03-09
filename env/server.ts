@@ -8,7 +8,7 @@ export const serverEnv = createEnv({
   server: {
     // Core - required for app to function
     DATABASE_URL: z.string().trim().min(1).optional().default(''),
-    BETTER_AUTH_SECRET: z.string().trim().min(1),
+    BETTER_AUTH_SECRET: z.string().trim().optional().default(''),
 
     // AI Providers - optional, features degrade gracefully
     XAI_API_KEY: optionalString,

@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
     : 'all';
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 50);
 
+  // Collect DB matches (if available)
+  let dbMatches: any[] = [];
   try {
     const baseQuery = db.select().from(arenaMatch).$dynamic();
     const dbPromise = status !== 'all'
@@ -44,42 +46,48 @@ export async function GET(request: NextRequest) {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000)
     );
-    const matches = await Promise.race([dbPromise, timeout]);
+    dbMatches = await Promise.race([dbPromise, timeout]);
 
-    if (matches.length > 0) {
-      // Enrich matches with battle status where available
-      const enriched = matches.map((m) => {
-        const battle = battleEngine.getBattleStatus(m.id);
-        return {
-          ...m,
-          battleStatus: battle
-            ? {
-                currentRound: battle.currentRound,
-                status: battle.status,
-                cumulativeScores: battle.cumulativeScores,
-                winnerId: battle.winnerId,
-              }
-            : null,
-        };
-      });
-
-      return NextResponse.json({ success: true, matches: enriched }, {
-        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
-      });
-    }
+    // Enrich with battle status
+    dbMatches = dbMatches.map((m) => {
+      const battle = battleEngine.getBattleStatus(m.id);
+      return {
+        ...m,
+        battleStatus: battle
+          ? {
+              currentRound: battle.currentRound,
+              status: battle.status,
+              cumulativeScores: battle.cumulativeScores,
+              winnerId: battle.winnerId,
+            }
+          : null,
+      };
+    });
   } catch {
-    // DB connection failed or timeout, fall through to mock data
+    // DB connection failed or timeout
   }
 
-  // Combine static mock data with dynamically created matches
+  // Always merge with mock + dynamic matches, dedup by id
   const dynamicMatches = Array.from(dynamicMatchStore.values());
-  const allMockMatches = [...MOCK_ARENA_MATCHES, ...dynamicMatches]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const allMatches = [...dbMatches, ...MOCK_ARENA_MATCHES, ...dynamicMatches];
+  const seen = new Set<string>();
+  const deduped = allMatches.filter((m) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+
+  const sorted = deduped.sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   const filtered = status !== 'all'
-    ? allMockMatches.filter((m) => m.status === status)
-    : allMockMatches;
-  return NextResponse.json({ success: true, matches: filtered.slice(0, limit) });
+    ? sorted.filter((m) => m.status === status)
+    : sorted;
+
+  return NextResponse.json({ success: true, matches: filtered.slice(0, limit) }, {
+    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+  });
 }
 
 /**
