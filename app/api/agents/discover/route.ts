@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 import { getToolPrice } from '@/lib/tool-pricing';
+import { db } from '@/lib/db';
+import { externalAgent } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 
 /**
  * Agent Discovery Endpoint
@@ -8,17 +11,36 @@ import { getToolPrice } from '@/lib/tool-pricing';
  * GET /api/agents/discover
  *
  * Returns a list of all available BoredBrain agents with their capabilities,
- * pricing, and endpoint URLs. External AI agents use this to discover which
- * agents are available for invocation.
+ * pricing, and endpoint URLs. Pulls from DB first (fleet + external agents),
+ * falls back to mock data.
  *
  * Query params:
  *   ?specialization=defi   - Filter by agent specialization
  *   ?tool=web_search        - Filter by tool availability
  *   ?status=online          - Filter by status (default: all)
+ *   ?limit=50               - Max results (default: 50, max: 500)
+ *   ?offset=0               - Pagination offset
  */
 
 // ---------------------------------------------------------------------------
-// Agent specialization mapping
+// Types
+// ---------------------------------------------------------------------------
+
+interface DiscoveryAgent {
+  id: string;
+  name: string;
+  description: string;
+  tools: string[];
+  specialization: string;
+  pricing: { averageCostPerQuery: number; currency: string };
+  status: 'online' | 'offline';
+  endpoint: string;
+  rating?: number;
+  totalCalls?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Agent specialization mapping (for mock agents)
 // ---------------------------------------------------------------------------
 
 const AGENT_SPECIALIZATIONS: Record<string, string> = {
@@ -42,103 +64,57 @@ const AGENT_SPECIALIZATIONS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Canonical discovery agents (the 6 primary agents for A2A discovery)
+// Build full agent list: DB agents + mock agents (deduped)
 // ---------------------------------------------------------------------------
 
-interface DiscoveryAgent {
-  id: string;
-  name: string;
-  description: string;
-  tools: string[];
-  specialization: string;
-  pricing: { averageCostPerQuery: number; currency: string };
-  status: 'online' | 'offline';
-  endpoint: string;
-}
+async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
+  const merged: DiscoveryAgent[] = [];
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
 
-const DISCOVERY_AGENTS: DiscoveryAgent[] = [
-  {
-    id: 'agent-defi-oracle',
-    name: 'DeFi Oracle',
-    description:
-      'Analyzes DeFi protocols, yield farming opportunities, and liquidity pool data across chains.',
-    tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'],
-    specialization: 'defi',
-    pricing: { averageCostPerQuery: 40, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-defi-oracle/invoke',
-  },
-  {
-    id: 'agent-alpha-hunter',
-    name: 'Alpha Hunter',
-    description:
-      'Hunts for market opportunities by monitoring whale movements, social sentiment, and on-chain signals.',
-    tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'],
-    specialization: 'market',
-    pricing: { averageCostPerQuery: 35, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-alpha-hunter/invoke',
-  },
-  {
-    id: 'agent-research-bot',
-    name: 'Research Bot',
-    description:
-      'Academic and deep-web research agent capable of synthesizing papers, code, and multi-source data.',
-    tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'],
-    specialization: 'research',
-    pricing: { averageCostPerQuery: 30, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-research-bot/invoke',
-  },
-  {
-    id: 'agent-news-aggregator',
-    name: 'News Aggregator',
-    description:
-      'Compiles breaking news from web, social media, Reddit, and YouTube into structured briefings.',
-    tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'],
-    specialization: 'news',
-    pricing: { averageCostPerQuery: 20, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-news-aggregator/invoke',
-  },
-  {
-    id: 'agent-code-auditor',
-    name: 'Code Auditor',
-    description:
-      'Audits smart contracts for vulnerabilities, gas optimization, and best-practice compliance.',
-    tools: ['code_interpreter', 'smart_contract_audit', 'web_search'],
-    specialization: 'security',
-    pricing: { averageCostPerQuery: 45, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-code-auditor/invoke',
-  },
-  {
-    id: 'agent-nft-analyst',
-    name: 'NFT Analyst',
-    description:
-      'Tracks NFT market trends, collection analytics, whale purchases, and social buzz around NFTs.',
-    tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'],
-    specialization: 'nft',
-    pricing: { averageCostPerQuery: 30, currency: 'USDT' },
-    status: 'online',
-    endpoint: '/api/agents/agent-nft-analyst/invoke',
-  },
-];
+  // 1. Try DB first — get all active agents
+  try {
+    const dbPromise = db
+      .select()
+      .from(externalAgent)
+      .where(eq(externalAgent.status, 'active'));
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 3000),
+    );
+    const dbAgents = await Promise.race([dbPromise, timeout]);
 
-// ---------------------------------------------------------------------------
-// Merge discovery agents with mock data from the marketplace
-// ---------------------------------------------------------------------------
+    for (const a of dbAgents) {
+      const pricePerQuery =
+        (a.metadata as any)?.pricePerQuery ??
+        (a.tools as string[]).reduce(
+          (sum, t) => sum + (getToolPrice(t) ?? 5),
+          0,
+        ) ??
+        10;
+      const currency = (a.metadata as any)?.currency ?? 'BBAI';
 
-function buildFullAgentList(): DiscoveryAgent[] {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://boredbrain.ai';
+      merged.push({
+        id: a.id,
+        name: a.name,
+        description: a.description ?? '',
+        tools: (a.tools as string[]) ?? [],
+        specialization: a.specialization,
+        pricing: { averageCostPerQuery: pricePerQuery, currency },
+        status: 'online',
+        endpoint: `/api/agents/${a.id}/invoke`,
+        rating: a.rating,
+        totalCalls: a.totalCalls,
+      });
+      seenIds.add(a.id);
+      seenNames.add(a.name);
+    }
+  } catch {
+    // DB unavailable — continue with mock data
+  }
 
-  // Start with the 6 canonical discovery agents
-  const discoveryIds = new Set(DISCOVERY_AGENTS.map((a) => a.id));
-  const merged: DiscoveryAgent[] = [...DISCOVERY_AGENTS];
-
-  // Supplement from MOCK_AGENTS (marketplace agents not already in the list)
+  // 2. Supplement from MOCK_AGENTS (marketplace agents not already in the list)
   for (const mock of MOCK_AGENTS) {
-    if (discoveryIds.has(mock.id)) continue;
+    if (seenIds.has(mock.id) || seenNames.has(mock.name)) continue;
 
     const tools = (mock.tools as string[]) || [];
     const avgCost =
@@ -152,10 +128,11 @@ function buildFullAgentList(): DiscoveryAgent[] {
       description: mock.description,
       tools,
       specialization: AGENT_SPECIALIZATIONS[mock.id] ?? 'general',
-      pricing: { averageCostPerQuery: avgCost, currency: 'USDT' },
+      pricing: { averageCostPerQuery: avgCost, currency: 'BBAI' },
       status: mock.status === 'active' ? 'online' : 'offline',
       endpoint: `/api/agents/${mock.id}/invoke`,
     });
+    seenIds.add(mock.id);
   }
 
   return merged;
@@ -173,8 +150,16 @@ export async function GET(request: NextRequest) {
     | 'online'
     | 'offline'
     | null;
+  const limit = Math.min(
+    Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1),
+    500,
+  );
+  const offset = Math.max(
+    parseInt(searchParams.get('offset') || '0', 10) || 0,
+    0,
+  );
 
-  let agents = buildFullAgentList();
+  let agents = await buildFullAgentList();
 
   // Filter by specialization
   if (specialization) {
@@ -195,17 +180,23 @@ export async function GET(request: NextRequest) {
     agents = agents.filter((a) => a.status === status);
   }
 
+  const total = agents.length;
+  const paginated = agents.slice(offset, offset + limit);
+
   return NextResponse.json(
     {
       platform: 'BoredBrain AI',
       protocol: 'a2a',
-      totalAgents: agents.length,
-      agents,
+      totalAgents: total,
+      returned: paginated.length,
+      offset,
+      limit,
+      agents: paginated,
       meta: {
         discoveryEndpoint: '/api/agents/discover',
         invokePattern: '/api/agents/{agentId}/invoke',
         agentCardUrl: '/.well-known/agent-card.json',
-        paymentToken: 'USDT',
+        paymentToken: 'BBAI',
       },
     },
     {
