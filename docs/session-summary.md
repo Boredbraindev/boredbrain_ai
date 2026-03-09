@@ -5,223 +5,158 @@
 
 ---
 
-## 1. 현재 배포된 기능 (전부 커밋 + 배포 완료)
+## 1. 완료된 기능 (전부 커밋 + 배포 완료)
 
 ### 코어 페이지
 - [x] 홈 (AgenticHub) — 프리미엄 히어로, 라이브 통계, 기능 그리드, 수익 모델
-- [x] Agent Arena — AI 에이전트 배틀, ELO 레이팅, 워저링
+- [x] Agent Arena — AI 에이전트 배틀, ELO 레이팅, 3라운드 배틀 엔진, 워저링
 - [x] Marketplace — 에이전트 탐색, 필터, 개발자 프로필, 리뷰
 - [x] Agent Registration — NFT 티어 혜택, 스테이킹, 에이전트 카드 검증
 - [x] Leaderboard — ELO 랭킹, 에이전트 통계
-- [x] Predict — 예측 마켓 (가장 큰 신규 페이지)
+- [x] Predict — 예측 마켓
 - [x] Rewards — 스테이킹/리워드
 - [x] Playbooks — 전략 마켓플레이스
-- [x] Prompts — 프롬프트 마켓
+- [x] Prompts — 프롬프트 마켓 (50개 쇼케이스 프롬프트)
 - [x] Network — A2A 네트워크 노드 시각화
 - [x] Dashboard — 수익/분석 대시보드
 - [x] Stats — 플랫폼 통계
 - [x] Integrations Hub — 8개 MCP 프로바이더 브라우징/연결
+- [x] Sign In / Sign Up — 이메일/비밀번호 + 조건부 OAuth
 
-### 인프라
+### 백엔드 시스템
+- [x] LLM 에이전트 실행 엔진 (`lib/agent-executor.ts`)
+  - OpenAI, Anthropic, xAI, Google 4개 프로바이더 지원
+  - API 키 없으면 시뮬레이션 폴백
+  - 도구 실행 루프 (최대 3라운드)
+  - 스트리밍 지원
+- [x] Arena 배틀 엔진 (`lib/arena/battle-engine.ts`)
+  - 3라운드 배틀 (분석, 시사점, 반론)
+  - 4가지 기준 스코어링 (관련성, 인사이트, 정확성, 창의성)
+  - ELO 레이팅 자동 업데이트
+  - 시뮬레이션 모드 폴백
+- [x] MCP 클라이언트 (`lib/mcp/client.ts`)
+  - stdio/HTTP/SSE 3종 트랜스포트
+  - 8개 프로바이더 커넥션 설정
+  - 커넥션 풀링 (5분 idle TTL)
+  - 도구 리스트 캐싱
+- [x] 온체인 결제 파이프라인 (`lib/blockchain/payment-service.ts`)
+  - Base 체인 RPC 연동
+  - 토큰 잔액 조회, 스테이킹, 수수료 처리
+  - 트랜잭션 검증
+  - 컨트랙트 미배포 시 시뮬레이션 모드
+- [x] 도구 실행기 (`lib/tools/tool-executor.ts`)
+  - CoinGecko API 연동 (코인 데이터)
+  - Tavily API 연동 (웹 검색)
+  - 17개 도구 등록 (실제 + 목업)
+
+### 스마트 컨트랙트 (배포 준비 완료)
+- [x] $BBAI ERC-20 토큰 (`contracts/contracts/BBToken.sol`)
+  - 총 공급량: 10억 BBAI
+  - 15% 플랫폼 수수료 함수
+  - 1% 트레이드 수수료
+  - Pausable 긴급 정지
+- [x] Agent Staking (`contracts/contracts/AgentStaking.sol`)
+  - 100 BBAI 스테이킹 (30일 락업)
+  - NFT 티어 할인 (Ape 50%, Bluechip 25%)
+  - 온체인 NFT 보유 검증
+- [x] Hardhat 설정 (Base Mainnet + Sepolia)
+- [x] 배포 스크립트 (`contracts/deploy/deploy.ts`)
+
+### 인프라 & 보안
+- [x] 프로덕션 DB — Neon PostgreSQL 연결 + ELO 마이그레이션 완료
+- [x] Better Auth — 이메일/비밀번호 + 조건부 OAuth (env 있을 때만)
+- [x] WalletConnect — 프로젝트 ID 연동 완료
 - [x] 글로벌 네비게이션 바 (데스크탑 드롭다운 + 모바일 햄버거)
-- [x] 외부 통합 레지스트리 (8개 MCP/스킬 프로바이더)
-- [x] API 라우트 (agents, arena, marketplace, network, integrations, revenue, billing, tools, mcp)
-- [x] DB 스키마 (Drizzle ORM + PostgreSQL)
-- [x] NFT 체커 (BAYC/MAYC, 블루칩, BoredBrain 티어)
-- [x] ELO/트렌딩 시스템
-- [x] Web3 프로바이더 (WalletConnect + RainbowKit)
-- [x] Vercel 배포 + Analytics + SpeedInsights
+- [x] Rate Limiting — IP당 60req/min (인메모리 슬라이딩 윈도우)
+- [x] 보안 헤더 — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- [x] API 입력 검증/살균 — 모든 API 라우트에 스키마 기반 검증
+- [x] NFT 체커 연동 — 에이전트 등록 시 자동 NFT 보유 확인 + 티어별 할인
+- [x] 크롤러 차단 — robots.txt + noindex 메타 태그
+- [x] OG/Twitter 이미지 — Edge 런타임 소셜 카드 생성
+- [x] Vercel 환경변수 설정 완료 (DATABASE_URL, Redis, WalletConnect, Auth)
 
 ---
 
-## 2. To-Do List — 라이브 런칭까지
+## 2. 라이브 런칭까지 남은 작업
 
-### 🔴 Phase 1: Infrastructure (반드시 필요)
+### 🔴 반드시 필요 (사용자 액션)
 
-- [ ] **프로덕션 DB 설정**
-  - Neon 또는 Supabase에서 PostgreSQL 프로비저닝
-  - Vercel 환경변수에 `DATABASE_URL` 설정
-  - `drizzle-kit push` 또는 마이그레이션 실행 (`0012_add_elo_trending.sql` 포함)
+| # | 작업 | 설명 | 소요 시간 |
+|---|------|------|----------|
+| 1 | **스마트 컨트랙트 배포** | `npx hardhat run deploy/deploy.ts --network base-sepolia` → 테스트 후 메인넷 | 30분 |
+| 2 | **컨트랙트 주소 환경변수 등록** | 배포 후 `BBAI_TOKEN_ADDRESS`를 Vercel에 설정 | 5분 |
+| 3 | **커스텀 도메인 연결** | `boredbrain.ai` → Vercel DNS 설정 | 15분 |
+| 4 | **BETTER_AUTH_URL 설정** | 커스텀 도메인 연결 후 `https://boredbrain.ai`로 업데이트 | 5분 |
 
-- [ ] **인증 시스템 완성**
-  - Better Auth 설정 확인 (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`)
-  - 로그인/회원가입 플로우 E2E 테스트
-  - OAuth 프로바이더 연동 (GitHub, Google, Twitter 중 택)
+### 🟡 권장 (기능 강화)
 
-- [ ] **WalletConnect 연동**
-  - WalletConnect Cloud에서 프로젝트 ID 발급
-  - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` 환경변수 설정
-  - 지갑 연결 → 에이전트 등록 플로우 테스트
+| # | 작업 | 설명 | 현재 상태 |
+|---|------|------|----------|
+| 1 | AI API 키 등록 | `OPENAI_API_KEY` 또는 `ANTHROPIC_API_KEY` Vercel에 추가 | 없으면 시뮬레이션 모드 작동 |
+| 2 | CoinGecko API 키 | `COINGECKO_API_KEY` — 실시간 코인 데이터 | 없으면 목업 데이터 |
+| 3 | Tavily API 키 | `TAVILY_API_KEY` — 웹 검색 도구 | 없으면 목업 결과 |
+| 4 | OAuth 설정 | GitHub/Google Client ID/Secret | 없어도 이메일/비번 로그인 가능 |
+| 5 | Sentry 에러 모니터링 | `SENTRY_DSN` 설정 | 선택사항 |
+| 6 | Alchemy API 키 | `ALCHEMY_API_KEY` — NFT 보유 검증 실데이터 | 없으면 시뮬레이션 |
 
-- [ ] **커스텀 도메인**
-  - `boredbrain.ai` 도메인을 Vercel에 연결
-  - SSL 인증서 자동 발급 확인
+### 🟢 런칭 후 확장
 
-### 🟡 Phase 2: Core Product (MVP)
-
-- [ ] **$BBAI 토큰 스마트 컨트랙트**
-  - ERC-20 컨트랙트 작성 (Solidity)
-  - Base chain에 배포 (추후 BSC, Arbitrum 멀티체인)
-  - 컨트랙트 주소를 프론트엔드에 연동
-  - Tokenomics: 총 공급량, 분배, 번/민트 로직
-
-- [ ] **에이전트 실제 실행 엔진**
-  - Claude/GPT API 연동으로 실제 에이전트 응답 생성
-  - 현재 시뮬레이션 응답 → 실제 LLM 호출로 교체
-  - 도구 실행 파이프라인 (web_search, coin_data 등 실제 API 호출)
-
-- [ ] **Arena 실시간 배틀**
-  - WebSocket 또는 SSE 기반 실시간 라운드 진행
-  - 실제 에이전트 2-4개가 토픽에 대해 대결
-  - 투표/심사 시스템 연결
-  - 워저링 UI에서 실제 BBAI 토큰 에스크로
-
-- [ ] **MCP 통합 실제 연결 (1-2개 우선)**
-  - Solana Agent Kit (`sendaifun/solana-agent-kit`) npm 설치
-  - EVM MCP Server (`mcpdotdirect/evm-mcp-server`) 연결
-  - `/api/mcp/execute` 엔드포인트에서 실제 tool 실행
-
-- [ ] **온체인 결제 파이프라인**
-  - BBAI 토큰 전송/승인 트랜잭션 연동
-  - 에이전트 등록 시 실제 스테이킹 (100 BBAI)
-  - 도구 호출 시 자동 결제 (15% 플랫폼 피)
-
-### 🟡 Phase 3: Economy & Security
-
-- [ ] **NFT 게이팅 실 적용**
-  - 에이전트 등록 시 NFT 보유 확인 → 할인/무료 스테이킹
-  - 현재 `lib/nft-checker.ts` 로직을 등록 API에 연결
-
-- [ ] **에이전트 토크나이제이션**
-  - 본딩 커브 스마트 컨트랙트 배포
-  - 에이전트별 토큰 민트/트레이드 UI
-  - 1% 트레이드 피 → 플랫폼 수익
-
-- [ ] **Rate Limiting**
-  - Upstash Redis 설정 (`UPSTASH_REDIS_REST_URL`)
-  - API 엔드포인트별 레이트 리밋 미들웨어
-
-- [ ] **에러 모니터링**
-  - Sentry 설치 및 `SENTRY_DSN` 설정
-  - 프로덕션 에러 알림 설정 (Slack/Discord)
-
-- [ ] **보안 점검**
-  - API 인증 미들웨어 확인
-  - SQL 인젝션/XSS 방어 확인
-  - 환경변수 노출 여부 검증
-
-### 🟢 Phase 4: Growth (런칭 후)
-
-- [ ] **추가 MCP 통합 확장** (35개 나머지)
-  - Hyperliquid (무기한 선물)
-  - DexPaprika (DEX 데이터)
-  - Armor Crypto (DCA/리밋 오더)
-  - MemOS (에이전트 메모리)
-  - Lightning Network (BTC 결제)
-  - Base USDC Transfer
-
-- [ ] **ERC-8004 온체인 에이전트 등록**
-  - BNB Chain의 ERC-8004 표준으로 에이전트를 온체인 등록
-  - 현재 DB 레지스트리 → 온체인으로 확장
-
-- [ ] **Greenfield 분산 스토리지**
-  - 에이전트 히스토리/성과 데이터를 BNB Greenfield에 저장
-  - 불변 기록 + 검증 가능한 에이전트 실적
-
-- [ ] **크로스체인 브릿지**
-  - Wormhole 또는 LayerZero로 멀티체인 $BBAI 전송
-  - Base ↔ BSC ↔ Arbitrum ↔ ApeChain
-
-- [ ] **SEO / 소셜 메타**
-  - OG 이미지 생성 (`next/og`)
-  - Twitter 카드, Discord 임베드
-
-- [ ] **모바일 반응형 최적화**
-  - 모든 페이지 모바일 레이아웃 테스트/개선
-  - PWA 지원 (이미 `manifest.webmanifest` 존재)
-
-- [ ] **다국어 지원**
-  - next-intl 또는 next-i18next 설정
-  - 한국어/영어 기본 지원
+- [ ] 에이전트 토크나이제이션 (본딩 커브 컨트랙트)
+- [ ] 추가 MCP 통합 확장 (Hyperliquid, DexPaprika, MemOS 등)
+- [ ] ERC-8004 온체인 에이전트 등록
+- [ ] 크로스체인 브릿지 (Wormhole/LayerZero)
+- [ ] 모바일 반응형 최적화
+- [ ] 다국어 지원 (한국어/영어)
+- [ ] PWA 고도화
 
 ---
 
-## 3. 환경변수 체크리스트
+## 3. Vercel 환경변수 현황
 
 ```env
 # ═══════════════════════════════════════════
-# 🔴 REQUIRED (라이브 필수)
+# ✅ 설정 완료
 # ═══════════════════════════════════════════
-DATABASE_URL=                              # PostgreSQL (Neon/Supabase)
-BETTER_AUTH_SECRET=                        # 세션 암호화 키
-BETTER_AUTH_URL=                           # 인증 콜백 URL
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=      # WalletConnect Cloud
+DATABASE_URL=postgresql://...                 # ✅ Neon PostgreSQL
+BETTER_AUTH_SECRET=...                        # ✅ 자동 생성됨
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...      # ✅ bsu_agent에서 가져옴
+UPSTASH_REDIS_REST_URL=...                    # ✅ Rate limiting용
+UPSTASH_REDIS_REST_TOKEN=...                  # ✅ Rate limiting용
 
 # ═══════════════════════════════════════════
-# 🟡 RECOMMENDED (MVP 기능에 필요)
+# ⏳ 배포 후 설정 필요
 # ═══════════════════════════════════════════
-OPENAI_API_KEY=                            # GPT 에이전트 실행
-ANTHROPIC_API_KEY=                         # Claude 에이전트 실행
-COINGECKO_API_KEY=                         # 코인 데이터 도구
-ALCHEMY_API_KEY=                           # 온체인 데이터 (NFT 체크 등)
+BBAI_TOKEN_ADDRESS=                           # 스마트 컨트랙트 배포 후
+BBAI_PLATFORM_WALLET=                         # 플랫폼 수수료 수신 지갑
+BETTER_AUTH_URL=                              # 커스텀 도메인 연결 후
 
 # ═══════════════════════════════════════════
-# 🟢 OPTIONAL (부가 기능)
+# 🟡 선택 (없어도 시뮬레이션 모드 작동)
 # ═══════════════════════════════════════════
-UPSTASH_REDIS_REST_URL=                    # Rate limiting
-UPSTASH_REDIS_REST_TOKEN=                  # Rate limiting
-SENTRY_DSN=                                # 에러 모니터링
-TAVILY_API_KEY=                            # 웹 검색 도구
-EXA_API_KEY=                               # 학술 검색 도구
-FIRECRAWL_API_KEY=                         # 웹 크롤링 도구
-GITHUB_CLIENT_ID=                          # OAuth 로그인
-GITHUB_CLIENT_SECRET=                      # OAuth 로그인
-GOOGLE_CLIENT_ID=                          # OAuth 로그인
-GOOGLE_CLIENT_SECRET=                      # OAuth 로그인
+OPENAI_API_KEY=                               # 에이전트 실행 (GPT-4o)
+ANTHROPIC_API_KEY=                            # 에이전트 실행 (Claude)
+XAI_API_KEY=                                  # 에이전트 실행 (Grok)
+GOOGLE_GENERATIVE_AI_API_KEY=                 # 에이전트 실행 (Gemini)
+COINGECKO_API_KEY=                            # 코인 데이터 도구
+TAVILY_API_KEY=                               # 웹 검색 도구
+ALCHEMY_API_KEY=                              # NFT 보유 검증
+SENTRY_DSN=                                   # 에러 모니터링
+GITHUB_CLIENT_ID=                             # OAuth (선택)
+GITHUB_CLIENT_SECRET=                         # OAuth (선택)
+GOOGLE_CLIENT_ID=                             # OAuth (선택)
+GOOGLE_CLIENT_SECRET=                         # OAuth (선택)
 ```
 
 ---
 
-## 4. 통합된 외부 MCP 프로바이더 (8개)
-
-| # | 프로바이더 | 체인 | 도구 수 | 카테고리 | 상태 |
-|---|-----------|------|---------|---------|------|
-| 1 | BNB Chain MCP | BSC, opBNB, Greenfield | 16 | Blockchain | ✅ 등록됨 |
-| 2 | GOAT SDK | EVM, Solana, Aptos 등 14개 | 200+ | DeFi | ✅ 등록됨 |
-| 3 | Solana Agent Kit | Solana | 60+ | DeFi | ✅ 등록됨 |
-| 4 | Web3 MCP | 11 chains | 11 | Multi-chain | ✅ 등록됨 |
-| 5 | EVM MCP Server | 60+ EVM chains | 22 | Blockchain | ✅ 등록됨 |
-| 6 | Tatum Blockchain | 130+ networks | 14 | Blockchain | ✅ 등록됨 |
-| 7 | Armor Crypto MCP | Solana | 18 | Trading | ✅ 등록됨 |
-| 8 | Agoragentic | Base | 12 | Marketplace | ✅ 등록됨 (beta) |
-
-> 참고: 현재는 레지스트리/UI만 구현됨. 실제 MCP 서버 연결은 Phase 2에서 진행.
-
----
-
-## 5. 발견된 추가 통합 후보 (상위 10개)
-
-| 우선순위 | 레포 | 스타 | 용도 |
-|---------|------|------|------|
-| 1 | `sendaifun/solana-mcp` | 153 | Solana MCP 서버 래퍼 |
-| 2 | `coinpaprika/dexpaprika-mcp` | 37 | DEX 트레이딩 데이터 |
-| 3 | `caiovicentino/hyperliquid-mcp-server` | 27 | 무기한 선물 트레이딩 |
-| 4 | `nirholas/free-crypto-news` | 59 | 크립토 뉴스 센티먼트 |
-| 5 | `MemTensor/MemOS` | 6.3k | 에이전트 메모리 퍼시스턴스 |
-| 6 | `nirholas/UCAI` | 22 | ABI→MCP 자동 변환 |
-| 7 | `magnetai/mcp-free-usdc-transfer` | - | Base USDC 전송 |
-| 8 | `AbdelStark/lightning-mcp` | - | 비트코인 라이트닝 결제 |
-| 9 | `lorine93s/marinade-finance-mcp-server` | 45 | SOL 리퀴드 스테이킹 |
-| 10 | `EverMind-AI/EverMemOS` | 2.4k | 24/7 에이전트 메모리 |
-
----
-
-## 6. 프로젝트 구조
+## 4. 프로젝트 구조
 
 ```
 boredbrain-master/
 ├── app/
 │   ├── page.tsx                    # 홈 (AgenticHub)
+│   ├── (auth)/sign-in/             # 로그인
+│   ├── (auth)/sign-up/             # 회원가입
 │   ├── arena/                      # Agent Arena (배틀)
 │   ├── marketplace/                # Agent Marketplace
 │   ├── agents/                     # 에이전트 관리/등록
@@ -229,39 +164,59 @@ boredbrain-master/
 │   ├── predict/                    # 예측 마켓
 │   ├── rewards/                    # 스테이킹/리워드
 │   ├── playbooks/                  # 전략 마켓
-│   ├── prompts/                    # 프롬프트 마켓
+│   ├── prompts/                    # 프롬프트 마켓 (50개)
 │   ├── network/                    # A2A 네트워크
 │   ├── integrations/               # MCP 통합 허브
 │   ├── dashboard/                  # 대시보드/수익
 │   ├── stats/                      # 플랫폼 통계
-│   ├── kol/                        # KOL 트래커
-│   ├── signals/                    # 시그널
-│   └── api/                        # API 라우트
-│       ├── agents/                 # 에이전트 CRUD
-│       ├── arena/                  # 배틀 관리
-│       ├── marketplace/            # 마켓 API
-│       ├── mcp/                    # MCP 서버
-│       ├── network/                # A2A 네트워크
-│       ├── integrations/           # 통합 관리
-│       ├── billing/                # 빌링
-│       ├── tools/                  # 도구 실행
-│       └── revenue/                # 수익 데이터
-├── components/
-│   ├── global-navbar.tsx           # 글로벌 네비게이션
-│   ├── agentic-hub.tsx             # 홈 메인 컴포넌트
-│   ├── navbar.tsx                  # 채팅용 네비바 (레거시)
-│   └── providers/                  # Web3, Theme 등
+│   └── api/
+│       ├── agents/execute/         # 에이전트 실행 API
+│       ├── arena/battle/           # 배틀 실행 API
+│       ├── auth/                   # Better Auth
+│       ├── mcp/execute/            # MCP 도구 실행
+│       ├── mcp/tools/              # MCP 도구 목록
+│       ├── payments/               # 결제 처리
+│       └── ...                     # 기타 API
+├── contracts/
+│   ├── contracts/BBToken.sol       # $BBAI ERC-20
+│   ├── contracts/AgentStaking.sol  # 스테이킹 컨트랙트
+│   ├── deploy/deploy.ts            # 배포 스크립트
+│   └── hardhat.config.ts           # Base chain 설정
 ├── lib/
-│   ├── external-integrations.ts    # MCP 프로바이더 레지스트리
-│   ├── agent-registry.ts           # 에이전트 등록 로직
-│   ├── agent-network.ts            # A2A 네트워크
-│   ├── agent-wallet.ts             # BBAI 지갑
-│   ├── inter-agent-billing.ts      # 에이전트간 빌링
-│   ├── nft-checker.ts              # NFT 티어 체크
-│   ├── trending.ts                 # ELO/트렌딩
-│   ├── tool-pricing.ts             # 도구 가격
+│   ├── agent-executor.ts           # LLM 실행 엔진
+│   ├── arena/battle-engine.ts      # 배틀 엔진
+│   ├── arena/scoring.ts            # ELO 스코어링
+│   ├── blockchain/payment-service.ts # 온체인 결제
+│   ├── blockchain/config.ts        # 체인 설정
+│   ├── contracts/bbai-abi.ts       # 토큰 ABI
+│   ├── mcp/client.ts               # MCP 클라이언트
+│   ├── mcp/providers/index.ts      # MCP 프로바이더 설정
+│   ├── tools/tool-executor.ts      # 도구 실행기
+│   ├── tools/coin-data-executor.ts # CoinGecko 연동
+│   ├── tools/web-search-executor.ts # Tavily 연동
+│   ├── showcase-prompts.ts         # 50개 프롬프트 데이터
+│   ├── auth.ts                     # Better Auth 서버
+│   ├── auth-client.ts              # Better Auth 클라이언트
+│   ├── api-utils.ts                # API 보안 유틸
+│   ├── rate-limit.ts               # Rate Limiting
 │   └── db/schema.ts                # DB 스키마
 └── docs/
-    ├── session-summary.md          # 이 문서
-    └── awesome-ai-agents-submissions.md
+    └── session-summary.md          # 이 문서
+```
+
+---
+
+## 5. 라이브 런칭 체크리스트
+
+```
+[ ] 1. Base Sepolia에서 스마트 컨트랙트 테스트 배포
+[ ] 2. 컨트랙트 동작 확인 (mint, stake, unstake, transfer)
+[ ] 3. Base Mainnet에 컨트랙트 배포
+[ ] 4. BBAI_TOKEN_ADDRESS Vercel에 등록
+[ ] 5. boredbrain.ai 도메인 Vercel에 연결
+[ ] 6. BETTER_AUTH_URL 업데이트
+[ ] 7. 로그인/회원가입 E2E 테스트
+[ ] 8. AI API 키 1개 이상 등록 (시뮬레이션 → 실제)
+[ ] 9. 최종 기능 확인 (Arena 배틀, 에이전트 등록, 프롬프트 마켓)
+[ ] 10. 라이브 런칭! 🚀
 ```
