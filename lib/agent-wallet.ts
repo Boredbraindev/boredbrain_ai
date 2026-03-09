@@ -175,75 +175,75 @@ export async function deductBalance(
   amount: number,
   reason: string,
 ): Promise<DeductResult> {
-  return await db.transaction(async (tx) => {
-    const [wallet] = await tx
-      .select()
-      .from(agentWallet)
-      .where(eq(agentWallet.agentId, agentId));
+  // Note: neon-http driver does not support transactions.
+  // Use sequential queries with optimistic concurrency instead.
+  const [wallet] = await db
+    .select()
+    .from(agentWallet)
+    .where(eq(agentWallet.agentId, agentId));
 
-    if (!wallet) {
-      return { success: false, txId: '', remaining: 0 };
-    }
+  if (!wallet) {
+    return { success: false, txId: '', remaining: 0 };
+  }
 
-    if (!wallet.isActive) {
-      return { success: false, txId: '', remaining: wallet.balance };
-    }
+  if (!wallet.isActive) {
+    return { success: false, txId: '', remaining: wallet.balance };
+  }
 
-    if (amount <= 0) {
-      return { success: false, txId: '', remaining: wallet.balance };
-    }
+  if (amount <= 0) {
+    return { success: false, txId: '', remaining: wallet.balance };
+  }
 
-    if (amount > wallet.balance) {
-      return { success: false, txId: '', remaining: wallet.balance };
-    }
+  if (amount > wallet.balance) {
+    return { success: false, txId: '', remaining: wallet.balance };
+  }
 
-    // Check daily spend limit: sum debits from today
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+  // Check daily spend limit: sum debits from today
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
-    const todayTxRows = await tx
-      .select()
-      .from(walletTransaction)
-      .where(eq(walletTransaction.agentId, agentId));
+  const todayTxRows = await db
+    .select()
+    .from(walletTransaction)
+    .where(eq(walletTransaction.agentId, agentId));
 
-    const todaySpent = todayTxRows
-      .filter(
-        (row) =>
-          row.type === 'debit' && row.timestamp >= todayStart,
-      )
-      .reduce((sum, row) => sum + row.amount, 0);
+  const todaySpent = todayTxRows
+    .filter(
+      (row) =>
+        row.type === 'debit' && row.timestamp >= todayStart,
+    )
+    .reduce((sum, row) => sum + row.amount, 0);
 
-    if (todaySpent + amount > wallet.dailyLimit) {
-      return { success: false, txId: '', remaining: wallet.balance };
-    }
+  if (todaySpent + amount > wallet.dailyLimit) {
+    return { success: false, txId: '', remaining: wallet.balance };
+  }
 
-    // Execute the deduction
-    const newBalance = wallet.balance - amount;
-    const newTotalSpent = wallet.totalSpent + amount;
+  // Execute the deduction
+  const newBalance = wallet.balance - amount;
+  const newTotalSpent = wallet.totalSpent + amount;
 
-    await tx
-      .update(agentWallet)
-      .set({ balance: newBalance, totalSpent: newTotalSpent })
-      .where(eq(agentWallet.agentId, agentId));
+  await db
+    .update(agentWallet)
+    .set({ balance: newBalance, totalSpent: newTotalSpent })
+    .where(eq(agentWallet.agentId, agentId));
 
-    // Record the transaction within the same DB transaction
-    const [txRow] = await tx
-      .insert(walletTransaction)
-      .values({
-        agentId,
-        amount,
-        type: 'debit',
-        reason,
-        balanceAfter: newBalance,
-      })
-      .returning();
+  // Record the transaction
+  const [txRow] = await db
+    .insert(walletTransaction)
+    .values({
+      agentId,
+      amount,
+      type: 'debit',
+      reason,
+      balanceAfter: newBalance,
+    })
+    .returning();
 
-    return {
-      success: true,
-      txId: txRow.id,
-      remaining: newBalance,
-    };
-  });
+  return {
+    success: true,
+    txId: txRow.id,
+    remaining: newBalance,
+  };
 }
 
 /**
