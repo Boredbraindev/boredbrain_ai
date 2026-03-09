@@ -206,7 +206,7 @@ export default function PaymentDashboardPage() {
     {
       label: 'Total Volume',
       value: formatNumber(stats?.totalVolume || 0),
-      sub: 'USDT',
+      sub: 'BBAI',
       gradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
       border: 'border-emerald-500/20',
       text: 'text-emerald-400',
@@ -280,7 +280,7 @@ export default function PaymentDashboardPage() {
                 </h1>
               </div>
               <p className="text-zinc-500 mt-2 max-w-lg text-sm">
-                On-chain USDT payments through the PaymentRouter contract with 85/15 split.
+                On-chain BBAI payments through the PaymentRouter contract with 85/15 split.
               </p>
             </div>
             <div className="flex gap-2">
@@ -332,11 +332,11 @@ export default function PaymentDashboardPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-white">Volume by Chain</h3>
-                    <p className="text-[11px] text-zinc-600 mt-0.5">Distribution of USDT flow across supported networks</p>
+                    <p className="text-[11px] text-zinc-600 mt-0.5">Distribution of BBAI flow across supported networks</p>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-white tabular-nums">{formatNumber(totalChainVolume)}</div>
-                    <div className="text-[10px] text-zinc-600">total USDT</div>
+                    <div className="text-[10px] text-zinc-600">total BBAI</div>
                   </div>
                 </div>
               </div>
@@ -356,7 +356,7 @@ export default function PaymentDashboardPage() {
                           <div className="flex items-center gap-3">
                             <span className="text-[11px] text-zinc-600 tabular-nums">{pct}%</span>
                             <span className="text-sm font-semibold text-zinc-300 tabular-nums w-28 text-right">
-                              {volume.toLocaleString()} <span className="text-zinc-600 text-[10px]">USDT</span>
+                              {volume.toLocaleString()} <span className="text-zinc-600 text-[10px]">BBAI</span>
                             </span>
                           </div>
                         </div>
@@ -478,7 +478,7 @@ export default function PaymentDashboardPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-right tabular-nums font-semibold text-zinc-200">
-                            {tx.amount} <span className="text-zinc-600 text-[10px]">USDT</span>
+                            {tx.amount} <span className="text-zinc-600 text-[10px]">BBAI</span>
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-[11px] text-zinc-600">
                             {tx.platformFee > 0 ? `${tx.platformFee}` : '--'}

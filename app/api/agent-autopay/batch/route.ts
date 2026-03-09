@@ -75,7 +75,7 @@ interface BatchToolRequest {
  * Batch Auto-pay Endpoint
  *
  * Allows AI agents to execute multiple tools in a single request with a
- * single USDT deduction for the total cost.
+ * single BBAI deduction for the total cost.
  *
  * Body:
  *   {
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
   if (wallet.balance < totalCost) {
     return NextResponse.json(
       {
-        error: 'Insufficient USDT balance for batch',
+        error: 'Insufficient BBAI balance for batch',
         required: totalCost,
         currentBalance: wallet.balance,
         toolBreakdown: toolCosts,
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
   if (!deductResult.success) {
     return NextResponse.json(
       {
-        error: 'Payment failed - could not deduct USDT',
+        error: 'Payment failed - could not deduct BBAI',
         reason: 'Daily limit may have been exceeded or wallet is inactive',
         required: totalCost,
         currentBalance: deductResult.remaining,
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
       index,
       toolName: t.toolName,
       cost: info.price,
-      costUnit: 'USDT',
+      costUnit: 'BBAI',
       result: generateMockResult(t.toolName, params),
     };
   });
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
     txId: deductResult.txId,
     agent: agentId,
     totalCost,
-    costUnit: 'USDT',
+    costUnit: 'BBAI',
     toolsExecuted: tools.length,
     remainingBalance: deductResult.remaining,
     results,

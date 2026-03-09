@@ -3,7 +3,7 @@
 
 export interface AgentWalletState {
   agentId: string;
-  balance: number; // USDT
+  balance: number; // BBAI
   totalEarned: number;
   totalSpent: number;
   dividendsPaid: number;
@@ -15,7 +15,7 @@ export interface AgentTransaction {
   id: string;
   type: 'earning' | 'spending' | 'dividend' | 'a2a_hire' | 'a2a_payment' | 'skill_fee';
   amount: number;
-  currency: 'USDT' | 'BBAI';
+  currency: 'BBAI' | 'BBAI';
   fromAgentId: string | null;
   toAgentId: string | null;
   description: string;
@@ -118,7 +118,7 @@ function seedMockData() {
         id: uid(),
         type: 'earning',
         amount: earningAmt,
-        currency: 'USDT',
+        currency: 'BBAI',
         fromAgentId: null,
         toAgentId: agent.id,
         description: `Task execution fee - user request`,
@@ -134,7 +134,7 @@ function seedMockData() {
           id: uid(),
           type: 'a2a_payment',
           amount: a2aAmt,
-          currency: 'USDT',
+          currency: 'BBAI',
           fromAgentId: fromAgent.id,
           toAgentId: agent.id,
           description: `A2A sub-task payment from ${fromAgent.id}`,
@@ -150,7 +150,7 @@ function seedMockData() {
           id: uid(),
           type: 'skill_fee',
           amount: feeAmt,
-          currency: 'USDT',
+          currency: 'BBAI',
           fromAgentId: agent.id,
           toAgentId: null,
           description: `Tool API fee - external data provider`,
@@ -167,7 +167,7 @@ function seedMockData() {
           id: uid(),
           type: 'a2a_hire',
           amount: hireAmt,
-          currency: 'USDT',
+          currency: 'BBAI',
           fromAgentId: agent.id,
           toAgentId: hiredAgent.id,
           description: `Hired ${hiredAgent.id} for sub-task`,
@@ -184,7 +184,7 @@ function seedMockData() {
             id: uid(),
             type: 'dividend',
             amount: divAmt,
-            currency: 'USDT',
+            currency: 'BBAI',
             fromAgentId: agent.id,
             toAgentId: null,
             description: `Weekly dividend distribution to owner`,
@@ -284,7 +284,7 @@ class AgentEconomy {
       id: uid(),
       type: 'spending',
       amount,
-      currency: 'USDT',
+      currency: 'BBAI',
       fromAgentId: agentId,
       toAgentId: null,
       description: reason,
@@ -303,7 +303,7 @@ class AgentEconomy {
       id: uid(),
       type: 'earning',
       amount,
-      currency: 'USDT',
+      currency: 'BBAI',
       fromAgentId: null,
       toAgentId: agentId,
       description,
@@ -333,7 +333,7 @@ class AgentEconomy {
       id: uid(),
       type: 'a2a_hire',
       amount: budget,
-      currency: 'USDT',
+      currency: 'BBAI',
       fromAgentId: hiringAgentId,
       toAgentId: hiredAgentId,
       description: `Hired ${hiredAgentId} for: ${task}`,
@@ -377,7 +377,7 @@ class AgentEconomy {
       id: uid(),
       type: 'a2a_payment',
       amount: cost,
-      currency: 'USDT',
+      currency: 'BBAI',
       fromAgentId: contract.hiringAgentId,
       toAgentId: contract.hiredAgentId,
       description: `A2A payment for: ${contract.task}`,
@@ -420,7 +420,7 @@ class AgentEconomy {
       id: uid(),
       type: 'dividend',
       amount: ownerPayout,
-      currency: 'USDT',
+      currency: 'BBAI',
       fromAgentId: agentId,
       toAgentId: null,
       description: `Dividend distribution - Owner: $${ownerPayout}, Platform: $${platformPayout}, Stakers: $${stakersPayout}`,

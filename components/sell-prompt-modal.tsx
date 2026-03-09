@@ -160,7 +160,7 @@ export function SellPromptModal({ chatId, messages, onClose }: SellPromptModalPr
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Price (USDT)</label>
+            <label className="text-sm font-medium mb-1.5 block">Price (BBAI)</label>
             <input
               type="number"
               value={price}
@@ -198,7 +198,7 @@ export function SellPromptModal({ chatId, messages, onClose }: SellPromptModalPr
               Listing Fee: Free
             </Badge>
             <Badge variant="secondary" className="text-xs text-amber-500">
-              Earn {price} USDT per sale
+              Earn {price} BBAI per sale
             </Badge>
           </div>
           <div className="flex gap-2">

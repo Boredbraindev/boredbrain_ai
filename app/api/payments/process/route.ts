@@ -56,7 +56,7 @@ function shouldUseOnChain(mode: string): boolean {
 /**
  * POST /api/payments/process - Process a new payment.
  *
- * Supports both on-chain (USDT token contract on Base) and off-chain
+ * Supports both on-chain (BBAI token contract on Base) and off-chain
  * (simulated wallet) payment modes.
  *
  * Additional fields for on-chain payments:
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
           const requiredAmount = sanitized.amount as number | undefined;
           if (requiredAmount && balanceCheck.balance < requiredAmount) {
             return apiError(
-              `Insufficient on-chain USDT balance: ${balanceCheck.balance} < ${requiredAmount}`,
+              `Insufficient on-chain BBAI balance: ${balanceCheck.balance} < ${requiredAmount}`,
               400,
             );
           }

@@ -25,7 +25,7 @@ const MCP_RESOURCES: McpResource[] = [
     uri: 'bbai://tools',
     name: 'Available Tools & Pricing',
     description:
-      'Complete list of tools available in the BoredBrain platform with their USDT costs, categories, and input schemas.',
+      'Complete list of tools available in the BoredBrain platform with their BBAI costs, categories, and input schemas.',
     mimeType: 'application/json',
   },
   {
@@ -65,7 +65,7 @@ function getAgentsResourceContent() {
         description: 'Analyzes DeFi protocols, yield farming, and liquidity pool data across chains.',
         tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'],
         specialization: 'defi',
-        pricing: { averageCostPerQuery: 40, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 40, currency: 'BBAI' },
         status: 'online',
       },
       {
@@ -74,7 +74,7 @@ function getAgentsResourceContent() {
         description: 'Hunts for market opportunities via whale movements, social sentiment, and on-chain signals.',
         tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'],
         specialization: 'market',
-        pricing: { averageCostPerQuery: 35, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 35, currency: 'BBAI' },
         status: 'online',
       },
       {
@@ -83,7 +83,7 @@ function getAgentsResourceContent() {
         description: 'Academic and deep-web research agent for papers, code, and multi-source data.',
         tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'],
         specialization: 'research',
-        pricing: { averageCostPerQuery: 30, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 30, currency: 'BBAI' },
         status: 'online',
       },
       {
@@ -92,7 +92,7 @@ function getAgentsResourceContent() {
         description: 'Compiles breaking news from web, social media, Reddit, and YouTube.',
         tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'],
         specialization: 'news',
-        pricing: { averageCostPerQuery: 20, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 20, currency: 'BBAI' },
         status: 'online',
       },
       {
@@ -101,7 +101,7 @@ function getAgentsResourceContent() {
         description: 'Audits smart contracts for vulnerabilities, gas optimization, and compliance.',
         tools: ['code_interpreter', 'smart_contract_audit', 'web_search'],
         specialization: 'security',
-        pricing: { averageCostPerQuery: 45, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 45, currency: 'BBAI' },
         status: 'online',
       },
       {
@@ -110,7 +110,7 @@ function getAgentsResourceContent() {
         description: 'Tracks NFT market trends, collection analytics, whale purchases, and social buzz.',
         tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'],
         specialization: 'nft',
-        pricing: { averageCostPerQuery: 30, currency: 'USDT' },
+        pricing: { averageCostPerQuery: 30, currency: 'BBAI' },
         status: 'online',
       },
     ],
@@ -123,13 +123,13 @@ function getToolsResourceContent() {
   return {
     platform: 'BoredBrain AI',
     totalTools: allTools.length,
-    currency: 'USDT',
+    currency: 'BBAI',
     tools: allTools.map((t) => ({
       id: t.id,
       name: t.name,
       category: t.category,
       price: t.price,
-      unit: 'USDT',
+      unit: 'BBAI',
     })),
     executeEndpoint: '/api/mcp/execute',
   };
@@ -234,7 +234,7 @@ async function getBillingResourceContent() {
   const wallets = await getAllWallets();
   return {
     platform: 'BoredBrain AI',
-    currency: 'USDT',
+    currency: 'BBAI',
     wallets: wallets.map((w) => ({
       agentId: w.agentId,
       address: w.address,

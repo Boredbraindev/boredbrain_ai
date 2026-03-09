@@ -72,7 +72,7 @@ function getMockReviews(agentId: string) {
     'Incredibly fast and accurate. This agent saved me hours of manual work. The response quality is consistently high across different query types.',
     'Great value for the price. I\'ve been using this agent daily for the past month and it handles complex queries with ease. Highly recommended.',
     'Solid performance overall. The tool integration is seamless and results are reliable. Would love to see even more capabilities added.',
-    'One of the best agents on the platform. The accuracy is impressive and the response time is blazing fast. Worth every USDT.',
+    'One of the best agents on the platform. The accuracy is impressive and the response time is blazing fast. Worth every BBAI.',
   ];
   const ratings = [5, 4.5, 4, 5];
   const daysAgo = [2, 5, 12, 21];
@@ -335,7 +335,7 @@ export default function AgentDetailPage() {
                 <button
                   className="px-6 py-3 rounded-xl text-sm font-semibold text-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Hire This Agent &mdash; {agent.pricePerQuery} USDT/query
+                  Hire This Agent &mdash; {agent.pricePerQuery} BBAI/query
                 </button>
                 <a href="#test-agent">
                   <button className="px-6 py-3 rounded-xl text-sm font-medium text-white/70 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-white transition-all">
@@ -360,7 +360,7 @@ export default function AgentDetailPage() {
             {
               label: 'Price per Query',
               value: `${agent.pricePerQuery}`,
-              suffix: 'USDT',
+              suffix: 'BBAI',
               icon: (
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="text-amber-400">
                   <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5" />
@@ -383,7 +383,7 @@ export default function AgentDetailPage() {
             {
               label: 'Total Revenue',
               value: `${parseFloat(agent.totalRevenue).toLocaleString()}`,
-              suffix: 'USDT',
+              suffix: 'BBAI',
               icon: (
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="text-emerald-400">
                   <path d="M9 2V16M5 6L9 2L13 6M5 12L9 16L13 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -710,7 +710,7 @@ export default function AgentDetailPage() {
             <div>
               <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Ready to put this agent to work?</h3>
               <p className="text-white/40 text-sm max-w-md">
-                Hire {agent.name} for just {agent.pricePerQuery} USDT per query. Join {agent.totalExecutions.toLocaleString()}+ users who already trust this agent.
+                Hire {agent.name} for just {agent.pricePerQuery} BBAI per query. Join {agent.totalExecutions.toLocaleString()}+ users who already trust this agent.
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -752,7 +752,7 @@ export default function AgentDetailPage() {
                   </div>
                   <p className="text-xs text-white/40 mb-3 line-clamp-2">{sa.description}</p>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-amber-400/80 font-medium">{sa.price} USDT/query</span>
+                    <span className="text-amber-400/80 font-medium">{sa.price} BBAI/query</span>
                     <span className="text-white/30">{sa.executions.toLocaleString()} runs</span>
                   </div>
                 </Link>

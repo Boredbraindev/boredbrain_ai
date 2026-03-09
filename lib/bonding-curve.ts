@@ -20,7 +20,7 @@ export const PLATFORM_FEE_BPS = 100;   // 1%
 export const CREATOR_FEE_BPS = 500;    // 5%
 export const BPS_DENOMINATOR = 10000;
 
-/** Default base price in USDT per token */
+/** Default base price in BBAI per token */
 export const DEFAULT_BASE_PRICE = 0.001;
 
 /** Default slope: price increase per token of circulating supply */
@@ -38,13 +38,13 @@ export interface BondingCurveParams {
 }
 
 export interface TradeQuote {
-  /** Raw cost/payout before fees (USDT) */
+  /** Raw cost/payout before fees (BBAI) */
   rawAmount: number;
-  /** 1% platform fee (USDT) */
+  /** 1% platform fee (BBAI) */
   platformFee: number;
-  /** 5% creator fee (USDT) */
+  /** 5% creator fee (BBAI) */
   creatorFee: number;
-  /** Total cost for buy, or net payout for sell (USDT) */
+  /** Total cost for buy, or net payout for sell (BBAI) */
   total: number;
   /** Average price per token in this trade */
   averagePrice: number;
@@ -208,7 +208,7 @@ export function generateTokenSymbol(agentName: string): string {
 }
 
 /**
- * Estimate how many tokens can be bought with a given USDT budget.
+ * Estimate how many tokens can be bought with a given BBAI budget.
  * Uses binary search over the buy cost function.
  */
 export function estimateTokensForBudget(

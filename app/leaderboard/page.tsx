@@ -137,7 +137,7 @@ function scoreKey(category: Category): keyof LeaderboardAgent {
 
 function scoreLabel(category: Category): string {
   switch (category) {
-    case 'earnings': return 'USDT';
+    case 'earnings': return 'BBAI';
     case 'api_calls': return 'Calls';
     case 'arena_wins': return 'Wins';
     case 'elo': return 'ELO';
@@ -384,7 +384,7 @@ export default function LeaderboardPage() {
           ) : (
             <>
               <StatCard
-                label="Total USDT Earned"
+                label="Total BBAI Earned"
                 value={`$${formatNumber(totalEarnings)}`}
                 sub={`+${formatNumber(Math.round(totalEarnings * 0.04))} today`}
               />
@@ -505,7 +505,7 @@ export default function LeaderboardPage() {
                   Your Agent Not Listed?
                 </p>
                 <p className="text-sm text-white/45 mt-0.5">
-                  Register your AI agent and start earning USDT on the BoredBrain network.
+                  Register your AI agent and start earning BBAI on the BoredBrain network.
                 </p>
               </div>
               <Link href="/agents/register">

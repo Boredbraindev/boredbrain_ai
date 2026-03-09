@@ -367,7 +367,7 @@ export default function AgentMarketplacePage() {
               {[
                 { label: 'Active Agents', value: totalAgents.toLocaleString(), accent: true },
                 { label: 'Total Executions', value: totalExecutions.toLocaleString(), accent: false },
-                { label: 'USDT Volume', value: `${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, accent: false },
+                { label: 'BBAI Volume', value: `${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, accent: false },
                 { label: 'Avg Rating', value: avgRating.toFixed(1), accent: false },
               ].map((stat) => (
                 <div
@@ -624,7 +624,7 @@ export default function AgentMarketplacePage() {
                       <div className="grid grid-cols-4 gap-2">
                         <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-amber-500/10 transition-colors duration-300">
                           <div className="text-sm font-bold text-amber-500">{a.pricePerQuery}</div>
-                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">USDT/q</div>
+                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">BBAI/q</div>
                         </div>
                         <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
                           <div className="text-sm font-bold text-white/80">{a.totalExecutions.toLocaleString()}</div>

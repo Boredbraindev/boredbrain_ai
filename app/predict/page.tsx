@@ -395,7 +395,7 @@ export default function PredictPage() {
               L: {userStats.losses}
             </Badge>
             <Badge variant="outline" className={`${userStats.totalEarnings >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}>
-              {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} USDT
+              {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} BBAI
             </Badge>
           </div>
         </div>
@@ -476,8 +476,8 @@ export default function PredictPage() {
                 {userBet ? (
                   <div className={`text-xl ${roundResult.won ? 'text-green-400' : 'text-red-400'}`}>
                     {roundResult.won
-                      ? `YOU WON! +${roundResult.payout.toLocaleString()} USDT`
-                      : `You lost ${userBet.amount.toLocaleString()} USDT`}
+                      ? `YOU WON! +${roundResult.payout.toLocaleString()} BBAI`
+                      : `You lost ${userBet.amount.toLocaleString()} BBAI`}
                   </div>
                 ) : (
                   <div className="text-zinc-400">You did not place a bet this round</div>
@@ -502,7 +502,7 @@ export default function PredictPage() {
                       className="w-28 bg-zinc-800 border-zinc-700 text-center text-white"
                       disabled={!!userBet || isResolving}
                     />
-                    <span className="text-zinc-500 text-sm">USDT</span>
+                    <span className="text-zinc-500 text-sm">BBAI</span>
                   </div>
                 )}
 
@@ -540,7 +540,7 @@ export default function PredictPage() {
                       {userBet.direction} {userBet.direction === 'UP' ? '⬆️' : '⬇️'}
                     </span>
                     <span className="text-zinc-400"> — </span>
-                    <span className="text-white font-semibold">{userBet.amount.toLocaleString()} USDT</span>
+                    <span className="text-white font-semibold">{userBet.amount.toLocaleString()} BBAI</span>
                     {followedAgent && (
                       <div className="text-zinc-500 text-sm mt-1">
                         Following {agents.find(a => a.id === followedAgent)?.name}
@@ -554,13 +554,13 @@ export default function PredictPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500" />
                     <span className="text-zinc-400">UP Pool:</span>
-                    <span className="text-green-400 font-semibold">{upPool.toLocaleString()} USDT</span>
+                    <span className="text-green-400 font-semibold">{upPool.toLocaleString()} BBAI</span>
                   </div>
                   <Separator orientation="vertical" className="h-4 bg-zinc-700" />
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
                     <span className="text-zinc-400">DOWN Pool:</span>
-                    <span className="text-red-400 font-semibold">{downPool.toLocaleString()} USDT</span>
+                    <span className="text-red-400 font-semibold">{downPool.toLocaleString()} BBAI</span>
                   </div>
                 </div>
 
@@ -741,7 +741,7 @@ export default function PredictPage() {
                         {result.outcome}
                       </Badge>
                       <div className="text-xs text-zinc-500 mt-1">
-                        Pool: {(result.upPool + result.downPool).toLocaleString()} USDT
+                        Pool: {(result.upPool + result.downPool).toLocaleString()} BBAI
                       </div>
                     </div>
                   </div>
@@ -806,7 +806,7 @@ export default function PredictPage() {
                           <div className="font-semibold text-emerald-400">
                             {agent.totalEarnings.toLocaleString()}
                           </div>
-                          <div className="text-xs text-zinc-500">USDT earned</div>
+                          <div className="text-xs text-zinc-500">BBAI earned</div>
                         </div>
                       </div>
                     </div>

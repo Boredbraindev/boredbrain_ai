@@ -112,10 +112,10 @@ export async function POST(request: NextRequest) {
         instructions: result.simulated
           ? undefined
           : [
-              'Step 1: Sign the approveTx to allow the registry to stake 100 USDT on your behalf.',
+              'Step 1: Sign the approveTx to allow the registry to stake 100 BBAI on your behalf.',
               'Step 2: Wait for the approval transaction to confirm.',
               'Step 3: Sign the tx to register your agent on BNB Chain.',
-              'Your 100 USDT stake will be locked for 30 days.',
+              'Your 100 BBAI stake will be locked for 30 days.',
             ],
       },
       201,
@@ -290,7 +290,7 @@ export async function DELETE(request: NextRequest) {
       ...result,
       message: result.simulated
         ? `Agent #${agentId} deregistered in simulation mode.`
-        : `Unsigned transaction generated to deregister agent #${agentId}. Sign with the agent owner wallet to return staked USDT.`,
+        : `Unsigned transaction generated to deregister agent #${agentId}. Sign with the agent owner wallet to return staked BBAI.`,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to prepare deregistration';

@@ -2,7 +2,7 @@
  * Payment Pipeline Orchestrator
  *
  * Connects the Agent Wallet system with on-chain smart contract interactions.
- * Processes USDT payments through the PaymentRouter contract (85/15 split).
+ * Processes BBAI payments through the PaymentRouter contract (85/15 split).
  * Uses deterministic tx hashes derived from payment context and timestamps.
  * Block numbers track real Base L2 block production rate (~2s per block).
  *
@@ -227,7 +227,7 @@ export async function processAgentInvocation(
   let totalCost = 0;
   for (const tool of tools) {
     const price = getToolPrice(tool);
-    totalCost += price ?? 5; // default 5 USDT for unknown tools
+    totalCost += price ?? 5; // default 5 BBAI for unknown tools
   }
 
   const { platformFee, providerShare } = calculateSplit(totalCost);
@@ -397,7 +397,7 @@ export async function processArenaEntry(
 
 /**
  * Process a staking transaction.
- * Agent stakes USDT; no provider split (all locked).
+ * Agent stakes BBAI; no provider split (all locked).
  */
 export async function processStaking(
   agentId: string,
@@ -406,7 +406,7 @@ export async function processStaking(
 ): Promise<PaymentTransaction> {
   await ensureWallet(agentId);
 
-  const deduction = await deductBalance(agentId, amount, `Staking: ${amount} USDT`);
+  const deduction = await deductBalance(agentId, amount, `Staking: ${amount} BBAI`);
 
   if (!deduction.success) {
     const [row] = await db

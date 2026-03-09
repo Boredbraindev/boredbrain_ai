@@ -4,7 +4,7 @@
  * GET /api/bridge/quote?from=base&to=bsc&amount=1000
  * GET /api/bridge/quote?from=base&to=bsc&amount=1000&provider=wormhole
  *
- * Returns a fee breakdown and estimated time for bridging USDT tokens.
+ * Returns a fee breakdown and estimated time for bridging BBAI tokens.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -75,13 +75,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       quote,
       summary: {
-        send: `${amount} USDT on ${from}`,
-        receive: `${quote.receiveAmount.toFixed(4)} USDT on ${to}`,
+        send: `${amount} BBAI on ${from}`,
+        receive: `${quote.receiveAmount.toFixed(4)} BBAI on ${to}`,
         fees: {
-          platform: `${quote.platformFee.toFixed(4)} USDT (0.1%)`,
-          protocol: `${quote.protocolFee.toFixed(4)} USDT`,
+          platform: `${quote.platformFee.toFixed(4)} BBAI (0.1%)`,
+          protocol: `${quote.protocolFee.toFixed(4)} BBAI`,
           gas: `~$${quote.bridgeGasCostUsd.toFixed(2)} USD`,
-          total: `${quote.totalFee.toFixed(4)} USDT + gas`,
+          total: `${quote.totalFee.toFixed(4)} BBAI + gas`,
         },
         estimatedTime: `~${quote.estimatedTimeMinutes} minutes`,
         provider: quote.provider,

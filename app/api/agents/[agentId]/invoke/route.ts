@@ -21,7 +21,7 @@ import { apiSuccess, apiError } from '@/lib/api-utils';
  * {
  *   "query": "Analyze Bitcoin DeFi ecosystem",
  *   "callerAgentId": "external-agent-123",   // optional — for inter-agent billing
- *   "maxBudget": 50,                          // max USDT to spend
+ *   "maxBudget": 50,                          // max BBAI to spend
  *   "tools": ["coin_data", "web_search"]      // optional — restrict to specific tools
  * }
  */
@@ -213,7 +213,7 @@ export async function POST(
 
   if (estimatedCost > maxBudget) {
     return apiError(
-      `Estimated cost ${estimatedCost} USDT exceeds maxBudget ${maxBudget} USDT.`,
+      `Estimated cost ${estimatedCost} BBAI exceeds maxBudget ${maxBudget} BBAI.`,
       402,
     );
   }
@@ -229,7 +229,7 @@ export async function POST(
 
     if (wallet.balance < estimatedCost) {
       return apiError(
-        `Caller wallet has ${wallet.balance} USDT but estimated cost is ${estimatedCost} USDT.`,
+        `Caller wallet has ${wallet.balance} BBAI but estimated cost is ${estimatedCost} BBAI.`,
         402,
       );
     }
@@ -346,7 +346,7 @@ export async function POST(
     response: execution.content,
     toolsUsed: toolsToRun,
     cost: totalCost,
-    costUnit: 'USDT',
+    costUnit: 'BBAI',
     llmModel: execution.model,
     tokensUsed: execution.tokensUsed,
     simulated: execution.simulated,

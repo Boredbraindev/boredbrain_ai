@@ -69,7 +69,7 @@ function generateMockResult(
 /**
  * Agent Auto-pay Endpoint
  *
- * Allows AI agents to call tools and automatically pay with their USDT
+ * Allows AI agents to call tools and automatically pay with their BBAI
  * wallet balance. No API key needed - agents authenticate with their
  * wallet signature.
  *
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
   if (wallet.balance < cost) {
     return NextResponse.json(
       {
-        error: 'Insufficient USDT balance',
+        error: 'Insufficient BBAI balance',
         required: cost,
         currentBalance: wallet.balance,
         toolName,
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
   if (!deductResult.success) {
     return NextResponse.json(
       {
-        error: 'Payment failed - could not deduct USDT',
+        error: 'Payment failed - could not deduct BBAI',
         reason: 'Daily limit may have been exceeded or wallet is inactive',
         currentBalance: deductResult.remaining,
       },
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
     txId: deductResult.txId,
     toolName,
     cost,
-    costUnit: 'USDT',
+    costUnit: 'BBAI',
     result,
     remainingBalance: deductResult.remaining,
     agent: agentId,

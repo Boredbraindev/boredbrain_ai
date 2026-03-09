@@ -255,7 +255,7 @@ function PlaybookCard({
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <span className="text-lg font-bold text-white">{playbook.price}</span>
-            <span className="text-xs text-muted-foreground ml-1">USDT</span>
+            <span className="text-xs text-muted-foreground ml-1">BBAI</span>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onBuy(playbook.id, playbook.price); }}
@@ -410,7 +410,7 @@ export default function PlaybooksPage() {
               { label: 'Total Playbooks', value: stats.count.toString(), color: 'text-white' },
               { label: 'Avg Win Rate', value: `${(stats.avgWinRate * 100).toFixed(0)}%`, color: 'text-emerald-400' },
               { label: 'Total Sales', value: stats.totalSales.toLocaleString(), color: 'text-white' },
-              { label: 'Total Revenue', value: `${stats.totalRevenue.toLocaleString()}`, suffix: 'USDT', color: 'text-amber-500' },
+              { label: 'Total Revenue', value: `${stats.totalRevenue.toLocaleString()}`, suffix: 'BBAI', color: 'text-amber-500' },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -522,7 +522,7 @@ export default function PlaybooksPage() {
             <div>
               <h3 className="font-semibold mb-1">Create Your Own Playbook</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Win arena matches and sell your winning strategies. Earn USDT every time someone purchases your playbook.
+                Win arena matches and sell your winning strategies. Earn BBAI every time someone purchases your playbook.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -551,7 +551,7 @@ export default function PlaybooksPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet</h3>
-            <p className="text-sm text-white/40 mb-6">Connect your wallet with USDT to purchase playbooks.</p>
+            <p className="text-sm text-white/40 mb-6">Connect your wallet with BBAI to purchase playbooks.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setPurchasePrompt(false)}

@@ -205,7 +205,7 @@ export default function DashboardPage() {
     {
       label: 'Total Spent',
       value: totalSpent.toFixed(0),
-      sub: 'USDT',
+      sub: 'BBAI',
       gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
       border: 'border-amber-500/20',
       text: 'text-amber-400',
@@ -218,7 +218,7 @@ export default function DashboardPage() {
     {
       label: 'Agent Revenue',
       value: totalRevenue.toFixed(0),
-      sub: 'USDT earned',
+      sub: 'BBAI earned',
       gradient: 'from-green-500/15 via-green-500/5 to-transparent',
       border: 'border-green-500/20',
       text: 'text-green-400',
@@ -475,8 +475,8 @@ export default function DashboardPage() {
                               </code>
                             </TableCell>
                             <TableCell className="text-right tabular-nums text-zinc-300">{key.totalQueries}</TableCell>
-                            <TableCell className="text-right tabular-nums text-amber-400 font-medium">{key.totalSpent} <span className="text-zinc-600 text-[10px]">USDT</span></TableCell>
-                            <TableCell className="text-right tabular-nums text-zinc-300">{key.creditBalance} <span className="text-zinc-600 text-[10px]">USDT</span></TableCell>
+                            <TableCell className="text-right tabular-nums text-amber-400 font-medium">{key.totalSpent} <span className="text-zinc-600 text-[10px]">BBAI</span></TableCell>
+                            <TableCell className="text-right tabular-nums text-zinc-300">{key.creditBalance} <span className="text-zinc-600 text-[10px]">BBAI</span></TableCell>
                             <TableCell>
                               <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                                 key.status === 'active'
@@ -594,7 +594,7 @@ export default function DashboardPage() {
                                   <div className="text-lg font-bold text-emerald-400 tabular-nums">
                                     {revenueNum.toLocaleString()}
                                   </div>
-                                  <div className="text-[10px] text-zinc-600">USDT earned</div>
+                                  <div className="text-[10px] text-zinc-600">BBAI earned</div>
                                 </div>
                                 <svg className="w-4 h-4 text-zinc-700 group-hover:text-amber-500/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />

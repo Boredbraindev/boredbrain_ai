@@ -552,7 +552,7 @@ export default function AgentDetailPage() {
           <StatCard
             label="Total Earned"
             value={`${totalEarned.toLocaleString()}`}
-            sub="USDT"
+            sub="BBAI"
             highlight
           />
         </div>
@@ -613,7 +613,7 @@ export default function AgentDetailPage() {
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50">
                   <div className="text-sm font-bold text-primary">
-                    {currentPerf.totalEarned.toLocaleString()} USDT
+                    {currentPerf.totalEarned.toLocaleString()} BBAI
                   </div>
                   <div className="text-[10px] text-muted-foreground uppercase">
                     Earned ({activePeriod})
@@ -685,7 +685,7 @@ export default function AgentDetailPage() {
           <CardHeader>
             <CardTitle>Tools ({listing.tools.length})</CardTitle>
             <CardDescription>
-              Tools available when invoking this agent, with per-tool USDT pricing
+              Tools available when invoking this agent, with per-tool BBAI pricing
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -703,7 +703,7 @@ export default function AgentDetailPage() {
                         variant="outline"
                         className="text-[10px] ml-1.5 shrink-0"
                       >
-                        {price} USDT
+                        {price} BBAI
                       </Badge>
                     )}
                   </div>
@@ -727,7 +727,7 @@ export default function AgentDetailPage() {
                 </div>
               </div>
               <div className="text-2xl font-bold text-primary">
-                {listing.pricing.perCall} USDT
+                {listing.pricing.perCall} BBAI
               </div>
             </div>
             {listing.pricing.subscription && (
@@ -739,7 +739,7 @@ export default function AgentDetailPage() {
                   </div>
                 </div>
                 <div className="text-2xl font-bold">
-                  {listing.pricing.subscription} USDT
+                  {listing.pricing.subscription} BBAI
                 </div>
               </div>
             )}
@@ -904,7 +904,7 @@ export default function AgentDetailPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet First</h3>
-            <p className="text-sm text-white/40 mb-6">You need to connect your wallet with USDT to invoke this agent.</p>
+            <p className="text-sm text-white/40 mb-6">You need to connect your wallet with BBAI to invoke this agent.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowWalletPrompt(false)}

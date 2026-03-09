@@ -1,7 +1,7 @@
 /**
- * Cross-Chain Bridge Service for USDT Token
+ * Cross-Chain Bridge Service for BBAI Token
  *
- * Handles bridging USDT tokens between supported chains (Base, BSC,
+ * Handles bridging BBAI tokens between supported chains (Base, BSC,
  * Arbitrum, ApeChain) via LayerZero or Wormhole messaging protocols.
  *
  * Uses raw JSON-RPC calls via fetch() -- no ethers.js dependency.
@@ -37,11 +37,11 @@ export interface BridgeQuote {
   provider: BridgeProvider;
   /** Estimated gas cost on the source chain in USD */
   bridgeGasCostUsd: number;
-  /** Protocol fee charged by LayerZero / Wormhole (in USDT) */
+  /** Protocol fee charged by LayerZero / Wormhole (in BBAI) */
   protocolFee: number;
   /** Platform fee (0.1%) */
   platformFee: number;
-  /** Total fees in USDT */
+  /** Total fees in BBAI */
   totalFee: number;
   /** Amount the recipient will receive after fees */
   receiveAmount: number;
@@ -194,11 +194,11 @@ function simulatedTxHash(context: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Get a bridge quote for transferring USDT tokens between chains.
+ * Get a bridge quote for transferring BBAI tokens between chains.
  *
  * Calculates:
  * - Bridge gas cost (estimated in USD, varies by chain)
- * - Protocol fee (LayerZero/Wormhole messaging fee, estimated in USDT)
+ * - Protocol fee (LayerZero/Wormhole messaging fee, estimated in BBAI)
  * - Platform fee (0.1% of the transfer amount)
  *
  * Returns a simulation quote when contracts are not deployed.
@@ -564,7 +564,7 @@ async function queryLayerZeroFee(
 
     // Parse the returned native fee (first 32 bytes)
     const feeWei = BigInt('0x' + (result.replace('0x', '').slice(0, 64) || '0'));
-    // Convert native fee to approximate USDT value (rough 1:1000 estimate)
+    // Convert native fee to approximate BBAI value (rough 1:1000 estimate)
     return fromTokenUnits(feeWei) * 0.001;
   } catch {
     throw new Error('Failed to query LayerZero fee');
@@ -644,11 +644,11 @@ function buildWormholeBridgeTx(
 
 /**
  * Estimate the protocol fee when on-chain queries are unavailable.
- * Returns fee in USDT.
+ * Returns fee in BBAI.
  */
 function estimateProtocolFee(provider: BridgeProvider, amount: number): number {
   // LayerZero and Wormhole charge messaging fees in native tokens.
-  // We estimate the USDT-equivalent cost based on typical messaging fees.
+  // We estimate the BBAI-equivalent cost based on typical messaging fees.
   if (provider === 'layerzero') {
     // LayerZero v2 typical fee: ~0.001 ETH equivalent
     // Rough estimate: flat fee + tiny percentage

@@ -224,7 +224,7 @@ export default function OpenClawPage() {
         const res = await fetch('/api/agents/billing');
         const json = await res.json();
         if (json.success) {
-          setBillingData(json.data ?? json);
+          setBillingData(json.platformRevenue ?? json.data?.platformRevenue ?? json);
         }
       } catch {
         // silent
@@ -239,10 +239,9 @@ export default function OpenClawPage() {
       try {
         const res = await fetch('/api/agents/logs?limit=20');
         const json = await res.json();
-        if (json.success && json.logs) {
-          setLogs(json.logs);
-        } else if (Array.isArray(json)) {
-          setLogs(json);
+        const txns = json.recentTransactions ?? json.logs ?? json.data?.recentTransactions;
+        if (txns && Array.isArray(txns)) {
+          setLogs(txns);
         }
       } catch {
         // silent
@@ -525,7 +524,7 @@ export default function OpenClawPage() {
               <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
                 <p className="text-2xl md:text-3xl font-bold text-emerald-400">
                   {typeof billingData.totalRevenue === 'number'
-                    ? `${(billingData.totalRevenue / 1000).toFixed(1)}K`
+                    ? billingData.totalRevenue >= 1000 ? `${(billingData.totalRevenue / 1000).toFixed(1)}K` : billingData.totalRevenue.toFixed(1)
                     : billingData.totalRevenue ?? '—'}
                 </p>
                 <p className="text-xs text-white/30 mt-1">Total Revenue (BBAI)</p>
@@ -533,7 +532,7 @@ export default function OpenClawPage() {
               <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
                 <p className="text-2xl md:text-3xl font-bold text-red-400">
                   {typeof billingData.platformFees === 'number'
-                    ? `${(billingData.platformFees / 1000).toFixed(1)}K`
+                    ? billingData.platformFees >= 1000 ? `${(billingData.platformFees / 1000).toFixed(1)}K` : billingData.platformFees.toFixed(1)
                     : billingData.platformFees ?? '—'}
                 </p>
                 <p className="text-xs text-white/30 mt-1">Platform Fees</p>
@@ -541,7 +540,7 @@ export default function OpenClawPage() {
               <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
                 <p className="text-2xl md:text-3xl font-bold text-emerald-400">
                   {typeof billingData.agentPayouts === 'number'
-                    ? `${(billingData.agentPayouts / 1000).toFixed(1)}K`
+                    ? billingData.agentPayouts >= 1000 ? `${(billingData.agentPayouts / 1000).toFixed(1)}K` : billingData.agentPayouts.toFixed(1)
                     : billingData.agentPayouts ?? '—'}
                 </p>
                 <p className="text-xs text-white/30 mt-1">Agent Payouts</p>
@@ -575,23 +574,24 @@ export default function OpenClawPage() {
                         {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}
                       </span>
                       <span className="text-xs text-white/50 truncate">
-                        <span className="text-amber-400/70">{log.caller ?? log.callerId ?? '—'}</span>
-                        <span className="text-white/20 mx-1.5">&rarr;</span>
-                        <span className="text-emerald-400/70">{log.provider ?? log.agentId ?? '—'}</span>
+                        <span className={log.type === 'debit' ? 'text-red-400/70' : 'text-emerald-400/70'}>
+                          {log.agentId?.slice(0, 28) ?? '—'}
+                        </span>
+                        {log.reason && (
+                          <span className="text-white/25 ml-2">{log.reason.slice(0, 40)}</span>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs font-mono text-white/40">
-                        {log.cost ?? log.amount ?? '—'} BBAI
+                      <span className={`text-xs font-mono ${log.type === 'debit' ? 'text-red-400/60' : 'text-emerald-400/60'}`}>
+                        {log.type === 'debit' ? '-' : '+'}{log.amount ?? '—'} BBAI
                       </span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                        (log.status === 'success' || log.status === 'completed')
+                        log.type === 'credit'
                           ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-                          : log.status === 'failed'
-                            ? 'bg-red-500/15 text-red-400 border-red-500/25'
-                            : 'bg-white/[0.05] text-white/30 border-white/[0.08]'
+                          : 'bg-red-500/15 text-red-400 border-red-500/25'
                       }`}>
-                        {log.status ?? 'pending'}
+                        {log.type ?? 'unknown'}
                       </span>
                     </div>
                   </div>

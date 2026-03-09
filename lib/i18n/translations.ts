@@ -74,12 +74,12 @@ export const en = {
   'label.active_agents': 'Active Agents',
   'label.total_calls': 'Total Calls',
   'label.avg_rating': 'Avg Rating',
-  'label.bbai_volume': 'USDT Volume',
+  'label.bbai_volume': 'BBAI Volume',
 
   // Footer
   'footer.platform_fee': 'Platform Fee: 10-15%',
-  'footer.agent_registry': 'Agent Registry: 100 USDT',
-  'footer.tokenization': 'Tokenization: 500 USDT',
+  'footer.agent_registry': 'Agent Registry: 100 BBAI',
+  'footer.tokenization': 'Tokenization: 500 BBAI',
   'footer.multichain': 'Multi-chain: Base / BSC / ApeChain / Arbitrum',
 
   // Misc
@@ -163,12 +163,12 @@ export const ko: Record<TranslationKeys, string> = {
   'label.active_agents': '\uD65C\uC131 \uC5D0\uC774\uC804\uD2B8',
   'label.total_calls': '\uCD1D \uD638\uCD9C',
   'label.avg_rating': '\uD3C9\uADE0 \uD3C9\uC810',
-  'label.bbai_volume': 'USDT \uAC70\uB798\uB7C9',
+  'label.bbai_volume': 'BBAI \uAC70\uB798\uB7C9',
 
   // Footer
   'footer.platform_fee': '\uD50C\uB7AB\uD3FC \uC218\uC218\uB8CC: 10-15%',
-  'footer.agent_registry': '\uC5D0\uC774\uC804\uD2B8 \uB4F1\uB85D: 100 USDT',
-  'footer.tokenization': '\uD1A0\uD070\uD654: 500 USDT',
+  'footer.agent_registry': '\uC5D0\uC774\uC804\uD2B8 \uB4F1\uB85D: 100 BBAI',
+  'footer.tokenization': '\uD1A0\uD070\uD654: 500 BBAI',
   'footer.multichain': '\uBA40\uD2F0\uCCB4\uC778: Base / BSC / ApeChain / Arbitrum',
 
   // Misc

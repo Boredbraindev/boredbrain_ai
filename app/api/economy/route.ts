@@ -77,7 +77,7 @@ export async function GET(_request: NextRequest) {
         id: tx.id,
         type: tx.type,
         amount: tx.amount,
-        currency: 'USDT',
+        currency: 'BBAI',
         fromAgentId: tx.type === 'debit' ? tx.agentId : null,
         toAgentId: tx.type === 'credit' ? tx.agentId : null,
         description: tx.reason,

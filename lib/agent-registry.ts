@@ -2,7 +2,7 @@
  * Agent Registry System
  *
  * Core registry for external developers to register their AI agents
- * on the BoredBrain platform. Each registered agent stakes USDT
+ * on the BoredBrain platform. Each registered agent stakes BBAI
  * (minimum 100) and earns revenue when other agents invoke them.
  *
  * Uses Drizzle ORM with PostgreSQL for persistence.
@@ -230,7 +230,7 @@ export async function registerAgent(data: RegisterAgentInput): Promise<Registere
   }
   const hasNftWaiver = data.metadata?.nftTier === 'ape' || data.metadata?.stakingWaived;
   if (!isDemo && !hasNftWaiver && data.stakingAmount < 100) {
-    throw new Error('Minimum staking amount is 100 USDT');
+    throw new Error('Minimum staking amount is 100 BBAI');
   }
 
   // Fetch and validate the agent card (skip for demo agents without URLs)

@@ -1,7 +1,7 @@
 /**
  * Tool Pricing Registry for Agent Auto-pay
  *
- * Defines USDT costs for each tool that agents can invoke.
+ * Defines BBAI costs for each tool that agents can invoke.
  * These prices are separate from the API-key-based tool registry pricing
  * and are specifically designed for wallet-signature-based auto-pay flows.
  */
@@ -34,7 +34,7 @@ export const TOOL_PRICES: Record<string, ToolPriceInfo> = {
 };
 
 /**
- * Get the USDT price for a specific tool. Returns null if the tool is unknown.
+ * Get the BBAI price for a specific tool. Returns null if the tool is unknown.
  */
 export function getToolPrice(toolName: string): number | null {
   const info = TOOL_PRICES[toolName];

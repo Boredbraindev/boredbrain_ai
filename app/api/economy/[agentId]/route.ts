@@ -59,7 +59,7 @@ export async function GET(
             id: tx.id,
             type: tx.type as string,
             amount: tx.amount,
-            currency: 'USDT' as const,
+            currency: 'BBAI' as const,
             fromAgentId: tx.type === 'debit' ? tx.agentId : null,
             toAgentId: tx.type === 'credit' ? tx.agentId : null,
             description: tx.reason,

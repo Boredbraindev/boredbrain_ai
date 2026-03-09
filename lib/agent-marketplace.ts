@@ -21,8 +21,8 @@ export interface AgentListing {
   specialization: string;
   tools: string[];
   pricing: {
-    perCall: number; // USDT per invocation
-    subscription: number | null; // monthly USDT for unlimited
+    perCall: number; // BBAI per invocation
+    subscription: number | null; // monthly BBAI for unlimited
   };
   rating: number; // 0-5
   reviewCount: number;

@@ -45,7 +45,7 @@ export async function GET(
  * Body:
  *   {
  *     to: string,        // target contract address
- *     value: number,      // USDT amount
+ *     value: number,      // BBAI amount
  *     data?: string,      // calldata (hex)
  *   }
  *

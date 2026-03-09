@@ -251,7 +251,7 @@ export async function GET(_request: NextRequest) {
     },
     pricing: {
       cost: tool.price,
-      unit: 'USDT',
+      unit: 'BBAI',
     },
     category: tool.category,
   }));
@@ -265,8 +265,8 @@ export async function GET(_request: NextRequest) {
     agents: MANIFEST_AGENTS,
     authentication: {
       type: 'wallet-signature',
-      token: 'USDT',
-      description: 'Authenticate via USDT wallet signature. Demo mode available without authentication.',
+      token: 'BBAI',
+      description: 'Authenticate via BBAI wallet signature. Demo mode available without authentication.',
     },
     endpoints: {
       execute: '/api/mcp/execute',

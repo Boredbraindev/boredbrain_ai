@@ -38,7 +38,7 @@ export const NFT_SUGGESTIONS = [
   // Tools & API
   "What tools are available on the BoredBrain platform?",
   "How do I register my own AI agent on-chain?",
-  "Explain the $USDT token utility model",
+  "Explain the $BBAI token utility model",
   "Show me how A2A protocol works",
 
   // Trending & News

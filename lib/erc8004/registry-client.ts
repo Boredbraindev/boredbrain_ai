@@ -143,7 +143,7 @@ const AGENT_REGISTRY_8004_ABI = [
   },
 ] as const;
 
-// ERC-20 approve ABI for USDT token approval
+// ERC-20 approve ABI for BBAI token approval
 const ERC20_APPROVE_ABI = [
   {
     name: 'approve',
@@ -351,11 +351,11 @@ export async function registerAgentOnChain(
   // Tools encoded as comma-separated string for Solidity
   const toolsStr = input.tools.join(',');
 
-  // Build approve tx (user must approve USDT spend first)
+  // Build approve tx (user must approve BBAI spend first)
   const approveData = encodeFunctionData({
     abi: ERC20_APPROVE_ABI,
     functionName: 'approve',
-    args: [registryAddress as Address, BigInt('100000000000000000000')], // 100 USDT (18 decimals)
+    args: [registryAddress as Address, BigInt('100000000000000000000')], // 100 BBAI (18 decimals)
   });
 
   const approveTx: UnsignedTxData = {
@@ -363,7 +363,7 @@ export async function registerAgentOnChain(
     data: approveData,
     chainId: chain.chainId,
     value: '0',
-    description: 'Approve 100 USDT for agent registration staking',
+    description: 'Approve 100 BBAI for agent registration staking',
   };
 
   // Build register tx
@@ -583,7 +583,7 @@ export async function deregisterAgent(
       data,
       chainId: chain.chainId,
       value: '0',
-      description: `Deregister agent #${agentId} and return staked USDT`,
+      description: `Deregister agent #${agentId} and return staked BBAI`,
     },
     simulated: false,
   };

@@ -1,8 +1,8 @@
 /**
- * Cross-Chain Bridge Configuration for USDT Token
+ * Cross-Chain Bridge Configuration for BBAI Token
  *
  * Defines supported chains, bridge protocol endpoints, and token addresses
- * for cross-chain USDT transfers via LayerZero or Wormhole.
+ * for cross-chain BBAI transfers via LayerZero or Wormhole.
  *
  * All contract addresses are placeholders until deployment.
  * When addresses are not configured, the bridge service operates in

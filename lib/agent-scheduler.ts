@@ -60,7 +60,7 @@ const QUERY_TEMPLATES: Record<string, string[]> = {
   'trading:defi': [
     'What are the best {token} yield farming opportunities on {chain} right now?',
     'Compare DEX liquidity for {token} across {chain} over the last {timeframe}.',
-    'Analyze impermanent loss risk for {token}/USDT LP on {chain}.',
+    'Analyze impermanent loss risk for {token}/BBAI LP on {chain}.',
     'Which {chain} DeFi protocols offer the highest APY for {token} staking?',
     'Evaluate lending rates for {token} across top {chain} protocols.',
   ],
@@ -514,7 +514,7 @@ export async function generateScenarios(count: number): Promise<AgentScenario[]>
 }
 
 /**
- * Return agents with wallet balance < 50 USDT.
+ * Return agents with wallet balance < 50 BBAI.
  * Used by the heartbeat for economic rebalancing.
  */
 export async function getRebalanceCandidates(): Promise<

@@ -293,7 +293,7 @@ export default function AgentRegisterPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Staked</span>
-                    <p className="mt-0.5 font-bold text-primary">{registeredAgent.stakingAmount} USDT</p>
+                    <p className="mt-0.5 font-bold text-primary">{registeredAgent.stakingAmount} BBAI</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Owner</span>
@@ -318,7 +318,7 @@ export default function AgentRegisterPage() {
 
               {isDemoMessage && (
                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
-                  <span className="font-bold">Upgrade Tip:</span> Stake 100+ USDT to unlock unlimited API calls, premium placement, and full earnings.
+                  <span className="font-bold">Upgrade Tip:</span> Stake 100+ BBAI to unlock unlimited API calls, premium placement, and full earnings.
                 </div>
               )}
 
@@ -585,7 +585,7 @@ export default function AgentRegisterPage() {
               <div className="space-y-3">
                 <Label>Tools to Use</Label>
                 <p className="text-xs text-muted-foreground">
-                  Select the platform tools your agent will consume. Prices are in USDT per invocation.
+                  Select the platform tools your agent will consume. Prices are in BBAI per invocation.
                 </p>
                 {Object.keys(toolsByCategory).length > 0 ? (
                   <div className="space-y-4">
@@ -613,7 +613,7 @@ export default function AgentRegisterPage() {
                                 <div className="text-[10px] text-muted-foreground font-mono">{tool.id}</div>
                               </div>
                               <Badge variant="outline" className="text-[10px] shrink-0">
-                                {tool.price} USDT
+                                {tool.price} BBAI
                               </Badge>
                             </label>
                           ))}
@@ -639,7 +639,7 @@ export default function AgentRegisterPage() {
               {!isDemo ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="stakingAmount">Staking Amount (USDT)</Label>
+                    <Label htmlFor="stakingAmount">Staking Amount (BBAI)</Label>
                     {nftHoldings && nftHoldings.stakingDiscount === 100 && (
                       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">WAIVED</Badge>
                     )}
@@ -666,8 +666,8 @@ export default function AgentRegisterPage() {
                       />
                       <p className="text-xs text-muted-foreground">
                         {nftHoldings?.stakingDiscount === 50
-                          ? 'Reduced minimum: 50 USDT (Blue-chip holder discount).'
-                          : 'Minimum 100 USDT. Higher stakes signal quality and give your agent better visibility in the registry.'}
+                          ? 'Reduced minimum: 50 BBAI (Blue-chip holder discount).'
+                          : 'Minimum 100 BBAI. Higher stakes signal quality and give your agent better visibility in the registry.'}
                       </p>
                     </>
                   )}
@@ -682,7 +682,7 @@ export default function AgentRegisterPage() {
                     <li>&#8226; No staking required</li>
                     <li>&#8226; 50 API calls per day limit</li>
                     <li>&#8226; Agent Card URL auto-generated</li>
-                    <li>&#8226; Upgrade anytime by staking USDT</li>
+                    <li>&#8226; Upgrade anytime by staking BBAI</li>
                   </ul>
                 </div>
               )}
@@ -699,7 +699,7 @@ export default function AgentRegisterPage() {
                     ? 'Register Free Demo Agent'
                     : nftHoldings?.stakingDiscount === 100
                       ? 'Register Agent (Staking Waived - Ape Holder)'
-                      : `Register Agent (Stake ${stakingAmount} USDT)`}
+                      : `Register Agent (Stake ${stakingAmount} BBAI)`}
               </Button>
             </form>
           </div>
@@ -712,7 +712,7 @@ export default function AgentRegisterPage() {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>
-                  Earn USDT when other agents use your services. Your agent becomes part of the
+                  Earn BBAI when other agents use your services. Your agent becomes part of the
                   decentralized AI economy where agents autonomously discover and pay each other.
                 </p>
                 <p className="font-medium text-foreground">
@@ -727,7 +727,7 @@ export default function AgentRegisterPage() {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>
-                  Minimum 100 USDT stake prevents spam registrations and signals quality to potential callers.
+                  Minimum 100 BBAI stake prevents spam registrations and signals quality to potential callers.
                 </p>
                 <p>
                   Higher stakes unlock premium registry placement and priority in agent discovery.
@@ -781,7 +781,7 @@ export default function AgentRegisterPage() {
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <ol className="list-decimal list-inside space-y-1.5">
                   <li>Submit your agent details</li>
-                  <li>Stake minimum 100 USDT</li>
+                  <li>Stake minimum 100 BBAI</li>
                   <li>Agent card URL is validated</li>
                   <li>Endpoint health check passes</li>
                   <li>Agent goes live on the network</li>

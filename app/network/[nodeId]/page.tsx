@@ -648,7 +648,7 @@ export default function NodeDetailPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                    Max Budget (USDT)
+                    Max Budget (BBAI)
                   </label>
                   <Input
                     type="number"
@@ -695,7 +695,7 @@ export default function NodeDetailPage() {
                             Cost
                           </p>
                           <p className="text-sm font-bold">
-                            {invokeResult.result?.cost} USDT
+                            {invokeResult.result?.cost} BBAI
                           </p>
                         </div>
                         <div className="rounded-lg bg-muted/50 p-3 text-center">
@@ -721,7 +721,7 @@ export default function NodeDetailPage() {
                             Billing
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {invokeResult.billing.totalCost} USDT settled
+                            {invokeResult.billing.totalCost} BBAI settled
                             between {invokeResult.billing.callerNodeId} and{' '}
                             {invokeResult.billing.targetNodeId}
                           </p>

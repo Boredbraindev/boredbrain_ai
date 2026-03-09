@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           error: 'Invocation cost exceeds max budget',
           cost: result.cost,
           maxBudget,
-          currency: 'USDT',
+          currency: 'BBAI',
         },
         { status: 402, headers: corsHeaders },
       );
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         result: {
           response: result.response,
           cost: result.cost,
-          currency: 'USDT',
+          currency: 'BBAI',
           latency: result.latency,
         },
         node: {

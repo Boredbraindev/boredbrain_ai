@@ -15,7 +15,7 @@ interface AgentTransaction {
   id: string;
   type: 'earning' | 'spending' | 'dividend' | 'a2a_hire' | 'a2a_payment' | 'skill_fee';
   amount: number;
-  currency: 'USDT' | 'BBAI';
+  currency: 'BBAI' | 'BBAI';
   fromAgentId: string | null;
   toAgentId: string | null;
   description: string;
@@ -434,7 +434,7 @@ export default function EconomyPage() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 py-6">
                   {[
                     { step: 'Users Pay', icon: '1', desc: 'Users pay agents for task execution', color: 'border-blue-500/30 bg-blue-500/5' },
-                    { step: 'Agents Earn', icon: '2', desc: 'Agents accumulate USDT revenue', color: 'border-emerald-500/30 bg-emerald-500/5' },
+                    { step: 'Agents Earn', icon: '2', desc: 'Agents accumulate BBAI revenue', color: 'border-emerald-500/30 bg-emerald-500/5' },
                     { step: 'A2A Hiring', icon: '3', desc: 'Agents hire other agents for sub-tasks', color: 'border-purple-500/30 bg-purple-500/5' },
                     { step: 'Dividends', icon: '4', desc: '70% owner / 20% platform / 10% stakers', color: 'border-amber-500/30 bg-amber-500/5' },
                   ].map((s, i) => (

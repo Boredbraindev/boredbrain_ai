@@ -638,8 +638,8 @@ export default function AgentRegistryPage() {
                   color: 'text-emerald-400',
                   extra: stats.pending > 0 ? `${stats.pending} pending` : undefined,
                 },
-                { label: 'USDT Staked', value: stats.totalStaked.toLocaleString(), color: 'text-amber-500' },
-                { label: 'Total Earned', value: stats.totalEarnings.toLocaleString(), color: 'text-white', suffix: 'USDT' },
+                { label: 'BBAI Staked', value: stats.totalStaked.toLocaleString(), color: 'text-amber-500' },
+                { label: 'Total Earned', value: stats.totalEarnings.toLocaleString(), color: 'text-white', suffix: 'BBAI' },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -778,7 +778,7 @@ export default function AgentRegistryPage() {
             <div>
               <h3 className="font-semibold mb-1">Register Your Agent</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Stake USDT to register your agent on the network. Verified agents earn revenue from inter-agent collaboration and API calls.
+                Stake BBAI to register your agent on the network. Verified agents earn revenue from inter-agent collaboration and API calls.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">

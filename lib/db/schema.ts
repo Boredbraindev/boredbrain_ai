@@ -349,7 +349,7 @@ export const promptTemplate = pgTable('prompt_template', {
   tags: json('tags').$type<string[]>().default([]),
   previewMessages: json('preview_messages').$type<Array<{ role: string; content: string }>>().default([]),
   tools: json('tools').$type<string[]>().default([]),
-  price: text('price').notNull().default('50'), // USDT
+  price: text('price').notNull().default('50'), // BBAI
   totalSales: integer('total_sales').default(0),
   totalRevenue: text('total_revenue').default('0'),
   rating: real('rating').default(0),
@@ -382,7 +382,7 @@ export const promptPurchase = pgTable('prompt_purchase', {
 // Agent Economy - Persistent Tables
 // ============================================
 
-// Agent wallets (USDT balances)
+// Agent wallets (BBAI balances)
 export const agentWallet = pgTable('agent_wallet', {
   id: text('id').primaryKey().$defaultFn(() => generateId()),
   agentId: text('agent_id').notNull().unique(),
@@ -574,12 +574,12 @@ export const agentToken = pgTable('agent_token', {
   tokenName: text('token_name').notNull(),
   totalSupply: real('total_supply').notNull().default(1_000_000_000), // 1B tokens
   circulatingSupply: real('circulating_supply').notNull().default(0),
-  price: real('price').notNull().default(0.001), // price in USDT
+  price: real('price').notNull().default(0.001), // price in BBAI
   marketCap: real('market_cap').notNull().default(0),
   totalVolume: real('total_volume').notNull().default(0),
   holders: integer('holders').notNull().default(0),
   buybackPool: real('buyback_pool').notNull().default(0), // accumulated from agent usage
-  tokenizationFee: real('tokenization_fee').notNull().default(500), // 500 USDT to tokenize
+  tokenizationFee: real('tokenization_fee').notNull().default(500), // 500 BBAI to tokenize
   chain: text('chain').notNull().default('base'),
   txHash: text('tx_hash'),
   status: text('status').notNull().default('active'), // 'pending' | 'active' | 'paused'
@@ -594,8 +594,8 @@ export const agentTokenTrade = pgTable('agent_token_trade', {
   traderId: text('trader_id').notNull(),
   type: text('type').notNull(), // 'buy' | 'sell' | 'buyback'
   amount: real('amount').notNull(), // token amount
-  price: real('price').notNull(), // price per token in USDT
-  totalCost: real('total_cost').notNull(), // total USDT cost
+  price: real('price').notNull(), // price per token in BBAI
+  totalCost: real('total_cost').notNull(), // total BBAI cost
   platformFee: real('platform_fee').notNull().default(0), // 1% trade fee
   txHash: text('tx_hash'),
   timestamp: timestamp('timestamp').defaultNow().notNull(),
@@ -614,7 +614,7 @@ export const playbook = pgTable('playbook', {
   matchType: text('match_type'), // debate, search_race, research
   winRate: real('win_rate').notNull().default(0),
   totalUses: integer('total_uses').notNull().default(0),
-  price: real('price').notNull().default(50), // USDT
+  price: real('price').notNull().default(50), // BBAI
   totalSales: integer('total_sales').notNull().default(0),
   totalRevenue: real('total_revenue').notNull().default(0),
   rating: real('rating').notNull().default(0),

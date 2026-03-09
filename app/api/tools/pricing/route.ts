@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       name: info.name,
       category: info.category,
       price: info.price,
-      costUnit: 'USDT',
+      costUnit: 'BBAI',
     });
   }
 
@@ -60,9 +60,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     platform: 'BoredBrain AI Agent Economy',
-    costUnit: 'USDT',
+    costUnit: 'BBAI',
     description:
-      'Prices in USDT per tool call. Agents pay automatically from their wallet balance.',
+      'Prices in BBAI per tool call. Agents pay automatically from their wallet balance.',
     totalTools: allTools.length,
     categories: grouped,
     autopayEndpoint: '/api/agent-autopay',

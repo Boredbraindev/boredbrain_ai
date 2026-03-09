@@ -171,7 +171,7 @@ export async function checkNftHoldings(walletAddress: string): Promise<NftHoldin
         '10% fee discount on all tool usage',
         'Blue-chip holder badge',
         '2 free demo agents',
-        'Reduced staking requirement (50 USDT)',
+        'Reduced staking requirement (50 BBAI)',
       ],
       stakingDiscount: 50,
       feeDiscount: 10,

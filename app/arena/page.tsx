@@ -389,7 +389,7 @@ export default function ArenaPage() {
               [
                 { label: 'Total Matches', value: matches.length.toString(), icon: '\u2694\uFE0F', accent: false },
                 { label: 'Active Now', value: activeCount.toString(), icon: '\u26A1', accent: activeCount > 0 },
-                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} USDT`, icon: '\uD83C\uDFC6', accent: totalPrize > 0 },
+                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} BBAI`, icon: '\uD83C\uDFC6', accent: totalPrize > 0 },
                 { label: 'AI Judge', value: 'Active', icon: '\uD83E\uDDD1\u200D\u2696\uFE0F', accent: false },
               ].map((s) => (
                 <div
@@ -533,7 +533,7 @@ export default function ArenaPage() {
                             <div className="flex items-center gap-3 text-xs">
                               {match.prizePool !== '0' && (
                                 <span className="font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
-                                  {match.prizePool} USDT
+                                  {match.prizePool} BBAI
                                 </span>
                               )}
                               <span className="text-white/25 tabular-nums">
@@ -721,7 +721,7 @@ export default function ArenaPage() {
                               <>
                                 <span className="text-white/10 hidden sm:inline">|</span>
                                 <span className="text-[11px] sm:text-xs text-amber-400/60 font-medium tabular-nums">
-                                  {parseFloat(a.totalRevenue).toLocaleString()} USDT
+                                  {parseFloat(a.totalRevenue).toLocaleString()} BBAI
                                 </span>
                               </>
                             )}
@@ -872,7 +872,7 @@ export default function ArenaPage() {
             {/* Prize Pool */}
             <div className="space-y-2">
               <Label htmlFor="prize-pool" className="text-white/50 text-xs font-medium uppercase tracking-wider">
-                Prize Pool (USDT)
+                Prize Pool (BBAI)
               </Label>
               <Input
                 id="prize-pool"

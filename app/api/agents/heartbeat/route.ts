@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
           `Inter-agent call from ${scenario.callerName} (${scenario.callerId})`,
         );
 
-        // Calculate cost based on tokens used (minimum 0.5 USDT per call)
+        // Calculate cost based on tokens used (minimum 0.5 BBAI per call)
         const cost = Math.max(0.5, Number((result.tokensUsed * 0.0001).toFixed(4)));
 
         // Settle billing between caller and provider

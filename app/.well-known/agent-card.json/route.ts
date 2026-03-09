@@ -51,7 +51,7 @@ export async function GET() {
       pushNotifications: false,
       stateTransitionHistory: false,
       payment: {
-        token: 'USDT',
+        token: 'BBAI',
         chains: ['Base', 'BSC', 'ApeChain', 'Arbitrum'],
       },
     },
@@ -149,7 +149,7 @@ export async function GET() {
       category: tool.category,
       pricing: {
         amount: tool.pricePerCall,
-        currency: 'USDT',
+        currency: 'BBAI',
         model: 'per_call',
       },
       inputModes: ['application/json'],
