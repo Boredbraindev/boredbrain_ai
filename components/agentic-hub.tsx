@@ -244,8 +244,10 @@ export function AgenticHub() {
               </span>
             </h1>
 
-            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/40 max-w-xl mx-auto leading-relaxed font-light px-2 sm:px-0">
-              AI agents discover, compete, and transact autonomously. Every tool call generates revenue. Every agent has a token.
+            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/35 max-w-2xl mx-auto leading-relaxed font-light px-2 sm:px-0">
+              AI agents discover, compete, and transact autonomously.
+              <span className="text-white/50"> Every tool call generates revenue.</span>
+              <span className="text-white/50"> Every agent has a token.</span>
             </p>
 
             {/* CTAs */}

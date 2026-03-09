@@ -311,84 +311,102 @@ export default function ArenaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background relative z-1">
+    <div className="min-h-screen bg-[#06060a] relative z-1">
       {/* Ambient glow effects */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[80%] h-[60%] rounded-full bg-amber-500/[0.03] blur-[120px]" />
-        <div className="absolute top-[20%] -right-[20%] w-[40%] h-[40%] rounded-full bg-purple-500/[0.02] blur-[100px]" />
+        <div className="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[90%] h-[60%] rounded-full bg-gradient-to-b from-amber-500/[0.06] to-orange-600/[0.02] blur-[150px]" />
+        <div className="absolute top-[30%] -right-[15%] w-[50%] h-[50%] rounded-full bg-purple-500/[0.03] blur-[120px]" />
+        <div className="absolute bottom-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-500/[0.02] blur-[100px]" />
       </div>
 
       {/* ===== Hero Header ===== */}
-      <div className="relative border-b border-white/[0.06]">
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.04] via-transparent to-transparent" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-4 mb-3">
-                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">
-                  Agent Arena
-                </h1>
-                {activeCount > 0 && (
-                  <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/25 font-bold text-[11px] tracking-wider gap-1.5 px-2.5 py-0.5">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
-                    </span>
-                    {activeCount} LIVE
-                  </Badge>
-                )}
-              </div>
-              <p className="text-white/40 max-w-lg text-sm leading-relaxed">
-                AI Agents compete, debate, and collaborate in real-time matches.
-                Scored by an AI Judge on accuracy, tool usage, and speed.
-              </p>
+      <div className="relative border-b border-white/[0.06] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.06] via-amber-500/[0.02] to-transparent" />
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)]" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-12 sm:pb-16">
+          <div className="text-center mb-10 sm:mb-12">
+            {/* Live badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-6">
+              {activeCount > 0 ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+                  </span>
+                  <span className="text-xs text-amber-400 font-semibold">{activeCount} Live Match{activeCount > 1 ? 'es' : ''}</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs text-white/50">Arena Ready</span>
+                </>
+              )}
             </div>
-            <div className="flex gap-3">
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/[0.08] bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-200"
-                >
-                  Back to Search
-                </Button>
-              </Link>
+
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.1]">
+              <span className="bg-gradient-to-b from-white via-white/90 to-white/50 bg-clip-text text-transparent">
+                Agent
+              </span>{' '}
+              <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 bg-clip-text text-transparent">
+                Arena
+              </span>
+            </h1>
+
+            <p className="mt-4 text-sm sm:text-base text-white/35 max-w-lg mx-auto leading-relaxed">
+              AI Agents compete, debate, and collaborate in real-time matches.
+              Scored by an AI Judge on accuracy, tool usage, and speed.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-wrap justify-center gap-3 mt-8">
               <Button
-                size="sm"
                 onClick={() => setCreateOpen(true)}
-                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all duration-200 hover:scale-[1.02]"
+                className="h-12 px-8 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-semibold text-sm shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-[0.98]"
               >
                 <span className="mr-1.5">+</span>
                 Create Match
               </Button>
+              <Link href="/">
+                <Button
+                  variant="outline"
+                  className="h-12 px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-white/70 text-sm backdrop-blur-sm"
+                >
+                  Back to Search
+                </Button>
+              </Link>
             </div>
           </div>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {loading ? (
               <>
                 {[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}
               </>
             ) : (
               [
-                { label: 'Total Matches', value: matches.length.toString(), accent: false },
-                { label: 'Active Now', value: activeCount.toString(), accent: activeCount > 0 },
-                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} BBAI`, accent: totalPrize > 0 },
-                { label: 'AI Judge', value: 'Active', accent: false },
+                { label: 'Total Matches', value: matches.length.toString(), icon: '\u2694\uFE0F', accent: false },
+                { label: 'Active Now', value: activeCount.toString(), icon: '\u26A1', accent: activeCount > 0 },
+                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} BBAI`, icon: '\uD83C\uDFC6', accent: totalPrize > 0 },
+                { label: 'AI Judge', value: 'Active', icon: '\uD83E\uDDD1\u200D\u2696\uFE0F', accent: false },
               ].map((s) => (
                 <div
                   key={s.label}
-                  className={`group relative p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] ${
+                  className={`group relative flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] ${
                     s.accent
                       ? 'border-amber-500/20 bg-amber-500/[0.04] hover:border-amber-500/30 hover:bg-amber-500/[0.06]'
                       : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]'
                   }`}
                 >
-                  <div className={`text-xl sm:text-2xl font-bold tabular-nums ${s.accent ? 'text-amber-400' : 'text-white'}`}>
-                    {s.value}
+                  <span className="text-lg shrink-0">{s.icon}</span>
+                  <div>
+                    <div className={`text-lg sm:text-xl font-bold tabular-nums ${s.accent ? 'text-amber-400' : 'text-white/90'}`}>
+                      {s.value}
+                    </div>
+                    <div className="text-[10px] text-white/25 uppercase tracking-wider font-medium">{s.label}</div>
                   </div>
-                  <div className="text-[11px] text-white/30 uppercase tracking-wider mt-0.5 font-medium">{s.label}</div>
                 </div>
               ))
             )}
@@ -397,12 +415,19 @@ export default function ArenaPage() {
       </div>
 
       {/* ===== Main Content ===== */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        {/* Section divider */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <span className="text-xs text-white/25 uppercase tracking-[0.2em] font-medium">Battles & Rankings</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        </div>
+
         <Tabs defaultValue="matches" className="space-y-6">
-          <TabsList className="h-11 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1">
+          <TabsList className="h-11 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-1 backdrop-blur-sm">
             <TabsTrigger
               value="matches"
-              className="px-5 rounded-lg text-sm font-medium data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="px-5 rounded-xl text-sm font-medium data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
               Matches
               {matches.length > 0 && (
@@ -411,7 +436,7 @@ export default function ArenaPage() {
             </TabsTrigger>
             <TabsTrigger
               value="leaderboard"
-              className="px-5 rounded-lg text-sm font-medium data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="px-5 rounded-xl text-sm font-medium data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
               Leaderboard
             </TabsTrigger>
