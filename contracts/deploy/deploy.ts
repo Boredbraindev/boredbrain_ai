@@ -138,7 +138,7 @@ async function main() {
   // -------------------------------------------------------
   const deploymentResult: DeploymentResult = {
     chainId,
-    network: chainId === '8453' ? 'Base Mainnet' : chainId === '84532' ? 'Base Sepolia' : `Chain ${chainId}`,
+    network: chainId === '8453' ? 'Base Mainnet' : chainId === '84532' ? 'Base Sepolia' : chainId === '56' ? 'BSC Mainnet' : chainId === '97' ? 'BSC Testnet' : `Chain ${chainId}`,
     deployer: deployer.address,
     treasury: treasuryAddress,
     contracts: {
@@ -159,8 +159,8 @@ async function main() {
   // -------------------------------------------------------
   // Verification commands
   // -------------------------------------------------------
-  const networkFlag = chainId === '8453' ? 'base' : chainId === '84532' ? 'baseSepolia' : 'hardhat';
-  console.log('--- Verify Contracts on BaseScan ---');
+  const networkFlag = chainId === '8453' ? 'base' : chainId === '84532' ? 'baseSepolia' : chainId === '56' ? 'bsc' : chainId === '97' ? 'bscTestnet' : 'hardhat';
+  console.log(`--- Verify Contracts on ${chainId === '56' || chainId === '97' ? 'BscScan' : 'BaseScan'} ---`);
   console.log(`npx hardhat verify --network ${networkFlag} ${bbTokenAddress} "${deployer.address}" "${treasuryAddress}"`);
   console.log(`npx hardhat verify --network ${networkFlag} ${agentStakingAddress} "${bbTokenAddress}" "${deployer.address}"`);
   console.log(`npx hardhat verify --network ${networkFlag} ${agentRegistryAddress} "${deployer.address}" "${bbTokenAddress}"`);

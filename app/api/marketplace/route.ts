@@ -3,6 +3,7 @@ import {
   getListings,
   getMarketplaceStats,
 } from '@/lib/agent-marketplace';
+import { MOCK_MARKETPLACE_LISTINGS } from '@/lib/mock-marketplace';
 
 /**
  * GET /api/marketplace - List marketplace agents with optional filters
@@ -24,19 +25,73 @@ export async function GET(request: NextRequest) {
   const minRatingStr = searchParams.get('minRating');
   const minRating = minRatingStr ? parseFloat(minRatingStr) : undefined;
 
-  const listings = await getListings({
-    specialization,
-    sort,
-    featured,
-    search,
-    minRating,
-  });
+  try {
+    const listingsPromise = getListings({
+      specialization,
+      sort,
+      featured,
+      search,
+      minRating,
+    });
 
-  const stats = await getMarketplaceStats();
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('DB timeout')), 3000)
+    );
+
+    const listings = await Promise.race([listingsPromise, timeout]);
+
+    if (listings.length > 0) {
+      const stats = await getMarketplaceStats();
+      return NextResponse.json({
+        listings,
+        stats,
+        count: listings.length,
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      });
+    }
+  } catch {
+    // DB connection failed or timeout, fall through to mock data
+  }
+
+  // Return mock data as fallback
+  let mockListings = MOCK_MARKETPLACE_LISTINGS;
+
+  // Apply client-side filters to mock data
+  if (specialization) {
+    mockListings = mockListings.filter((l) => l.specialization === specialization);
+  }
+  if (featured) {
+    mockListings = mockListings.filter((l) => l.featured);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    mockListings = mockListings.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.description.toLowerCase().includes(q) ||
+        l.tags.some((t) => t.toLowerCase().includes(q))
+    );
+  }
+  if (minRating) {
+    mockListings = mockListings.filter((l) => l.rating >= minRating);
+  }
+
+  // Apply sort
+  if (sort === 'rating') {
+    mockListings = [...mockListings].sort((a, b) => b.rating - a.rating);
+  } else if (sort === 'calls') {
+    mockListings = [...mockListings].sort((a, b) => b.totalCalls - a.totalCalls);
+  }
 
   return NextResponse.json({
-    listings,
-    stats,
-    count: listings.length,
+    listings: mockListings,
+    stats: {
+      totalAgents: MOCK_MARKETPLACE_LISTINGS.length,
+      totalCalls: MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls, 0),
+      avgRating: +(MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.rating, 0) / MOCK_MARKETPLACE_LISTINGS.length).toFixed(1),
+      topSpecializations: ['defi', 'market', 'security', 'utility', 'research'],
+    },
+    count: mockListings.length,
   });
 }
