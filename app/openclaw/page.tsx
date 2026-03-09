@@ -124,6 +124,18 @@ export default function OpenClawPage() {
   const [agentPage, setAgentPage] = useState(0);
   const AGENTS_PER_PAGE = 24;
 
+  // Live Activity Feed state
+  const [billingData, setBillingData] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+
+  // Agent Registration Portal state
+  const [regForm, setRegForm] = useState({
+    name: '', description: '', ownerAddress: '', specialization: 'general',
+    tools: [] as string[], isDemo: true
+  });
+  const [registering, setRegistering] = useState(false);
+  const [regResult, setRegResult] = useState<string | null>(null);
+
   // Fetch skill manifest
   useEffect(() => {
     async function loadSkills() {
@@ -226,6 +238,64 @@ export default function OpenClawPage() {
       setVerifying(false);
     }
   }, []);
+
+  // Fetch billing data
+  useEffect(() => {
+    async function loadBilling() {
+      try {
+        const res = await fetch('/api/agents/billing');
+        const json = await res.json();
+        if (json.success) {
+          setBillingData(json.data ?? json);
+        }
+      } catch {
+        // silent
+      }
+    }
+    loadBilling();
+  }, []);
+
+  // Fetch activity logs
+  useEffect(() => {
+    async function loadLogs() {
+      try {
+        const res = await fetch('/api/agents/logs?limit=20');
+        const json = await res.json();
+        if (json.success && json.logs) {
+          setLogs(json.logs);
+        } else if (Array.isArray(json)) {
+          setLogs(json);
+        }
+      } catch {
+        // silent
+      }
+    }
+    loadLogs();
+  }, []);
+
+  // Register agent
+  const handleRegister = useCallback(async () => {
+    setRegistering(true);
+    setRegResult(null);
+    try {
+      const res = await fetch('/api/agents/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRegResult(`Agent "${regForm.name}" registered successfully! ID: ${json.agent?.id ?? json.id ?? 'assigned'}`);
+        setRegForm({ name: '', description: '', ownerAddress: '', specialization: 'general', tools: [], isDemo: true });
+      } else {
+        setRegResult(`Error: ${json.error ?? 'Registration failed'}`);
+      }
+    } catch {
+      setRegResult('Failed to register agent');
+    } finally {
+      setRegistering(false);
+    }
+  }, [regForm]);
 
   // Paginated agents
   const paginatedAgents = agents.slice(
@@ -471,6 +541,204 @@ export default function OpenClawPage() {
               )}
             </>
           )}
+        </section>
+
+        {/* --------------------------------------------------------------- */}
+        {/* Live Activity Feed                                               */}
+        {/* --------------------------------------------------------------- */}
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Live Activity Feed</h2>
+            <p className="text-sm text-white/30 mt-1">
+              Real-time billing transactions and agent call logs
+            </p>
+          </div>
+
+          {/* Platform Revenue Stats */}
+          {billingData && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
+                <p className="text-2xl md:text-3xl font-bold text-emerald-400">
+                  {typeof billingData.totalRevenue === 'number'
+                    ? `${(billingData.totalRevenue / 1000).toFixed(1)}K`
+                    : billingData.totalRevenue ?? '—'}
+                </p>
+                <p className="text-xs text-white/30 mt-1">Total Revenue (BBAI)</p>
+              </div>
+              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
+                <p className="text-2xl md:text-3xl font-bold text-red-400">
+                  {typeof billingData.platformFees === 'number'
+                    ? `${(billingData.platformFees / 1000).toFixed(1)}K`
+                    : billingData.platformFees ?? '—'}
+                </p>
+                <p className="text-xs text-white/30 mt-1">Platform Fees</p>
+              </div>
+              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
+                <p className="text-2xl md:text-3xl font-bold text-emerald-400">
+                  {typeof billingData.agentPayouts === 'number'
+                    ? `${(billingData.agentPayouts / 1000).toFixed(1)}K`
+                    : billingData.agentPayouts ?? '—'}
+                </p>
+                <p className="text-xs text-white/30 mt-1">Agent Payouts</p>
+              </div>
+              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
+                <p className="text-2xl md:text-3xl font-bold text-white">
+                  {typeof billingData.totalTransactions === 'number'
+                    ? billingData.totalTransactions.toLocaleString()
+                    : billingData.totalTransactions ?? '—'}
+                </p>
+                <p className="text-xs text-white/30 mt-1">Total Transactions</p>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Transactions */}
+          <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/[0.06]">
+              <h3 className="text-sm font-semibold text-white/80">Recent Transactions</h3>
+            </div>
+            {logs.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm text-white/30">No activity logs yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/[0.04]">
+                {logs.map((log, idx) => (
+                  <div key={log.id ?? idx} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-[10px] text-white/20 font-mono flex-shrink-0">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}
+                      </span>
+                      <span className="text-xs text-white/50 truncate">
+                        <span className="text-amber-400/70">{log.caller ?? log.callerId ?? '—'}</span>
+                        <span className="text-white/20 mx-1.5">&rarr;</span>
+                        <span className="text-emerald-400/70">{log.provider ?? log.agentId ?? '—'}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-xs font-mono text-white/40">
+                        {log.cost ?? log.amount ?? '—'} BBAI
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                        (log.status === 'success' || log.status === 'completed')
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+                          : log.status === 'failed'
+                            ? 'bg-red-500/15 text-red-400 border-red-500/25'
+                            : 'bg-white/[0.05] text-white/30 border-white/[0.08]'
+                      }`}>
+                        {log.status ?? 'pending'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* --------------------------------------------------------------- */}
+        {/* Agent Registration Portal                                        */}
+        {/* --------------------------------------------------------------- */}
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Agent Registration Portal</h2>
+            <p className="text-sm text-white/30 mt-1">
+              Register external agents to join the OpenClaw fleet
+            </p>
+          </div>
+
+          <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/40 font-medium">Agent Name</label>
+                <input
+                  type="text"
+                  value={regForm.name}
+                  onChange={(e) => setRegForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. AlphaTrader"
+                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
+                />
+              </div>
+
+              {/* Owner Address */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/40 font-medium">Owner Address</label>
+                <input
+                  type="text"
+                  value={regForm.ownerAddress}
+                  onChange={(e) => setRegForm((f) => ({ ...f, ownerAddress: e.target.value }))}
+                  placeholder="0x..."
+                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-white/40 font-medium">Description</label>
+              <textarea
+                value={regForm.description}
+                onChange={(e) => setRegForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Describe what your agent does..."
+                rows={3}
+                className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Specialization */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/40 font-medium">Specialization</label>
+                <select
+                  value={regForm.specialization}
+                  onChange={(e) => setRegForm((f) => ({ ...f, specialization: e.target.value }))}
+                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/40 transition-colors appearance-none cursor-pointer"
+                >
+                  {['defi', 'trading', 'research', 'security', 'nft', 'social', 'news', 'development', 'onchain', 'market', 'media', 'finance', 'gaming'].map(
+                    (spec) => (
+                      <option key={spec} value={spec} className="bg-[#0a0a0c] text-white">
+                        {SPEC_LABELS[spec] ?? spec}
+                      </option>
+                    ),
+                  )}
+                  <option value="general" className="bg-[#0a0a0c] text-white">General</option>
+                </select>
+              </div>
+
+              {/* Demo Toggle */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/40 font-medium">Mode</label>
+                <button
+                  type="button"
+                  onClick={() => setRegForm((f) => ({ ...f, isDemo: !f.isDemo }))}
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                    regForm.isDemo
+                      ? 'bg-amber-500/10 border-amber-500/25 text-amber-400'
+                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                  }`}
+                >
+                  {regForm.isDemo ? 'Demo Mode' : 'Production Mode'}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="flex items-center gap-4 pt-2">
+              <button
+                onClick={handleRegister}
+                disabled={registering || !regForm.name || !regForm.ownerAddress}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-all"
+              >
+                {registering ? 'Registering...' : 'Register Agent'}
+              </button>
+              {regResult && (
+                <p className={`text-sm ${regResult.startsWith('Error') || regResult.startsWith('Failed') ? 'text-red-400' : 'text-emerald-400/80'}`}>
+                  {regResult}
+                </p>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* --------------------------------------------------------------- */}

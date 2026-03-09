@@ -1,31 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { externalAgent } from '@/lib/db/schema';
 import { MOCK_AGENTS } from '@/lib/mock-data';
+import { getToolPrice } from '@/lib/tool-pricing';
 import {
   getAgentWallet,
   createAgentWallet,
-  deductBalance,
 } from '@/lib/agent-wallet';
-import { getToolPrice, getToolInfo } from '@/lib/tool-pricing';
+import { executeAgent, AgentConfig } from '@/lib/agent-executor';
+import { settleBilling } from '@/lib/inter-agent-billing';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 /**
  * POST /api/agents/[agentId]/invoke
  *
- * Invoke a BoredBrain agent on behalf of an external (or internal) caller.
+ * Invoke a BoredBrain agent with real LLM execution and inter-agent billing.
  *
  * Request body:
  * {
  *   "query": "Analyze Bitcoin DeFi ecosystem",
- *   "callerAgentId": "external-agent-123",   // optional - for inter-agent billing
+ *   "callerAgentId": "external-agent-123",   // optional — for inter-agent billing
  *   "maxBudget": 50,                          // max USDT to spend
- *   "tools": ["coin_data", "web_search"]      // optional - restrict to specific tools
+ *   "tools": ["coin_data", "web_search"]      // optional — restrict to specific tools
  * }
- *
- * Flow:
- *   1. Validate the target agent exists
- *   2. If callerAgentId is provided, look up / create their wallet and validate budget
- *   3. Execute the agent's tools (mock execution with descriptive results)
- *   4. Deduct USDT from the caller's wallet (free in demo mode if no callerAgentId)
- *   5. Return structured response
  */
 
 // ---------------------------------------------------------------------------
@@ -38,6 +36,8 @@ interface AgentRecord {
   description: string;
   tools: string[];
   pricePerQuery: number;
+  specialization?: string;
+  isFleetAgent?: boolean;
 }
 
 const DISCOVERY_AGENTS: AgentRecord[] = [
@@ -47,6 +47,7 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'Analyzes DeFi protocols, yield farming, and liquidity data.',
     tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'],
     pricePerQuery: 40,
+    specialization: 'defi',
   },
   {
     id: 'agent-alpha-hunter',
@@ -54,6 +55,7 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'Hunts market opportunities via whale monitoring and signals.',
     tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'],
     pricePerQuery: 35,
+    specialization: 'trading',
   },
   {
     id: 'agent-research-bot',
@@ -61,6 +63,7 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'Academic and deep-web research with code execution.',
     tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'],
     pricePerQuery: 30,
+    specialization: 'research',
   },
   {
     id: 'agent-news-aggregator',
@@ -68,6 +71,7 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'Compiles news from web, Reddit, YouTube, and X/Twitter.',
     tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'],
     pricePerQuery: 20,
+    specialization: 'news',
   },
   {
     id: 'agent-code-auditor',
@@ -75,6 +79,7 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'Smart contract vulnerability and gas auditing.',
     tools: ['code_interpreter', 'smart_contract_audit', 'web_search'],
     pricePerQuery: 45,
+    specialization: 'security',
   },
   {
     id: 'agent-nft-analyst',
@@ -82,19 +87,45 @@ const DISCOVERY_AGENTS: AgentRecord[] = [
     description: 'NFT market analysis, collection tracking, and social buzz.',
     tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'],
     pricePerQuery: 30,
+    specialization: 'nft',
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Agent lookup — DB first, then hardcoded fallbacks
 // ---------------------------------------------------------------------------
 
-function findAgent(agentId: string): AgentRecord | null {
-  // Check canonical discovery agents first
+async function findAgent(agentId: string): Promise<AgentRecord | null> {
+  // 1. Check DB externalAgent table (with timeout)
+  try {
+    const dbResult = await Promise.race([
+      db.select().from(externalAgent).where(eq(externalAgent.id, agentId)).limit(1),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DB timeout')), 3000),
+      ),
+    ]);
+
+    if (dbResult.length > 0) {
+      const agent = dbResult[0];
+      return {
+        id: agent.id,
+        name: agent.name,
+        description: agent.description ?? '',
+        tools: (agent.tools as string[]) || [],
+        pricePerQuery: 10, // default for fleet agents
+        specialization: agent.specialization ?? 'general',
+        isFleetAgent: true,
+      };
+    }
+  } catch {
+    // DB lookup failed — fall through to hardcoded agents
+  }
+
+  // 2. Check canonical discovery agents
   const discovery = DISCOVERY_AGENTS.find((a) => a.id === agentId);
   if (discovery) return discovery;
 
-  // Fallback to MOCK_AGENTS from the marketplace
+  // 3. Fallback to MOCK_AGENTS from the marketplace
   const mock = MOCK_AGENTS.find((a) => a.id === agentId);
   if (mock) {
     return {
@@ -109,36 +140,6 @@ function findAgent(agentId: string): AgentRecord | null {
   return null;
 }
 
-/**
- * Simulate tool execution. In production this would call the real tool
- * pipeline, but for the discovery/invocation layer we return descriptive
- * mock results so external agents get a realistic payload shape.
- */
-function mockExecuteTool(
-  toolName: string,
-  query: string,
-  agentName: string,
-): { tool: string; success: boolean; result: Record<string, unknown>; cost: number } {
-  const price = getToolPrice(toolName) ?? 5;
-  const info = getToolInfo(toolName);
-  const displayName = info?.name ?? toolName;
-
-  return {
-    tool: toolName,
-    success: true,
-    result: {
-      summary: `[${agentName}] Executed ${displayName} for query: "${query}"`,
-      data: {
-        source: toolName,
-        query,
-        timestamp: new Date().toISOString(),
-        sampleInsight: `Analysis result from ${displayName} — processed by ${agentName} agent on the BoredBrain platform.`,
-      },
-    },
-    cost: price,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // POST handler
 // ---------------------------------------------------------------------------
@@ -149,23 +150,20 @@ export async function POST(
 ) {
   const { agentId } = await params;
 
-  // -----------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // 1. Validate agent exists
-  // -----------------------------------------------------------------------
-  const agentRecord = findAgent(agentId);
+  // -------------------------------------------------------------------------
+  const agentRecord = await findAgent(agentId);
   if (!agentRecord) {
-    return NextResponse.json(
-      {
-        error: 'Agent not found',
-        message: `No agent with id "${agentId}" exists. Use GET /api/agents/discover to list available agents.`,
-      },
-      { status: 404 },
+    return apiError(
+      `No agent with id "${agentId}" exists. Use GET /api/agents/discover to list available agents.`,
+      404,
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Parse body
-  // -----------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // 2. Parse body
+  // -------------------------------------------------------------------------
   let body: {
     query?: string;
     callerAgentId?: string;
@@ -176,17 +174,11 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid JSON body' },
-      { status: 400 },
-    );
+    return apiError('Invalid JSON body', 400);
   }
 
   if (!body.query || typeof body.query !== 'string') {
-    return NextResponse.json(
-      { error: 'query is required and must be a string' },
-      { status: 400 },
-    );
+    return apiError('query is required and must be a string', 400);
   }
 
   const query = body.query;
@@ -194,141 +186,181 @@ export async function POST(
   const maxBudget = body.maxBudget ?? Infinity;
   const requestedTools = body.tools ?? null;
 
-  // -----------------------------------------------------------------------
-  // 2. Resolve tools to execute
-  // -----------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // 3. Resolve tools to execute
+  // -------------------------------------------------------------------------
   let toolsToRun = agentRecord.tools;
 
-  // If the caller restricts to specific tools, intersect with agent's tools
   if (requestedTools && requestedTools.length > 0) {
     const agentToolSet = new Set(agentRecord.tools);
     toolsToRun = requestedTools.filter((t) => agentToolSet.has(t));
 
     if (toolsToRun.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'No matching tools',
-          message: `Requested tools [${requestedTools.join(', ')}] do not overlap with agent tools [${agentRecord.tools.join(', ')}].`,
-        },
-        { status: 400 },
+      return apiError(
+        `Requested tools [${requestedTools.join(', ')}] do not overlap with agent tools [${agentRecord.tools.join(', ')}].`,
+        400,
       );
     }
   }
 
-  // -----------------------------------------------------------------------
-  // 3. Estimate cost up-front
-  // -----------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // 4. Estimate cost up-front
+  // -------------------------------------------------------------------------
   const estimatedCost = toolsToRun.reduce(
     (sum, t) => sum + (getToolPrice(t) ?? 5),
     0,
   );
 
   if (estimatedCost > maxBudget) {
-    return NextResponse.json(
-      {
-        error: 'Budget exceeded',
-        message: `Estimated cost ${estimatedCost} USDT exceeds maxBudget ${maxBudget} USDT.`,
-        estimatedCost,
-        maxBudget,
-      },
-      { status: 402 },
+    return apiError(
+      `Estimated cost ${estimatedCost} USDT exceeds maxBudget ${maxBudget} USDT.`,
+      402,
     );
   }
 
-  // -----------------------------------------------------------------------
-  // 4. If callerAgentId provided, manage wallet
-  // -----------------------------------------------------------------------
-  let walletDeduction: { txId: string; remaining: number } | null = null;
-
+  // -------------------------------------------------------------------------
+  // 5. If callerAgentId provided, validate wallet balance
+  // -------------------------------------------------------------------------
   if (callerAgentId) {
-    // Ensure the caller has a wallet (auto-create if first invocation)
     let wallet = await getAgentWallet(callerAgentId);
     if (!wallet) {
       wallet = await createAgentWallet(callerAgentId, 500);
     }
 
-    // Check sufficient balance
     if (wallet.balance < estimatedCost) {
-      return NextResponse.json(
-        {
-          error: 'Insufficient balance',
-          message: `Caller wallet has ${wallet.balance} USDT but estimated cost is ${estimatedCost} USDT.`,
-          balance: wallet.balance,
-          estimatedCost,
-        },
-        { status: 402 },
+      return apiError(
+        `Caller wallet has ${wallet.balance} USDT but estimated cost is ${estimatedCost} USDT.`,
+        402,
       );
     }
-
-    // Deduct
-    const deductResult = await deductBalance(
-      callerAgentId,
-      estimatedCost,
-      `Invoke ${agentRecord.name} (${agentId}) — query: "${query.slice(0, 80)}"`,
-    );
-
-    if (!deductResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Payment failed',
-          message:
-            'Wallet deduction failed. This may be caused by a daily spend limit.',
-        },
-        { status: 402 },
-      );
-    }
-
-    walletDeduction = {
-      txId: deductResult.txId,
-      remaining: deductResult.remaining,
-    };
   }
 
-  // -----------------------------------------------------------------------
-  // 5. Execute tools (mock)
-  // -----------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // 6. Execute agent via real LLM
+  // -------------------------------------------------------------------------
+  const agentConfig: AgentConfig = {
+    id: agentRecord.id,
+    name: agentRecord.name,
+    description: agentRecord.description,
+    systemPrompt: buildSystemPrompt(agentRecord),
+    tools: toolsToRun,
+  };
+
   const startTime = Date.now();
-  const results = toolsToRun.map((toolName) =>
-    mockExecuteTool(toolName, query, agentRecord.name),
-  );
+
+  const execution = await executeAgent(agentConfig, query);
+
   const latencyMs = Date.now() - startTime;
 
-  const totalCost = results.reduce((sum, r) => sum + r.cost, 0);
-
-  // -----------------------------------------------------------------------
-  // 6. Return response
-  // -----------------------------------------------------------------------
-  return NextResponse.json(
-    {
-      agentId: agentRecord.id,
-      agentName: agentRecord.name,
-      response: `${agentRecord.name} processed your query using ${results.length} tool(s). See results[] for detailed output.`,
-      toolsUsed: results.map((r) => r.tool),
-      cost: totalCost,
-      costUnit: 'USDT',
-      results,
-      billing: callerAgentId
-        ? {
-            callerAgentId,
-            charged: totalCost,
-            txId: walletDeduction?.txId ?? null,
-            remainingBalance: walletDeduction?.remaining ?? null,
-          }
-        : {
-            mode: 'demo',
-            note: 'No callerAgentId provided — executed in free demo mode. Provide callerAgentId for inter-agent billing.',
-          },
-      meta: {
-        latencyMs,
-        timestamp: new Date().toISOString(),
-        query,
-      },
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    },
+  const totalCost = toolsToRun.reduce(
+    (sum, t) => sum + (getToolPrice(t) ?? 5),
+    0,
   );
+
+  // -------------------------------------------------------------------------
+  // 7. Billing — settle between caller and provider
+  // -------------------------------------------------------------------------
+  let billingInfo: Record<string, unknown>;
+
+  if (callerAgentId) {
+    const settlement = await settleBilling(
+      callerAgentId,
+      agentId,
+      toolsToRun,
+      totalCost,
+    );
+
+    billingInfo = {
+      callerAgentId,
+      charged: totalCost,
+      billingId: settlement.billingId,
+      breakdown: settlement.breakdown,
+    };
+
+    // -----------------------------------------------------------------------
+    // 8. Update fleet agent stats in DB
+    // -----------------------------------------------------------------------
+    if (agentRecord.isFleetAgent) {
+      const providerEarning = settlement.breakdown?.providerEarning ?? totalCost * 0.85;
+      try {
+        await Promise.race([
+          db
+            .update(externalAgent)
+            .set({
+              totalCalls: sql`${externalAgent.totalCalls} + 1`,
+              totalEarned: sql`${externalAgent.totalEarned} + ${providerEarning}`,
+            })
+            .where(eq(externalAgent.id, agentId)),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('DB update timeout')), 3000),
+          ),
+        ]);
+      } catch {
+        // Non-critical — stats update failed but invocation succeeded
+      }
+    }
+  } else {
+    billingInfo = {
+      mode: 'demo',
+      note: 'No callerAgentId provided — executed in free demo mode. Provide callerAgentId for inter-agent billing.',
+    };
+
+    // Still update call count for fleet agents in demo mode
+    if (agentRecord.isFleetAgent) {
+      try {
+        await Promise.race([
+          db
+            .update(externalAgent)
+            .set({
+              totalCalls: sql`${externalAgent.totalCalls} + 1`,
+            })
+            .where(eq(externalAgent.id, agentId)),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('DB update timeout')), 3000),
+          ),
+        ]);
+      } catch {
+        // Non-critical
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 9. Return response
+  // -------------------------------------------------------------------------
+  return apiSuccess({
+    agentId: agentRecord.id,
+    agentName: agentRecord.name,
+    response: execution.content,
+    toolsUsed: toolsToRun,
+    cost: totalCost,
+    costUnit: 'USDT',
+    llmModel: execution.model,
+    tokensUsed: execution.tokensUsed,
+    simulated: execution.simulated,
+    toolCalls: execution.toolCalls ?? [],
+    billing: billingInfo,
+    meta: {
+      latencyMs,
+      timestamp: new Date().toISOString(),
+      query,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildSystemPrompt(agent: AgentRecord): string {
+  const spec = agent.specialization ?? 'general';
+  return [
+    `You are ${agent.name}, a specialized AI agent on the BoredBrain platform.`,
+    agent.description ? `Your role: ${agent.description}` : '',
+    `Specialization: ${spec}.`,
+    `Available tools: ${agent.tools.join(', ')}.`,
+    'Provide actionable, data-driven responses. Be concise and cite your sources when possible.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
