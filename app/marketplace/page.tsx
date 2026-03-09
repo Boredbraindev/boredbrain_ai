@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { AgentCard } from '@/components/agent-card';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,13 +57,13 @@ interface MarketplaceStats {
 // ---------------------------------------------------------------------------
 
 const SPECIALIZATIONS = [
-  { value: 'all', label: 'All Agents', icon: '{}' },
-  { value: 'DeFi', label: 'DeFi', icon: '{}' },
-  { value: 'NFT', label: 'NFT', icon: '{}' },
-  { value: 'Research', label: 'Research', icon: '{}' },
-  { value: 'Trading', label: 'Trading', icon: '{}' },
-  { value: 'News', label: 'News', icon: '{}' },
-  { value: 'Security', label: 'Security', icon: '{}' },
+  { value: 'all', label: 'All Agents' },
+  { value: 'DeFi', label: 'DeFi' },
+  { value: 'NFT', label: 'NFT' },
+  { value: 'Research', label: 'Research' },
+  { value: 'Trading', label: 'Trading' },
+  { value: 'News', label: 'News' },
+  { value: 'Security', label: 'Security' },
 ];
 
 const SORT_OPTIONS = [
@@ -79,13 +80,11 @@ const SORT_OPTIONS = [
 
 /** Generate a deterministic mock weekly growth % for a showcase agent. */
 function getWeeklyGrowth(agent: AgentListing): number {
-  // Deterministic seed from agentId
   let seed = 0;
   for (let i = 0; i < agent.agentId.length; i++) {
     seed = ((seed << 5) - seed + agent.agentId.charCodeAt(i)) | 0;
   }
-  const base = Math.abs(seed) % 30; // 0-29
-  // Higher-rated & higher-call agents trend hotter
+  const base = Math.abs(seed) % 30;
   const boost = Math.floor(agent.rating * 2 + agent.totalCalls / 50000);
   return Math.max(2, Math.min(45, base + boost));
 }
@@ -94,7 +93,7 @@ function getWeeklyGrowth(agent: AgentListing): number {
 function trendingScore(agent: AgentListing): number {
   const ageMs = Date.now() - new Date(agent.createdAt).getTime();
   const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  const recencyBoost = Math.max(0, 1 - ageDays / 365); // newer = higher
+  const recencyBoost = Math.max(0, 1 - ageDays / 365);
   return (
     agent.totalCalls * 0.4 +
     agent.rating * 10000 * 0.2 +
@@ -107,7 +106,7 @@ function trendingScore(agent: AgentListing): number {
 const MAX_COMPARE = 3;
 
 // ---------------------------------------------------------------------------
-// Showcase agents — displayed when the API returns no listings
+// Showcase agents -- displayed when the API returns no listings
 // ---------------------------------------------------------------------------
 const SHOWCASE_AGENTS: AgentListing[] = [
   {
@@ -290,26 +289,10 @@ function CoinIcon({ className }: { className?: string }) {
   );
 }
 
-function ArrowRightIcon({ className }: { className?: string }) {
+function ScaleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-    </svg>
-  );
-}
-
-function SparklesIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
-      <path d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0v-1H3a1 1 0 010-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744l.893 3.573 3.573.893a1 1 0 010 1.934l-3.573.893-.893 3.573a1 1 0 01-1.934 0l-.893-3.573-3.573-.893a1 1 0 010-1.934l3.573-.893.893-3.573A1 1 0 0112 2z" />
-    </svg>
-  );
-}
-
-function CheckCircleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l3 9a5.002 5.002 0 006.001 0M18 7l-3 9m0-12l-6 2m0 0v17" />
     </svg>
   );
 }
@@ -322,10 +305,10 @@ function XMarkIcon({ className }: { className?: string }) {
   );
 }
 
-function ScaleIcon({ className }: { className?: string }) {
+function CheckCircleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l3 9a5.002 5.002 0 006.001 0M18 7l-3 9m0-12l-6 2m0 0v17" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
@@ -338,20 +321,17 @@ function TrendUpIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-/** Weekly growth badge for agent cards */
-function GrowthBadge({ agent }: { agent: AgentListing }) {
-  const growth = getWeeklyGrowth(agent);
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
-      <TrendUpIcon className="w-2.5 h-2.5" />
-      +{growth}% this week
-    </span>
-  );
-}
 
 /** Horizontal metric bar for the comparison modal */
 function MetricBar({
@@ -463,65 +443,14 @@ function ComparisonModal({
 
         {/* Comparison metrics */}
         <div className="px-4 sm:px-6 py-5 space-y-5">
-          {/* Rating */}
-          <MetricBar
-            label="Rating"
-            values={agents.map((a) => a.rating)}
-            names={names}
-            format={(v) => v.toFixed(1) + ' / 5'}
-          />
-          {/* Price per call */}
-          <MetricBar
-            label="Price per Call"
-            values={agents.map((a) => a.pricing.perCall)}
-            names={names}
-            format={(v) => v + ' BBAI'}
-            higherIsBetter={false}
-          />
-          {/* Subscription price */}
-          <MetricBar
-            label="Subscription Price"
-            values={agents.map((a) => a.pricing.subscription ?? 0)}
-            names={names}
-            format={(v) => (v > 0 ? v + ' BBAI/mo' : 'N/A')}
-            higherIsBetter={false}
-          />
-          {/* Success Rate */}
-          <MetricBar
-            label="Success Rate"
-            values={agents.map((a) => a.successRate)}
-            names={names}
-            format={(v) => v + '%'}
-          />
-          {/* Avg Response Time */}
-          <MetricBar
-            label="Avg Response Time"
-            values={agents.map((a) => a.avgResponseTime)}
-            names={names}
-            format={(v) => (v / 1000).toFixed(1) + 's'}
-            higherIsBetter={false}
-          />
-          {/* Total Calls */}
-          <MetricBar
-            label="Total Calls"
-            values={agents.map((a) => a.totalCalls)}
-            names={names}
-            format={(v) => v.toLocaleString()}
-          />
-          {/* Review Count */}
-          <MetricBar
-            label="Reviews"
-            values={agents.map((a) => a.reviewCount)}
-            names={names}
-            format={(v) => v.toLocaleString()}
-          />
-          {/* Arena ELO (placeholder) */}
-          <MetricBar
-            label="Arena ELO (Coming Soon)"
-            values={agents.map((a) => 1200 + Math.floor(a.rating * 60 + a.successRate * 2))}
-            names={names}
-            format={(v) => String(v)}
-          />
+          <MetricBar label="Rating" values={agents.map((a) => a.rating)} names={names} format={(v) => v.toFixed(1) + ' / 5'} />
+          <MetricBar label="Price per Call" values={agents.map((a) => a.pricing.perCall)} names={names} format={(v) => v + ' BBAI'} higherIsBetter={false} />
+          <MetricBar label="Subscription Price" values={agents.map((a) => a.pricing.subscription ?? 0)} names={names} format={(v) => (v > 0 ? v + ' BBAI/mo' : 'N/A')} higherIsBetter={false} />
+          <MetricBar label="Success Rate" values={agents.map((a) => a.successRate)} names={names} format={(v) => v + '%'} />
+          <MetricBar label="Avg Response Time" values={agents.map((a) => a.avgResponseTime)} names={names} format={(v) => (v / 1000).toFixed(1) + 's'} higherIsBetter={false} />
+          <MetricBar label="Total Calls" values={agents.map((a) => a.totalCalls)} names={names} format={(v) => v.toLocaleString()} />
+          <MetricBar label="Reviews" values={agents.map((a) => a.reviewCount)} names={names} format={(v) => v.toLocaleString()} />
+          <MetricBar label="Arena ELO (Coming Soon)" values={agents.map((a) => 1200 + Math.floor(a.rating * 60 + a.successRate * 2))} names={names} format={(v) => String(v)} />
 
           {/* Tools / Capabilities */}
           <div className="space-y-1.5">
@@ -530,25 +459,10 @@ function ComparisonModal({
               {agents.map((agent) => (
                 <div key={agent.agentId} className="flex flex-wrap gap-1">
                   {agent.tools.map((tool) => (
-                    <span
-                      key={tool}
-                      className="inline-flex items-center text-[9px] bg-white/[0.04] text-white/40 px-1.5 py-0.5 rounded-full border border-white/[0.04]"
-                    >
+                    <span key={tool} className="inline-flex items-center text-[9px] bg-white/[0.04] text-white/40 px-1.5 py-0.5 rounded-full border border-white/[0.04]">
                       {tool}
                     </span>
                   ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Weekly Growth */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] text-white/40 font-medium uppercase tracking-wider">Weekly Growth</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {agents.map((agent) => (
-                <div key={agent.agentId} className="text-center">
-                  <GrowthBadge agent={agent} />
                 </div>
               ))}
             </div>
@@ -591,23 +505,14 @@ function ComparisonBar({
         <div className="relative rounded-xl border border-amber-500/20 bg-[#111113]/95 backdrop-blur-xl shadow-2xl shadow-black/50 p-3">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]" />
           <div className="relative flex items-center gap-3">
-            {/* Icon */}
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/20">
               <ScaleIcon className="w-4 h-4 text-amber-400" />
             </div>
-
-            {/* Selected agents */}
             <div className="flex-1 flex items-center gap-2 overflow-x-auto">
               {selectedAgents.map((agent) => (
-                <div
-                  key={agent.agentId}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] shrink-0"
-                >
+                <div key={agent.agentId} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] shrink-0">
                   <span className="text-xs font-medium text-white/80">{agent.name}</span>
-                  <button
-                    onClick={() => onRemove(agent.agentId)}
-                    className="p-0.5 rounded-md hover:bg-white/[0.08] text-white/25 hover:text-white/60 transition-colors"
-                  >
+                  <button onClick={() => onRemove(agent.agentId)} className="p-0.5 rounded-md hover:bg-white/[0.08] text-white/25 hover:text-white/60 transition-colors">
                     <XMarkIcon className="w-3 h-3" />
                   </button>
                 </div>
@@ -618,13 +523,8 @@ function ComparisonBar({
                 </span>
               )}
             </div>
-
-            {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={onClear}
-                className="text-[10px] text-white/25 hover:text-white/60 transition-colors px-2"
-              >
+              <button onClick={onClear} className="text-[10px] text-white/25 hover:text-white/60 transition-colors px-2">
                 Clear
               </button>
               <Button
@@ -643,363 +543,35 @@ function ComparisonBar({
   );
 }
 
-function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
-  const full = Math.floor(rating);
-  const partial = rating - full;
-  const sizeClass = size === 'md' ? 'w-4 h-4' : 'w-3 h-3';
-
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <svg
-          key={star}
-          className={`${sizeClass} transition-colors ${
-            star <= full
-              ? 'text-amber-400'
-              : star === full + 1 && partial > 0
-                ? 'text-amber-400/50'
-                : 'text-white/[0.08]'
-          }`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-function StatCard({
-  value,
-  label,
-  icon,
-  accent = false,
-}: {
-  value: string;
-  label: string;
-  icon: React.ReactNode;
-  accent?: boolean;
-}) {
-  return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 transition-all duration-300 hover:border-amber-500/20 hover:bg-white/[0.04]">
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="relative flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
-          {icon}
-        </div>
-        <div>
-          <div className={`text-xl font-bold tracking-tight ${accent ? 'text-amber-400' : 'text-white'}`}>
-            {value}
-          </div>
-          <div className="text-[11px] text-white/40 uppercase tracking-widest font-medium">
-            {label}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AgentCardSkeleton() {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-lg bg-white/[0.06]" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-32 bg-white/[0.06]" />
-            <Skeleton className="h-3 w-20 bg-white/[0.04]" />
-          </div>
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl bg-white/[0.06]" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-4 w-32 bg-white/[0.06]" />
+          <Skeleton className="h-3 w-20 bg-white/[0.04]" />
         </div>
-        <Skeleton className="h-5 w-16 rounded-full bg-white/[0.06]" />
       </div>
       <Skeleton className="h-4 w-full bg-white/[0.04]" />
       <Skeleton className="h-4 w-3/4 bg-white/[0.04]" />
       <div className="flex gap-1.5">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-5 w-14 rounded-full bg-white/[0.04]" />
+          <Skeleton key={i} className="h-6 w-16 rounded-full bg-white/[0.04]" />
         ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 rounded-lg bg-white/[0.04]" />
-        ))}
-      </div>
-      <div className="flex gap-2 pt-2">
-        <Skeleton className="h-9 flex-1 rounded-lg bg-white/[0.04]" />
-        <Skeleton className="h-9 flex-1 rounded-lg bg-white/[0.06]" />
       </div>
     </div>
   );
 }
 
-function FeaturedCard({ agent }: { agent: AgentListing }) {
-  return (
-    <Link href={`/marketplace/${agent.agentId}`} className="block min-w-[280px] sm:min-w-[340px] max-w-[400px] group">
-      <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-amber-500/50 via-amber-600/30 to-orange-500/50 group-hover:from-amber-400/70 group-hover:via-amber-500/50 group-hover:to-orange-400/70 transition-all duration-500 group-hover:shadow-lg group-hover:shadow-amber-500/10">
-        <div className="relative h-full rounded-xl bg-[#0a0a0b]/95 backdrop-blur-xl p-5 overflow-hidden">
-          {/* Ambient glow */}
-          <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-amber-500/[0.06] blur-3xl group-hover:bg-amber-500/[0.12] transition-all duration-700" />
+// ---------------------------------------------------------------------------
+// Helper: format large numbers compactly
+// ---------------------------------------------------------------------------
 
-          <div className="relative space-y-3">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20">
-                  <BoltIcon className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-sm text-white">{agent.name}</span>
-                    {agent.verified && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span><VerifiedIcon className="w-3.5 h-3.5 text-blue-400" /></span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Verified Agent</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-white/30 font-medium">by {agent.developer.name}</span>
-                </div>
-              </div>
-              <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/25 text-[10px] font-semibold px-2 py-0.5">
-                Featured
-              </Badge>
-            </div>
-
-            {/* Description */}
-            <p className="text-xs text-white/50 line-clamp-2 leading-relaxed">{agent.description}</p>
-
-            {/* Rating */}
-            <div className="flex items-center gap-2">
-              <StarRating rating={agent.rating} />
-              <span className="text-xs font-medium text-white/70">{agent.rating.toFixed(1)}</span>
-              <span className="text-[10px] text-white/30">({agent.reviewCount})</span>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
-                <div className="text-sm font-bold text-white">{agent.totalCalls.toLocaleString()}</div>
-                <div className="text-[9px] text-white/30 uppercase tracking-wider font-medium">Calls</div>
-              </div>
-              <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
-                <div className="text-sm font-bold text-emerald-400">{agent.successRate}%</div>
-                <div className="text-[9px] text-white/30 uppercase tracking-wider font-medium">Success</div>
-              </div>
-              <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
-                <div className="text-sm font-bold text-amber-400">{agent.pricing.perCall}</div>
-                <div className="text-[9px] text-white/30 uppercase tracking-wider font-medium">BBAI/call</div>
-              </div>
-            </div>
-
-            {/* CTA hint */}
-            <div className="flex items-center justify-end gap-1 text-[10px] text-amber-400/60 group-hover:text-amber-400 transition-colors">
-              <span className="font-medium">Explore agent</span>
-              <ArrowRightIcon className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function AgentCard({
-  agent,
-  isCompareSelected,
-  onToggleCompare,
-  compareDisabled,
-}: {
-  agent: AgentListing;
-  isCompareSelected?: boolean;
-  onToggleCompare?: (id: string) => void;
-  compareDisabled?: boolean;
-}) {
-  const truncatedAddress =
-    agent.developer.address.slice(0, 6) + '...' + agent.developer.address.slice(-4);
-
-  return (
-    <div className="relative block group">
-      <Link href={`/marketplace/${agent.agentId}`} className="block">
-        <div className={`relative h-full rounded-xl border backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/[0.04] hover:scale-[1.01] ${
-          isCompareSelected
-            ? 'border-amber-500/30 bg-amber-500/[0.03]'
-            : 'border-white/[0.06] bg-white/[0.015] hover:border-amber-500/25 hover:bg-white/[0.03]'
-        }`}>
-          {/* Top ambient glow on hover */}
-          <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-amber-500/[0.04] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-
-          {/* Featured indicator stripe */}
-          {agent.featured && (
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
-          )}
-
-          <div className="relative p-5 space-y-3.5">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] group-hover:border-amber-500/20 group-hover:from-amber-500/10 group-hover:to-amber-500/[0.02] transition-all duration-300">
-                  <span className="text-base font-bold text-white/60 group-hover:text-amber-400 transition-colors">
-                    {agent.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-sm text-white truncate group-hover:text-amber-50 transition-colors">
-                      {agent.name}
-                    </span>
-                    {agent.verified && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span><VerifiedIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" /></span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Verified Agent</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    {agent.featured && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span><StarIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" /></span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Featured Agent</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-white/25 font-medium mt-0.5">
-                    by {agent.developer.name}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <span className="hidden sm:inline-flex"><GrowthBadge agent={agent} /></span>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] border-white/[0.08] text-white/50 bg-white/[0.02] font-medium"
-                >
-                  {agent.specialization}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Description */}
-            <p className="text-xs text-white/40 line-clamp-2 leading-relaxed">{agent.description}</p>
-
-            {/* Tags */}
-            <div className="flex flex-wrap gap-1">
-              {agent.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center text-[10px] bg-white/[0.04] text-white/35 px-2 py-0.5 rounded-full border border-white/[0.04] font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
-              {agent.tags.length > 3 && (
-                <span className="inline-flex items-center text-[10px] bg-white/[0.04] text-white/25 px-2 py-0.5 rounded-full border border-white/[0.04]">
-                  +{agent.tags.length - 3}
-                </span>
-              )}
-            </div>
-
-            {/* Rating */}
-            <div className="flex items-center gap-2">
-              <StarRating rating={agent.rating} />
-              <span className="text-xs font-semibold text-white/70">{agent.rating.toFixed(1)}</span>
-              <span className="text-[10px] text-white/25">({agent.reviewCount} reviews)</span>
-            </div>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-2.5 rounded-lg bg-white/[0.025] border border-white/[0.04]">
-                <div className="text-sm font-bold text-white">{agent.totalCalls.toLocaleString()}</div>
-                <div className="text-[9px] text-white/25 uppercase tracking-wider font-medium">Calls</div>
-              </div>
-              <div className="text-center p-2.5 rounded-lg bg-white/[0.025] border border-white/[0.04]">
-                <div className="text-sm font-bold text-emerald-400">{agent.successRate}%</div>
-                <div className="text-[9px] text-white/25 uppercase tracking-wider font-medium">Success</div>
-              </div>
-              <div className="text-center p-2.5 rounded-lg bg-white/[0.025] border border-white/[0.04]">
-                <div className="text-sm font-bold text-white/70">{(agent.avgResponseTime / 1000).toFixed(1)}s</div>
-                <div className="text-[9px] text-white/25 uppercase tracking-wider font-medium">Avg Time</div>
-              </div>
-            </div>
-
-            {/* Pricing */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-500/[0.04] border border-amber-500/[0.08]">
-              <span className="text-sm font-bold text-amber-400">
-                {agent.pricing.perCall} BBAI
-                <span className="text-[10px] font-normal text-amber-400/50 ml-0.5">/call</span>
-              </span>
-              {agent.pricing.subscription && (
-                <span className="text-[10px] text-white/30 font-medium">
-                  or {agent.pricing.subscription} BBAI/mo
-                </span>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs h-9 border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all duration-200"
-              >
-                Details
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 text-xs h-9 bg-amber-500 hover:bg-amber-400 text-black font-semibold transition-all duration-200 shadow-lg shadow-amber-500/20 hover:shadow-amber-400/30"
-              >
-                <BoltIcon className="w-3.5 h-3.5 mr-1" />
-                Invoke
-              </Button>
-            </div>
-
-            {/* Developer footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
-              <span className="text-[10px] text-white/20 font-medium">{agent.developer.name}</span>
-              <span className="text-[10px] text-white/15 font-mono">{truncatedAddress}</span>
-            </div>
-          </div>
-        </div>
-      </Link>
-
-      {/* Compare toggle button (absolute, overlaid on the card) */}
-      {onToggleCompare && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleCompare(agent.agentId);
-          }}
-          disabled={compareDisabled && !isCompareSelected}
-          className={`absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-200 ${
-            isCompareSelected
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-              : compareDisabled
-                ? 'bg-white/[0.04] text-white/15 border border-white/[0.04] cursor-not-allowed'
-                : 'bg-white/[0.06] text-white/30 border border-white/[0.06] hover:text-white/60 hover:border-white/[0.15] hover:bg-white/[0.08]'
-          }`}
-        >
-          {isCompareSelected ? (
-            <CheckCircleIcon className="w-3 h-3" />
-          ) : (
-            <ScaleIcon className="w-3 h-3" />
-          )}
-          {isCompareSelected ? 'Selected' : 'Compare'}
-        </button>
-      )}
-    </div>
-  );
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toLocaleString();
 }
 
 // ---------------------------------------------------------------------------
@@ -1015,6 +587,7 @@ export default function MarketplaceBrowsePage() {
   const [sortBy, setSortBy] = useState<string>('trending');
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
   const toggleCompare = useCallback((agentId: string) => {
     setCompareIds((prev) => {
@@ -1042,7 +615,6 @@ export default function MarketplaceBrowsePage() {
   }, []);
 
   useEffect(() => {
-    // Apply time-based growth to showcase data
     const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
     const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
     const grownAgents = SHOWCASE_AGENTS.map((a) => ({
@@ -1091,14 +663,12 @@ export default function MarketplaceBrowsePage() {
   const filteredListings = useMemo(() => {
     let results = [...listings];
 
-    // Filter by specialization
     if (specialization !== 'all') {
       results = results.filter(
         (l) => l.specialization.toLowerCase() === specialization.toLowerCase(),
       );
     }
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       results = results.filter(
@@ -1111,7 +681,6 @@ export default function MarketplaceBrowsePage() {
       );
     }
 
-    // Sort
     if (sortBy === 'rating') {
       results.sort((a, b) => b.rating - a.rating);
     } else if (sortBy === 'calls') {
@@ -1133,7 +702,6 @@ export default function MarketplaceBrowsePage() {
     } else if (sortBy === 'success') {
       results.sort((a, b) => b.successRate - a.successRate);
     } else {
-      // Trending (default): composite score
       results.sort((a, b) => trendingScore(b) - trendingScore(a));
     }
 
@@ -1152,6 +720,8 @@ export default function MarketplaceBrowsePage() {
     [listings, compareIds],
   );
 
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label || 'Trending';
+
   return (
     <div className="min-h-screen bg-[#050506] relative z-1">
       {/* Background ambient effects */}
@@ -1160,123 +730,125 @@ export default function MarketplaceBrowsePage() {
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-orange-500/[0.015] blur-[100px]" />
       </div>
 
-      {/* Hero Section */}
-      <div className="relative border-b border-white/[0.04]">
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.03] via-transparent to-transparent" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/20">
-                  <SparklesIcon className="w-4 h-4 text-amber-400" />
-                </div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400/70">
-                  Agent Marketplace
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
-                Discover AI Agents
-              </h1>
-              <p className="text-white/40 max-w-xl text-sm sm:text-base leading-relaxed">
-                Browse, hire, and deploy specialized AI agents powered by <span className="text-amber-400 font-medium">$BBAI</span>.
-                Transparent pricing, verified performance, and seamless integration.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] h-9"
-                >
-                  Back to Search
-                </Button>
-              </Link>
-              <Link href="/agents/create">
-                <Button
-                  size="sm"
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-semibold h-9 shadow-lg shadow-amber-500/20 hover:shadow-amber-400/30 transition-all duration-200"
-                >
-                  <BoltIcon className="w-3.5 h-3.5 mr-1.5" />
-                  List Your Agent
-                </Button>
-              </Link>
-            </div>
+      {/* ================================================================= */}
+      {/* Hero Section - Redesigned                                          */}
+      {/* ================================================================= */}
+      <div className="relative overflow-hidden border-b border-white/[0.04]">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.06] via-transparent to-orange-500/[0.04] animate-pulse" style={{ animationDuration: '6s' }} />
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-amber-500/[0.03] to-transparent animate-pulse" style={{ animationDuration: '8s', animationDelay: '2s' }} />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-amber-500/[0.04] blur-[100px]" />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          {/* Top row: actions */}
+          <div className="flex items-center justify-end gap-3 mb-12">
+            <Link href="/">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] h-9 backdrop-blur-sm"
+              >
+                Back to Search
+              </Button>
+            </Link>
+            <Link href="/agents/create">
+              <Button
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold h-9 shadow-lg shadow-amber-500/20 hover:shadow-amber-400/30 transition-all duration-200"
+              >
+                <BoltIcon className="w-3.5 h-3.5 mr-1.5" />
+                List Your Agent
+              </Button>
+            </Link>
           </div>
 
-          {/* Stats Row */}
+          {/* Title area - centered */}
+          <div className="text-center space-y-5 mb-14">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight bg-gradient-to-r from-white via-amber-100 to-amber-400 bg-clip-text text-transparent">
+              Agent Marketplace
+            </h1>
+            <p className="text-white/40 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+              Browse, hire, and deploy specialized AI agents powered by{' '}
+              <span className="text-amber-400 font-medium">$BBAI</span>.
+              Transparent pricing, verified performance, and seamless integration.
+            </p>
+          </div>
+
+          {/* Stats - Glassmorphism pills */}
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-10">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div key={i} className="rounded-full border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl px-6 py-3">
                   <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-lg bg-white/[0.06]" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-5 w-16 bg-white/[0.06]" />
-                      <Skeleton className="h-3 w-20 bg-white/[0.04]" />
-                    </div>
+                    <Skeleton className="h-5 w-5 rounded-full bg-white/[0.08]" />
+                    <Skeleton className="h-6 w-12 bg-white/[0.06]" />
+                    <Skeleton className="h-3 w-16 bg-white/[0.04]" />
                   </div>
                 </div>
               ))}
             </div>
           ) : stats ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-10">
-              <StatCard
-                value={String(stats.totalAgents)}
-                label="Active Agents"
-                icon={<UsersIcon className="w-5 h-5" />}
-              />
-              <StatCard
-                value={stats.totalCalls.toLocaleString()}
-                label="Total Calls"
-                icon={<BoltIcon className="w-5 h-5" />}
-              />
-              <StatCard
-                value={String(stats.avgRating)}
-                label="Avg Rating"
-                icon={<StarIcon className="w-5 h-5" />}
-              />
-              <StatCard
-                value={stats.totalVolume.toLocaleString()}
-                label="BBAI Volume"
-                icon={<CoinIcon className="w-5 h-5" />}
-                accent
-              />
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {[
+                { value: String(stats.totalAgents), label: 'Active Agents', icon: <UsersIcon className="w-4 h-4" /> },
+                { value: formatCompact(stats.totalCalls), label: 'Total Calls', icon: <BoltIcon className="w-4 h-4" /> },
+                { value: String(stats.avgRating), label: 'Avg Rating', icon: <StarIcon className="w-4 h-4" /> },
+                { value: formatCompact(stats.totalVolume) + ' BBAI', label: 'Volume', icon: <CoinIcon className="w-4 h-4" />, accent: true },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="group rounded-full border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl px-5 sm:px-6 py-2.5 sm:py-3 hover:border-amber-500/20 hover:bg-white/[0.05] transition-all duration-300 cursor-default"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-amber-500/70 group-hover:text-amber-400 transition-colors">
+                      {stat.icon}
+                    </span>
+                    <span className={`text-lg sm:text-xl font-bold tracking-tight ${stat.accent ? 'text-amber-400' : 'text-white'}`}>
+                      {stat.value}
+                    </span>
+                    <span className="text-[11px] text-white/30 uppercase tracking-wider font-medium hidden sm:inline">
+                      {stat.label}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : null}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* ================================================================= */}
+      {/* Main Content                                                       */}
+      {/* ================================================================= */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8 lg:py-10">
         {/* Search & Filter Bar */}
-        <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 bg-[#050506]/80 backdrop-blur-xl border-b border-white/[0.04] mb-6">
+        <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 bg-[#050506]/80 backdrop-blur-xl border-b border-white/[0.04] mb-8">
           <div className="flex flex-col gap-4">
-            {/* Search Input */}
+            {/* Search Input - glass effect */}
             <div className="relative group">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-amber-400/60 transition-colors" />
+              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-amber-400/60 transition-colors" />
               <Input
                 placeholder="Search agents by name, tag, or specialization..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 focus:border-amber-500/30 focus:ring-amber-500/10 transition-all duration-200"
+                className="pl-11 h-12 bg-white/[0.03] backdrop-blur-sm border-white/[0.06] text-white placeholder:text-white/20 focus:border-amber-500/30 focus:ring-amber-500/10 rounded-xl transition-all duration-200 text-sm"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               )}
             </div>
 
             {/* Filter Row */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              {/* Specialization tabs */}
-              <div className="flex flex-wrap gap-1.5">
+              {/* Category pill filters */}
+              <div className="flex flex-wrap gap-2">
                 {SPECIALIZATIONS.map((spec) => {
                   const isActive = specialization === spec.value;
                   return (
@@ -1284,9 +856,9 @@ export default function MarketplaceBrowsePage() {
                       key={spec.value}
                       onClick={() => setSpecialization(spec.value)}
                       className={`
-                        relative h-8 px-3.5 rounded-lg text-xs font-medium transition-all duration-200
+                        h-8 px-4 rounded-full text-xs font-medium transition-all duration-200
                         ${isActive
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25 shadow-sm shadow-amber-500/10'
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-sm shadow-amber-500/10'
                           : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/60 hover:border-white/[0.12] hover:bg-white/[0.05]'
                         }
                       `}
@@ -1297,68 +869,67 @@ export default function MarketplaceBrowsePage() {
                 })}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 {/* Active filter indicator */}
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
-                    className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11px] font-medium text-white/30 hover:text-white/60 bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200"
+                    className="flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[11px] font-medium text-white/30 hover:text-white/60 bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Clear filters
+                    <XMarkIcon className="w-3 h-3" />
+                    Clear
                   </button>
                 )}
 
-                {/* Sort tabs */}
-                <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
-                  {SORT_OPTIONS.map((opt) => {
-                    const isActive = sortBy === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => setSortBy(opt.value)}
-                        className={`
-                          h-7 px-2.5 rounded-md text-[11px] font-medium transition-all duration-200 whitespace-nowrap shrink-0
-                          ${isActive
-                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
-                            : 'text-white/30 hover:text-white/50 hover:bg-white/[0.04]'
-                          }
-                        `}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                {/* Sort dropdown - minimal */}
+                <div className="relative">
+                  <button
+                    onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                    className="flex items-center gap-2 h-8 px-4 rounded-full text-xs font-medium text-white/40 bg-white/[0.03] border border-white/[0.06] hover:text-white/60 hover:border-white/[0.12] hover:bg-white/[0.05] transition-all duration-200"
+                  >
+                    <span className="text-white/25">Sort:</span>
+                    <span className="text-white/60">{currentSortLabel}</span>
+                    <ChevronDownIcon className={`w-3.5 h-3.5 text-white/25 transition-transform duration-200 ${sortDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {sortDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setSortDropdownOpen(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-50 min-w-[180px] rounded-xl border border-white/[0.08] bg-[#0c0c0e]/95 backdrop-blur-xl shadow-2xl shadow-black/50 py-1.5 overflow-hidden">
+                        {SORT_OPTIONS.map((opt) => {
+                          const isActive = sortBy === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => {
+                                setSortBy(opt.value);
+                                setSortDropdownOpen(false);
+                              }}
+                              className={`
+                                w-full text-left px-4 py-2 text-xs font-medium transition-all duration-150
+                                ${isActive
+                                  ? 'text-amber-400 bg-amber-500/[0.08]'
+                                  : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                                }
+                              `}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Featured Agents Carousel */}
-        {!loading && featuredAgents.length > 0 && specialization === 'all' && !searchQuery.trim() && (
-          <div className="mb-10">
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10">
-                <StarIcon className="w-3.5 h-3.5 text-amber-400" />
-              </div>
-              <h2 className="text-base font-semibold text-white">Featured Agents</h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent ml-3" />
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
-              {featuredAgents.map((agent) => (
-                <FeaturedCard key={agent.agentId} agent={agent} />
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Results Count */}
         {!loading && filteredListings.length > 0 && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-white/25 font-medium">
+          <div className="flex items-center justify-between mb-6">
+            <div className="text-sm text-white/25 font-medium">
               Showing <span className="text-white/50">{filteredListings.length}</span> agent{filteredListings.length !== 1 ? 's' : ''}
               {specialization !== 'all' && (
                 <span> in <span className="text-amber-400/60">{specialization}</span></span>
@@ -1369,13 +940,13 @@ export default function MarketplaceBrowsePage() {
 
         {/* Agent Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <AgentCardSkeleton key={i} />
             ))}
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 px-4">
+          <div className="flex flex-col items-center justify-center py-28 px-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-amber-500/10 blur-xl" />
               <div className="relative w-16 h-16 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
@@ -1396,22 +967,38 @@ export default function MarketplaceBrowsePage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredListings.map((agent) => (
-              <AgentCard
-                key={agent.agentId}
-                agent={agent}
-                isCompareSelected={compareIds.has(agent.agentId)}
-                onToggleCompare={toggleCompare}
-                compareDisabled={compareIds.size >= MAX_COMPARE}
-              />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredListings.map((agent) => {
+              const isVerified = agent.rating >= 4.5;
+              const isFeatured = agent.rating >= 4.7;
+              return (
+                <AgentCard
+                  key={agent.agentId}
+                  id={agent.agentId}
+                  name={agent.name}
+                  description={agent.description}
+                  capabilities={agent.tags}
+                  tools={agent.tools}
+                  pricePerQuery={`${agent.pricing.perCall} BBAI`}
+                  rating={agent.rating}
+                  totalExecutions={agent.totalCalls}
+                  totalRevenue={`${(agent.totalCalls * agent.pricing.perCall).toLocaleString()} BBAI`}
+                  chainId={1}
+                  status={agent.successRate >= 95 ? 'active' : 'idle'}
+                  verified={isVerified}
+                  featured={isFeatured}
+                  onClick={() => {
+                    window.location.href = `/marketplace/${agent.agentId}`;
+                  }}
+                />
+              );
+            })}
           </div>
         )}
 
         {/* Stats Footer */}
         {stats && !loading && (
-          <div className={`mt-16 pt-8 border-t border-white/[0.04] ${selectedAgentsForCompare.length > 0 ? 'pb-24' : ''}`}>
+          <div className={`mt-20 pt-8 border-t border-white/[0.04] ${selectedAgentsForCompare.length > 0 ? 'pb-24' : ''}`}>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-white/25">
               <div className="flex items-center gap-2">
                 <CoinIcon className="w-4 h-4 text-amber-400/40" />
@@ -1458,7 +1045,6 @@ export default function MarketplaceBrowsePage() {
           onClose={() => setShowCompareModal(false)}
           onRemove={(id) => {
             removeFromCompare(id);
-            // Close modal if fewer than 2 agents remain
             if (selectedAgentsForCompare.length <= 2) {
               setShowCompareModal(false);
             }
