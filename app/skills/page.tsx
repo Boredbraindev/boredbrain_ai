@@ -170,7 +170,7 @@ export default function SkillMarketplacePage() {
           <div className="flex justify-center mb-5">
             <div className="relative">
               <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
-              <Image src="/footer-logo.png" alt="BoredBrain AI" width={64} height={64} className="relative opacity-90 invert dark:invert-0 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
+              <Image src="/footer.png" alt="BoredBrain AI" width={64} height={64} className="relative rounded-xl drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
             </div>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">

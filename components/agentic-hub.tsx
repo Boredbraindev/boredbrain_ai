@@ -229,7 +229,7 @@ export function AgenticHub() {
             <div className="flex justify-center mb-10">
               <div className="relative">
                 <div className="absolute inset-0 rounded-full bg-amber-500/25 blur-3xl scale-[2]" />
-                <Image src="/footer-logo.png" alt="BoredBrain" width={72} height={72} className="relative drop-shadow-2xl invert dark:invert-0" />
+                <Image src="/footer.png" alt="BoredBrain" width={72} height={72} className="relative drop-shadow-2xl rounded-xl" />
               </div>
             </div>
 

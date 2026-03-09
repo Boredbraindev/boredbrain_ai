@@ -170,11 +170,11 @@ export function GlobalNavbar() {
 
           <Link href="/" className="flex items-center">
             <Image
-              src="/footer-logo.png"
+              src="/footer.png"
               alt="Bored Brain AI"
               width={28}
               height={28}
-              className="opacity-80 hover:opacity-100 transition-opacity invert dark:invert-0"
+              className="opacity-90 hover:opacity-100 transition-opacity rounded-md"
             />
           </Link>
         </div>
