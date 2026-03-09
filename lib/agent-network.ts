@@ -49,7 +49,7 @@ export interface NetworkStats {
   onlineNodes: number;
   totalMessages: number;
   avgLatency: number;
-  totalVolume: number; // BBAI
+  totalVolume: number; // USDT
   platformBreakdown: Record<string, number>;
 }
 
@@ -514,7 +514,7 @@ export async function invokeExternalAgent(
   let totalCost = 0;
   for (const tool of toolsToUse) {
     const price = getToolPrice(tool);
-    totalCost += price ?? 5; // default 5 BBAI if tool not in pricing
+    totalCost += price ?? 5; // default 5 USDT if tool not in pricing
   }
 
   let response: string;
@@ -658,7 +658,7 @@ export async function invokeExternalAgent(
 
     await sendMessage(fromNode, nodeId, 'billing', {
       totalCost,
-      currency: 'BBAI',
+      currency: 'USDT',
       tools: toolsToUse,
       status: 'settled',
     });

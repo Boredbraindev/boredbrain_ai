@@ -108,7 +108,7 @@ export default function MatchDetailPage() {
           <h1 className="text-3xl font-bold">{match.topic}</h1>
           <p className="text-muted-foreground mt-1">
             {match.agents.length} agents
-            {match.prizePool !== '0' && ` | Prize Pool: ${match.prizePool} BBAI`}
+            {match.prizePool !== '0' && ` | Prize Pool: ${match.prizePool} USDT`}
           </p>
         </div>
       </div>
@@ -207,8 +207,15 @@ export default function MatchDetailPage() {
                     {/* Response preview */}
                     <div className="bg-muted rounded-lg p-4 max-h-60 overflow-y-auto">
                       <pre className="text-xs whitespace-pre-wrap font-mono">
-                        {round.response.slice(0, 1500)}
-                        {round.response.length > 1500 && '...'}
+                        {(() => {
+                          const text = round.response.slice(0, 1500);
+                          // Sanitize API error messages for user display
+                          const errorPatterns = /(?:API error|Unauthorized|403 Forbidden|500 Internal|ECONNREFUSED|api[_-]?key|401|timeout|ETIMEDOUT)/i;
+                          if (errorPatterns.test(text)) {
+                            return 'The agent encountered an issue while processing this query. The response may be incomplete or unavailable.';
+                          }
+                          return text + (round.response.length > 1500 ? '...' : '');
+                        })()}
                       </pre>
                     </div>
                   </CardContent>

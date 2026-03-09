@@ -389,7 +389,7 @@ export default function ArenaPage() {
               [
                 { label: 'Total Matches', value: matches.length.toString(), icon: '\u2694\uFE0F', accent: false },
                 { label: 'Active Now', value: activeCount.toString(), icon: '\u26A1', accent: activeCount > 0 },
-                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} BBAI`, icon: '\uD83C\uDFC6', accent: totalPrize > 0 },
+                { label: 'Prize Pool', value: `${totalPrize.toLocaleString()} USDT`, icon: '\uD83C\uDFC6', accent: totalPrize > 0 },
                 { label: 'AI Judge', value: 'Active', icon: '\uD83E\uDDD1\u200D\u2696\uFE0F', accent: false },
               ].map((s) => (
                 <div
@@ -533,7 +533,7 @@ export default function ArenaPage() {
                             <div className="flex items-center gap-3 text-xs">
                               {match.prizePool !== '0' && (
                                 <span className="font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
-                                  {match.prizePool} BBAI
+                                  {match.prizePool} USDT
                                 </span>
                               )}
                               <span className="text-white/25 tabular-nums">
@@ -547,7 +547,8 @@ export default function ArenaPage() {
                             {match.topic}
                           </h3>
 
-                          {/* Agents line */}
+                          {/* Agents line — only shown when there are no score cards to avoid duplicate agent display */}
+                          {!(match.rounds && match.rounds.length > 0) && (
                           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
                             <div className="flex flex-wrap items-center gap-1.5">
                               {match.agents.map((agentId, idx) => (
@@ -559,15 +560,17 @@ export default function ArenaPage() {
                                 </span>
                               ))}
                             </div>
-                            {isCompleted && (
-                              <>
-                                <Separator orientation="vertical" className="h-3 bg-white/10" />
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 text-white/30">
-                                  AI Judged
-                                </Badge>
-                              </>
-                            )}
                           </div>
+                          )}
+
+                          {/* Agents line with AI Judged badge — shown when score cards exist */}
+                          {match.rounds && match.rounds.length > 0 && isCompleted && (
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm mb-1">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 text-white/30">
+                                AI Judged
+                              </Badge>
+                            </div>
+                          )}
 
                           {/* Score cards */}
                           {match.rounds && match.rounds.length > 0 && (
@@ -716,7 +719,7 @@ export default function ArenaPage() {
                               <>
                                 <span className="text-white/10 hidden sm:inline">|</span>
                                 <span className="text-[11px] sm:text-xs text-amber-400/60 font-medium tabular-nums">
-                                  {parseFloat(a.totalRevenue).toLocaleString()} BBAI
+                                  {parseFloat(a.totalRevenue).toLocaleString()} USDT
                                 </span>
                               </>
                             )}
@@ -867,7 +870,7 @@ export default function ArenaPage() {
             {/* Prize Pool */}
             <div className="space-y-2">
               <Label htmlFor="prize-pool" className="text-white/50 text-xs font-medium uppercase tracking-wider">
-                Prize Pool (BBAI)
+                Prize Pool (USDT)
               </Label>
               <Input
                 id="prize-pool"

@@ -211,7 +211,7 @@ export default function RevenueDashboardPage() {
         {
           label: 'Total Revenue',
           value: `${formatBBAI(data.totalRevenue)}`,
-          unit: 'BBAI',
+          unit: 'USDT',
           sub: 'Platform fees collected',
           gradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
           border: 'border-emerald-500/20',
@@ -225,7 +225,7 @@ export default function RevenueDashboardPage() {
         {
           label: 'Total Volume',
           value: `${formatBBAI(data.totalVolume)}`,
-          unit: 'BBAI',
+          unit: 'USDT',
           sub: 'All transactions',
           gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
           border: 'border-blue-500/20',
@@ -239,7 +239,7 @@ export default function RevenueDashboardPage() {
         {
           label: 'Daily Revenue',
           value: `${formatBBAI(data.dailyRevenue)}`,
-          unit: 'BBAI',
+          unit: 'USDT',
           sub: 'Last 24 hours',
           gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
           border: 'border-purple-500/20',
@@ -422,7 +422,7 @@ export default function RevenueDashboardPage() {
                             <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-zinc-900 border border-white/[0.1] rounded-lg px-3 py-2 hidden group-hover/bar:block z-20 whitespace-nowrap shadow-xl">
                               <div className="text-[10px] text-zinc-500 mb-0.5">{day.date}</div>
                               <div className="text-xs font-semibold text-white">
-                                {chartTab === 'transactions' ? val : `${val} BBAI`}
+                                {chartTab === 'transactions' ? val : `${val} USDT`}
                               </div>
                               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/[0.1]" />
                             </div>
@@ -481,7 +481,7 @@ export default function RevenueDashboardPage() {
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-sm text-white tabular-nums">
-                              {formatBBAI(stream.revenue)} <span className="text-zinc-600 text-[10px]">BBAI</span>
+                              {formatBBAI(stream.revenue)} <span className="text-zinc-600 text-[10px]">USDT</span>
                             </div>
                             <div className="flex items-center gap-1 justify-end mt-0.5">
                               {stream.growth > 0 ? (
@@ -551,7 +551,7 @@ export default function RevenueDashboardPage() {
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-3">
-                          <div className="font-semibold text-sm text-white tabular-nums">{tx.amount} <span className="text-zinc-600 text-[10px]">BBAI</span></div>
+                          <div className="font-semibold text-sm text-white tabular-nums">{tx.amount} <span className="text-zinc-600 text-[10px]">USDT</span></div>
                           <div className="text-[10px] text-emerald-400/80 tabular-nums">+{tx.fee} fee</div>
                         </div>
                       </div>
@@ -584,7 +584,7 @@ export default function RevenueDashboardPage() {
                   <div className={`text-2xl sm:text-3xl font-bold tabular-nums ${period.text}`}>
                     {formatBBAI(period.value)}
                   </div>
-                  <div className="text-[10px] text-zinc-600 mt-1">BBAI</div>
+                  <div className="text-[10px] text-zinc-600 mt-1">USDT</div>
                 </div>
               ))}
             </div>

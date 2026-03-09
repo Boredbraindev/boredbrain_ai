@@ -444,8 +444,8 @@ function ComparisonModal({
         {/* Comparison metrics */}
         <div className="px-4 sm:px-6 py-5 space-y-5">
           <MetricBar label="Rating" values={agents.map((a) => a.rating)} names={names} format={(v) => v.toFixed(1) + ' / 5'} />
-          <MetricBar label="Price per Call" values={agents.map((a) => a.pricing.perCall)} names={names} format={(v) => v + ' BBAI'} higherIsBetter={false} />
-          <MetricBar label="Subscription Price" values={agents.map((a) => a.pricing.subscription ?? 0)} names={names} format={(v) => (v > 0 ? v + ' BBAI/mo' : 'N/A')} higherIsBetter={false} />
+          <MetricBar label="Price per Call" values={agents.map((a) => a.pricing.perCall)} names={names} format={(v) => v + ' USDT'} higherIsBetter={false} />
+          <MetricBar label="Subscription Price" values={agents.map((a) => a.pricing.subscription ?? 0)} names={names} format={(v) => (v > 0 ? v + ' USDT/mo' : 'N/A')} higherIsBetter={false} />
           <MetricBar label="Success Rate" values={agents.map((a) => a.successRate)} names={names} format={(v) => v + '%'} />
           <MetricBar label="Avg Response Time" values={agents.map((a) => a.avgResponseTime)} names={names} format={(v) => (v / 1000).toFixed(1) + 's'} higherIsBetter={false} />
           <MetricBar label="Total Calls" values={agents.map((a) => a.totalCalls)} names={names} format={(v) => v.toLocaleString()} />
@@ -771,7 +771,7 @@ export default function MarketplaceBrowsePage() {
             </h1>
             <p className="text-white/40 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
               Browse, hire, and deploy specialized AI agents powered by{' '}
-              <span className="text-amber-400 font-medium">$BBAI</span>.
+              <span className="text-amber-400 font-medium">$USDT</span>.
               Transparent pricing, verified performance, and seamless integration.
             </p>
           </div>
@@ -795,7 +795,7 @@ export default function MarketplaceBrowsePage() {
                 { value: String(stats.totalAgents), label: 'Active Agents', icon: <UsersIcon className="w-4 h-4" /> },
                 { value: formatCompact(stats.totalCalls), label: 'Total Calls', icon: <BoltIcon className="w-4 h-4" /> },
                 { value: String(stats.avgRating), label: 'Avg Rating', icon: <StarIcon className="w-4 h-4" /> },
-                { value: formatCompact(stats.totalVolume) + ' BBAI', label: 'Volume', icon: <CoinIcon className="w-4 h-4" />, accent: true },
+                { value: formatCompact(stats.totalVolume) + ' USDT', label: 'Volume', icon: <CoinIcon className="w-4 h-4" />, accent: true },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -979,10 +979,10 @@ export default function MarketplaceBrowsePage() {
                   description={agent.description}
                   capabilities={agent.tags}
                   tools={agent.tools}
-                  pricePerQuery={`${agent.pricing.perCall} BBAI`}
+                  pricePerQuery={`${agent.pricing.perCall} USDT`}
                   rating={agent.rating}
                   totalExecutions={agent.totalCalls}
-                  totalRevenue={`${(agent.totalCalls * agent.pricing.perCall).toLocaleString()} BBAI`}
+                  totalRevenue={`${(agent.totalCalls * agent.pricing.perCall).toLocaleString()} USDT`}
                   chainId={1}
                   status={agent.successRate >= 95 ? 'active' : 'idle'}
                   verified={isVerified}
@@ -1005,7 +1005,7 @@ export default function MarketplaceBrowsePage() {
                 <span>
                   Total volume:{' '}
                   <span className="font-semibold text-amber-400/70">
-                    {stats.totalVolume.toLocaleString()} BBAI
+                    {stats.totalVolume.toLocaleString()} USDT
                   </span>
                 </span>
               </div>

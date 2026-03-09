@@ -16,7 +16,7 @@ import { getToolPrice, getToolInfo } from '@/lib/tool-pricing';
  * {
  *   "query": "Analyze Bitcoin DeFi ecosystem",
  *   "callerAgentId": "external-agent-123",   // optional - for inter-agent billing
- *   "maxBudget": 50,                          // max BBAI to spend
+ *   "maxBudget": 50,                          // max USDT to spend
  *   "tools": ["coin_data", "web_search"]      // optional - restrict to specific tools
  * }
  *
@@ -24,7 +24,7 @@ import { getToolPrice, getToolInfo } from '@/lib/tool-pricing';
  *   1. Validate the target agent exists
  *   2. If callerAgentId is provided, look up / create their wallet and validate budget
  *   3. Execute the agent's tools (mock execution with descriptive results)
- *   4. Deduct BBAI from the caller's wallet (free in demo mode if no callerAgentId)
+ *   4. Deduct USDT from the caller's wallet (free in demo mode if no callerAgentId)
  *   5. Return structured response
  */
 
@@ -227,7 +227,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: 'Budget exceeded',
-        message: `Estimated cost ${estimatedCost} BBAI exceeds maxBudget ${maxBudget} BBAI.`,
+        message: `Estimated cost ${estimatedCost} USDT exceeds maxBudget ${maxBudget} USDT.`,
         estimatedCost,
         maxBudget,
       },
@@ -252,7 +252,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'Insufficient balance',
-          message: `Caller wallet has ${wallet.balance} BBAI but estimated cost is ${estimatedCost} BBAI.`,
+          message: `Caller wallet has ${wallet.balance} USDT but estimated cost is ${estimatedCost} USDT.`,
           balance: wallet.balance,
           estimatedCost,
         },
@@ -305,7 +305,7 @@ export async function POST(
       response: `${agentRecord.name} processed your query using ${results.length} tool(s). See results[] for detailed output.`,
       toolsUsed: results.map((r) => r.tool),
       cost: totalCost,
-      costUnit: 'BBAI',
+      costUnit: 'USDT',
       results,
       billing: callerAgentId
         ? {

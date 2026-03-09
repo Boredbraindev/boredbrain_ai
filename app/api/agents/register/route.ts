@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
       const maxDemoAgents = 1 + extraDemoAgents;
       if (demoCount >= maxDemoAgents) {
         const limitMsg = extraDemoAgents > 0
-          ? `You have reached your ${nftTier}-tier demo limit of ${maxDemoAgents} agents. Stake BBAI to register more.`
-          : 'You have already used your free demo registration. Stake BBAI to register more agents.';
+          ? `You have reached your ${nftTier}-tier demo limit of ${maxDemoAgents} agents. Stake USDT to register more.`
+          : 'You have already used your free demo registration. Stake USDT to register more agents.';
         return apiError(limitMsg, 400);
       }
     } else {
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
       if (!stakingWaived && (typeof stakingAmount !== 'number' || stakingAmount < effectiveMinStake)) {
         return apiError(
-          `Minimum staking amount is ${effectiveMinStake} BBAI${stakingDiscount > 0 ? ` (${stakingDiscount}% ${nftTier}-tier discount applied)` : ''}`,
+          `Minimum staking amount is ${effectiveMinStake} USDT${stakingDiscount > 0 ? ` (${stakingDiscount}% ${nftTier}-tier discount applied)` : ''}`,
           400,
         );
       }
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
     });
 
     const message = isDemo
-      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.`
-      : `Agent "${agent.name}" registered successfully. Stake ${agent.stakingAmount} BBAI to proceed with verification.`;
+      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake USDT to upgrade.`
+      : `Agent "${agent.name}" registered successfully. Stake ${agent.stakingAmount} USDT to proceed with verification.`;
 
     return apiSuccess(
       {

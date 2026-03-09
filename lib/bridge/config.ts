@@ -1,8 +1,8 @@
 /**
- * Cross-Chain Bridge Configuration for BBAI Token
+ * Cross-Chain Bridge Configuration for USDT Token
  *
  * Defines supported chains, bridge protocol endpoints, and token addresses
- * for cross-chain BBAI transfers via LayerZero or Wormhole.
+ * for cross-chain USDT transfers via LayerZero or Wormhole.
  *
  * All contract addresses are placeholders until deployment.
  * When addresses are not configured, the bridge service operates in
@@ -162,7 +162,7 @@ export const BRIDGE_ROUTES: BridgeRoute[] = [
 // Protocol fee config
 // ---------------------------------------------------------------------------
 
-/** BBAI platform bridge fee in basis points (0.1% = 10 bps) */
+/** Platform bridge fee in basis points (0.1% = 10 bps) */
 export const BRIDGE_PLATFORM_FEE_BPS = 10;
 
 /** Default bridge provider when none specified */

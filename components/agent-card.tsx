@@ -343,7 +343,7 @@ export function AgentCard({
           <Zap size={compact ? 10 : 12} className="text-amber-400" />
           <span className={cn('font-medium', compact ? 'text-[10px]' : 'text-xs')}>
             <span className="text-white">{pricePerQuery}</span>
-            <span className="text-zinc-500 ml-0.5">BBAI</span>
+            <span className="text-zinc-500 ml-0.5">USDT</span>
           </span>
         </div>
 

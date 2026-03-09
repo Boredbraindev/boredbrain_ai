@@ -53,9 +53,9 @@ interface UserStats {
 const ROUND_DURATION = 300; // 5 minutes in seconds
 
 const ASSETS = [
-  { symbol: 'BTC', name: 'Bitcoin', basePrice: 97_432.18, color: '#F7931A' },
-  { symbol: 'ETH', name: 'Ethereum', basePrice: 3_841.55, color: '#627EEA' },
-  { symbol: 'SOL', name: 'Solana', basePrice: 198.73, color: '#9945FF' },
+  { symbol: 'BTC', name: 'Bitcoin', basePrice: 67_580.42, color: '#F7931A' },
+  { symbol: 'ETH', name: 'Ethereum', basePrice: 2_005.93, color: '#627EEA' },
+  { symbol: 'SOL', name: 'Solana', basePrice: 131.48, color: '#9945FF' },
 ];
 
 const AI_AGENTS: AIAgent[] = [
@@ -72,16 +72,16 @@ const AI_AGENTS: AIAgent[] = [
 ];
 
 const INITIAL_RESULTS: RoundResult[] = [
-  { id: 1001, asset: 'BTC', startPrice: 97_102.44, endPrice: 97_432.18, outcome: 'UP', timestamp: Date.now() - 600_000, upPool: 3200, downPool: 2100, winningAgents: ['DeFi Oracle', 'Whale Tracker', 'Chain Prophet'] },
-  { id: 1002, asset: 'ETH', startPrice: 3_867.30, endPrice: 3_841.55, outcome: 'DOWN', timestamp: Date.now() - 1_200_000, upPool: 1800, downPool: 2900, winningAgents: ['Alpha Hunter', 'Momentum Bot', 'Quant Engine'] },
-  { id: 1003, asset: 'SOL', startPrice: 195.12, endPrice: 198.73, outcome: 'UP', timestamp: Date.now() - 1_800_000, upPool: 2600, downPool: 1400, winningAgents: ['Neural Trader', 'Sentiment AI', 'On-Chain Scout'] },
-  { id: 1004, asset: 'BTC', startPrice: 96_850.00, endPrice: 97_102.44, outcome: 'UP', timestamp: Date.now() - 2_400_000, upPool: 2800, downPool: 2200, winningAgents: ['DeFi Oracle', 'Chain Prophet', 'Whale Tracker'] },
-  { id: 1005, asset: 'ETH', startPrice: 3_891.20, endPrice: 3_867.30, outcome: 'DOWN', timestamp: Date.now() - 3_000_000, upPool: 1500, downPool: 3100, winningAgents: ['Volatility Sage', 'Alpha Hunter'] },
-  { id: 1006, asset: 'SOL', startPrice: 192.45, endPrice: 195.12, outcome: 'UP', timestamp: Date.now() - 3_600_000, upPool: 2400, downPool: 1600, winningAgents: ['Sentiment AI', 'Neural Trader', 'Chain Prophet'] },
-  { id: 1007, asset: 'BTC', startPrice: 97_200.00, endPrice: 96_850.00, outcome: 'DOWN', timestamp: Date.now() - 4_200_000, upPool: 1900, downPool: 2700, winningAgents: ['Momentum Bot', 'Quant Engine', 'Volatility Sage'] },
-  { id: 1008, asset: 'ETH', startPrice: 3_855.80, endPrice: 3_891.20, outcome: 'UP', timestamp: Date.now() - 4_800_000, upPool: 2700, downPool: 1800, winningAgents: ['DeFi Oracle', 'Whale Tracker'] },
-  { id: 1009, asset: 'SOL', startPrice: 189.90, endPrice: 192.45, outcome: 'UP', timestamp: Date.now() - 5_400_000, upPool: 2100, downPool: 1900, winningAgents: ['On-Chain Scout', 'Chain Prophet', 'Sentiment AI'] },
-  { id: 1010, asset: 'BTC', startPrice: 97_500.50, endPrice: 97_200.00, outcome: 'DOWN', timestamp: Date.now() - 6_000_000, upPool: 1700, downPool: 2500, winningAgents: ['Alpha Hunter', 'Volatility Sage', 'Momentum Bot'] },
+  { id: 1001, asset: 'BTC', startPrice: 67_320.10, endPrice: 67_580.42, outcome: 'UP', timestamp: Date.now() - 600_000, upPool: 3200, downPool: 2100, winningAgents: ['DeFi Oracle', 'Whale Tracker', 'Chain Prophet'] },
+  { id: 1002, asset: 'ETH', startPrice: 2_018.40, endPrice: 2_005.93, outcome: 'DOWN', timestamp: Date.now() - 1_200_000, upPool: 1800, downPool: 2900, winningAgents: ['Alpha Hunter', 'Momentum Bot', 'Quant Engine'] },
+  { id: 1003, asset: 'SOL', startPrice: 129.85, endPrice: 131.48, outcome: 'UP', timestamp: Date.now() - 1_800_000, upPool: 2600, downPool: 1400, winningAgents: ['Neural Trader', 'Sentiment AI', 'On-Chain Scout'] },
+  { id: 1004, asset: 'BTC', startPrice: 67_110.00, endPrice: 67_320.10, outcome: 'UP', timestamp: Date.now() - 2_400_000, upPool: 2800, downPool: 2200, winningAgents: ['DeFi Oracle', 'Chain Prophet', 'Whale Tracker'] },
+  { id: 1005, asset: 'ETH', startPrice: 2_032.60, endPrice: 2_018.40, outcome: 'DOWN', timestamp: Date.now() - 3_000_000, upPool: 1500, downPool: 3100, winningAgents: ['Volatility Sage', 'Alpha Hunter'] },
+  { id: 1006, asset: 'SOL', startPrice: 128.20, endPrice: 129.85, outcome: 'UP', timestamp: Date.now() - 3_600_000, upPool: 2400, downPool: 1600, winningAgents: ['Sentiment AI', 'Neural Trader', 'Chain Prophet'] },
+  { id: 1007, asset: 'BTC', startPrice: 67_450.00, endPrice: 67_110.00, outcome: 'DOWN', timestamp: Date.now() - 4_200_000, upPool: 1900, downPool: 2700, winningAgents: ['Momentum Bot', 'Quant Engine', 'Volatility Sage'] },
+  { id: 1008, asset: 'ETH', startPrice: 1_995.30, endPrice: 2_032.60, outcome: 'UP', timestamp: Date.now() - 4_800_000, upPool: 2700, downPool: 1800, winningAgents: ['DeFi Oracle', 'Whale Tracker'] },
+  { id: 1009, asset: 'SOL', startPrice: 126.70, endPrice: 128.20, outcome: 'UP', timestamp: Date.now() - 5_400_000, upPool: 2100, downPool: 1900, winningAgents: ['On-Chain Scout', 'Chain Prophet', 'Sentiment AI'] },
+  { id: 1010, asset: 'BTC', startPrice: 67_690.50, endPrice: 67_450.00, outcome: 'DOWN', timestamp: Date.now() - 6_000_000, upPool: 1700, downPool: 2500, winningAgents: ['Alpha Hunter', 'Volatility Sage', 'Momentum Bot'] },
 ];
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
@@ -118,7 +118,23 @@ function saveUserStats(stats: UserStats): void {
 
 // ─── Page Component ──────────────────────────────────────────────────────────
 
+// Try to import wagmi hooks - may not be available if Web3 is not configured
+let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
+try {
+  const wagmi = require('wagmi');
+  useAccountHook = wagmi.useAccount;
+} catch {
+  // Web3 not available
+}
+
 export default function PredictPage() {
+  // Wallet connection
+  const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
+  const { isConnected: walletConnected } = walletState;
+
+  // Wallet warning
+  const [walletWarning, setWalletWarning] = useState('');
+
   // Round state
   const [assetIndex, setAssetIndex] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(ASSETS[0].basePrice);
@@ -143,6 +159,10 @@ export default function PredictPage() {
 
   // Results
   const [results, setResults] = useState<RoundResult[]>(INITIAL_RESULTS);
+  const [resultAssetFilter, setResultAssetFilter] = useState<string | null>(null);
+  const filteredResults = resultAssetFilter
+    ? results.filter(r => r.asset === resultAssetFilter)
+    : results;
 
   // Refs for timer/price intervals
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -288,6 +308,12 @@ export default function PredictPage() {
   // Place bet
   const placeBet = (direction: Direction) => {
     if (userBet || isResolving || timeLeft <= 0) return;
+    if (!walletConnected) {
+      setWalletWarning('Connect wallet to place bets');
+      setTimeout(() => setWalletWarning(''), 3000);
+      return;
+    }
+    setWalletWarning('');
     const amount = Math.min(1000, Math.max(10, parseInt(betAmount) || 100));
     setUserBet({ direction, amount });
     if (direction === 'UP') {
@@ -369,7 +395,7 @@ export default function PredictPage() {
               L: {userStats.losses}
             </Badge>
             <Badge variant="outline" className={`${userStats.totalEarnings >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}>
-              {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} BBAI
+              {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} USDT
             </Badge>
           </div>
         </div>
@@ -382,12 +408,22 @@ export default function PredictPage() {
               {ASSETS.map((a, i) => (
                 <Badge
                   key={a.symbol}
-                  className={`text-sm px-3 py-1 transition-all ${
+                  className={`text-sm px-3 py-1 transition-all cursor-pointer select-none ${
                     i === assetIndex
                       ? 'bg-white/10 text-white border-white/30 scale-110'
-                      : 'bg-zinc-800/50 text-zinc-500 border-zinc-700'
+                      : 'bg-zinc-800/50 text-zinc-500 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
                   }`}
                   variant="outline"
+                  onClick={() => {
+                    if (i !== assetIndex && !isResolving && !userBet) {
+                      const asset = ASSETS[i];
+                      const jitter = (Math.random() - 0.5) * asset.basePrice * 0.01;
+                      const newPrice = asset.basePrice + jitter;
+                      setAssetIndex(i);
+                      setCurrentPrice(newPrice);
+                      setRoundStartPrice(newPrice);
+                    }
+                  }}
                 >
                   {a.symbol}
                 </Badge>
@@ -440,8 +476,8 @@ export default function PredictPage() {
                 {userBet ? (
                   <div className={`text-xl ${roundResult.won ? 'text-green-400' : 'text-red-400'}`}>
                     {roundResult.won
-                      ? `YOU WON! +${roundResult.payout.toLocaleString()} BBAI`
-                      : `You lost ${userBet.amount.toLocaleString()} BBAI`}
+                      ? `YOU WON! +${roundResult.payout.toLocaleString()} USDT`
+                      : `You lost ${userBet.amount.toLocaleString()} USDT`}
                   </div>
                 ) : (
                   <div className="text-zinc-400">You did not place a bet this round</div>
@@ -466,7 +502,14 @@ export default function PredictPage() {
                       className="w-28 bg-zinc-800 border-zinc-700 text-center text-white"
                       disabled={!!userBet || isResolving}
                     />
-                    <span className="text-zinc-500 text-sm">BBAI</span>
+                    <span className="text-zinc-500 text-sm">USDT</span>
+                  </div>
+                )}
+
+                {/* Wallet warning */}
+                {walletWarning && (
+                  <div className="text-center p-3 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-400 text-sm font-medium">
+                    {walletWarning}
                   </div>
                 )}
 
@@ -497,7 +540,7 @@ export default function PredictPage() {
                       {userBet.direction} {userBet.direction === 'UP' ? '⬆️' : '⬇️'}
                     </span>
                     <span className="text-zinc-400"> — </span>
-                    <span className="text-white font-semibold">{userBet.amount.toLocaleString()} BBAI</span>
+                    <span className="text-white font-semibold">{userBet.amount.toLocaleString()} USDT</span>
                     {followedAgent && (
                       <div className="text-zinc-500 text-sm mt-1">
                         Following {agents.find(a => a.id === followedAgent)?.name}
@@ -511,13 +554,13 @@ export default function PredictPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500" />
                     <span className="text-zinc-400">UP Pool:</span>
-                    <span className="text-green-400 font-semibold">{upPool.toLocaleString()} BBAI</span>
+                    <span className="text-green-400 font-semibold">{upPool.toLocaleString()} USDT</span>
                   </div>
                   <Separator orientation="vertical" className="h-4 bg-zinc-700" />
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
                     <span className="text-zinc-400">DOWN Pool:</span>
-                    <span className="text-red-400 font-semibold">{downPool.toLocaleString()} BBAI</span>
+                    <span className="text-red-400 font-semibold">{downPool.toLocaleString()} USDT</span>
                   </div>
                 </div>
 
@@ -649,7 +692,25 @@ export default function PredictPage() {
 
           {/* ─── Recent Results ─── */}
           <TabsContent value="results" className="space-y-3">
-            {results.map((result, i) => (
+            {/* Asset filter for results */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-zinc-500">Filter:</span>
+              {['All', ...ASSETS.map(a => a.symbol)].map((sym) => (
+                <Badge
+                  key={sym}
+                  variant="outline"
+                  className={`text-xs cursor-pointer select-none transition-all ${
+                    (sym === 'All' && resultAssetFilter === null) || sym === resultAssetFilter
+                      ? 'bg-white/10 text-white border-white/30'
+                      : 'bg-zinc-800/50 text-zinc-500 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
+                  }`}
+                  onClick={() => setResultAssetFilter(sym === 'All' ? null : sym)}
+                >
+                  {sym}
+                </Badge>
+              ))}
+            </div>
+            {filteredResults.map((result, i) => (
               <Card key={result.id} className="border-zinc-800 bg-zinc-900/60" style={{ animationDelay: `${i * 50}ms` }}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between flex-wrap gap-3">
@@ -680,7 +741,7 @@ export default function PredictPage() {
                         {result.outcome}
                       </Badge>
                       <div className="text-xs text-zinc-500 mt-1">
-                        Pool: {(result.upPool + result.downPool).toLocaleString()} BBAI
+                        Pool: {(result.upPool + result.downPool).toLocaleString()} USDT
                       </div>
                     </div>
                   </div>
@@ -745,7 +806,7 @@ export default function PredictPage() {
                           <div className="font-semibold text-emerald-400">
                             {agent.totalEarnings.toLocaleString()}
                           </div>
-                          <div className="text-xs text-zinc-500">BBAI earned</div>
+                          <div className="text-xs text-zinc-500">USDT earned</div>
                         </div>
                       </div>
                     </div>

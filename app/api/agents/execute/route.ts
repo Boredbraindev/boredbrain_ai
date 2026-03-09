@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       })) ?? [];
 
     const toolTotal = toolCosts.reduce((sum, t) => sum + t.cost, 0);
-    const llmCost = response.simulated ? 0 : Math.ceil(response.tokensUsed / 100); // 1 BBAI per 100 tokens
+    const llmCost = response.simulated ? 0 : Math.ceil(response.tokensUsed / 100); // 1 USDT per 100 tokens
 
     return apiSuccess({
       agentId: agentConfig.id,
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
         llmCost,
         toolCosts,
         totalCost: llmCost + toolTotal,
-        costUnit: 'BBAI',
+        costUnit: 'USDT',
       },
       meta: {
         latencyMs,

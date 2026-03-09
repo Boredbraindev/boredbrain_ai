@@ -92,7 +92,7 @@ export async function POST(
       meta: {
         latencyMs,
         cost: toolMeta.pricePerCall,
-        costUnit: 'BBAI',
+        costUnit: 'USDT',
       },
     });
   } catch (error) {
@@ -143,7 +143,7 @@ export async function GET(
     description: toolMeta.description,
     category: toolMeta.category,
     pricePerCall: toolMeta.pricePerCall,
-    priceUnit: 'BBAI',
+    priceUnit: 'USDT',
     rateLimit: toolMeta.rateLimit,
     inputSchema: toolMeta.tool.inputSchema
       ? JSON.parse(JSON.stringify(toolMeta.tool.inputSchema))

@@ -1,5 +1,5 @@
 /**
- * Blockchain Configuration for BBAI Token Operations
+ * Blockchain Configuration for USDT Token Operations
  *
  * Supports Base mainnet (chainId 8453) and Base Sepolia testnet (chainId 84532).
  * Contract addresses are placeholders until deployment; when no address is
@@ -116,7 +116,7 @@ export const BBAI_TOKEN = {
 
 /**
  * Convert a human-readable token amount to the smallest unit (wei-equivalent).
- * e.g. 1.5 BBAI -> 1500000000000000000n
+ * e.g. 1.5 USDT -> 1500000000000000000n
  */
 export function toTokenUnits(amount: number): bigint {
   // Avoid floating point issues by splitting integer & fractional parts

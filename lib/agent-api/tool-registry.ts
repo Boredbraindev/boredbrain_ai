@@ -31,7 +31,7 @@ export interface ToolMeta {
   name: string;
   description: string;
   category: 'search' | 'finance' | 'location' | 'media' | 'utility';
-  pricePerCall: number; // in BBAI token units (not wei)
+  pricePerCall: number; // in USDT (not wei)
   rateLimit: number; // per minute
   tool: any; // Vercel AI SDK tool
   requiresStreaming: boolean;

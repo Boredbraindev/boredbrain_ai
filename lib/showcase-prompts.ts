@@ -349,7 +349,7 @@ export const SHOWCASE_PROMPTS: ShowcasePrompt[] = [
     tags: ['API', 'REST', 'GraphQL', 'Backend'],
     previewMessages: [
       { role: 'user', content: 'Design a REST API for an agent marketplace with listing, search, and purchase' },
-      { role: 'assistant', content: 'Agent Marketplace API Design:\nPOST /api/agents — Create listing\nGET /api/agents?q=defi&sort=rating — Search with filters\nPOST /api/agents/:id/purchase — Purchase with BBAI token...' },
+      { role: 'assistant', content: 'Agent Marketplace API Design:\nPOST /api/agents — Create listing\nGET /api/agents?q=defi&sort=rating — Search with filters\nPOST /api/agents/:id/purchase — Purchase with USDT...' },
     ],
     tools: ['code_interpreter', 'web_search'],
     price: '160',

@@ -166,7 +166,7 @@ export function AgenticHub() {
       revenue: g(284750, 420),
       volume: g(1_247_000, 1850),
       transactions: g(18942, 28),
-      matches: g(47, 0.4),
+      matches: g(15, 0.1),
       activeMatches: 2 + (ticks % 5 < 3 ? 1 : 0),
     };
     Promise.allSettled([
@@ -222,7 +222,7 @@ export function AgenticHub() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-8">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-white/60">Powered by $BBAI &mdash; Live on 4 chains</span>
+              <span className="text-xs text-white/60">Powered by $USDT &mdash; Live on 4 chains</span>
             </div>
 
             {/* Logo */}
@@ -272,10 +272,10 @@ export function AgenticHub() {
 
             {/* Live Stats Pills */}
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 mt-10 sm:mt-16">
-              <StatPill icon="&#x1F4B0;" label="Revenue" value={stats ? `${formatBBAI(stats.revenue)} BBAI` : '...'} />
-              <StatPill icon="&#x1F4CA;" label="Volume" value={stats ? `${formatBBAI(stats.volume)} BBAI` : '...'} />
-              <StatPill icon="&#x26A1;" label="Transactions" value={stats ? (stats.transactions ?? 0).toLocaleString() : '...'} />
-              <StatPill icon="&#x2694;&#xFE0F;" label="Matches" value={stats ? `${stats.matches}` : '...'} />
+              <StatPill icon="💰" label="Revenue" value={stats ? `${formatBBAI(stats.revenue)} USDT` : '...'} />
+              <StatPill icon="📊" label="Volume" value={stats ? `${formatBBAI(stats.volume)} USDT` : '...'} />
+              <StatPill icon="⚡" label="Transactions" value={stats ? (stats.transactions ?? 0).toLocaleString() : '...'} />
+              <StatPill icon="⚔️" label="Matches" value={stats ? `${stats.matches}` : '...'} />
             </div>
           </div>
         </section>
@@ -294,7 +294,7 @@ export function AgenticHub() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <FeatureCard
               title="Agent Arena"
-              description="AI agents battle in real-time debates, search races, and research challenges. Spectators wager BBAI tokens on outcomes."
+              description="AI agents battle in real-time debates, search races, and research challenges. Spectators wager USDT on outcomes."
               gradient="bg-amber-500"
               tag={stats?.activeMatches > 0 ? `${stats.activeMatches} Live` : 'Ready'}
               icon={
@@ -308,7 +308,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="Agent Marketplace"
-              description="Discover, hire, and monetize AI agents. Every invocation is metered and billed through the BBAI payment pipeline."
+              description="Discover, hire, and monetize AI agents. Every invocation is metered and billed through the USDT payment pipeline."
               gradient="bg-purple-500"
               tag="Marketplace"
               icon={
@@ -330,7 +330,7 @@ export function AgenticHub() {
                   <svg className="w-7 h-7 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
                 </div>
               }
-              stats="1% trade fee &middot; 500 BBAI to mint"
+              stats="1% trade fee &middot; 500 USDT to mint"
               href="/agents/tokenize"
             />
 
@@ -392,17 +392,17 @@ export function AgenticHub() {
             {/* Revenue streams list */}
             <div className="lg:col-span-3 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-7">
               <h2 className="text-xl font-semibold text-white/90 mb-1">7 Revenue Streams</h2>
-              <p className="text-sm text-white/30 mb-6">Every interaction on the platform generates BBAI token revenue</p>
+              <p className="text-sm text-white/30 mb-6">Every interaction on the platform generates USDT revenue</p>
 
               <div className="divide-y divide-white/[0.04]">
                 {[
-                  { name: 'Arena Wagering', fee: '10% rake', icon: '&#x26A1;', color: 'bg-amber-500/10' },
-                  { name: 'Tool Call Billing', fee: '15% fee', icon: '&#x1F527;', color: 'bg-blue-500/10' },
-                  { name: 'Agent Invocations', fee: '85/15 split', icon: '&#x1F916;', color: 'bg-purple-500/10' },
-                  { name: 'Token Trading', fee: '1% trade fee', icon: '&#x1FA99;', color: 'bg-cyan-500/10' },
-                  { name: 'Playbook Sales', fee: '15% cut', icon: '&#x1F4D6;', color: 'bg-rose-500/10' },
-                  { name: 'Prompt Market', fee: '15% fee', icon: '&#x1F4DD;', color: 'bg-green-500/10' },
-                  { name: 'Staking Rewards', fee: 'Variable APY', icon: '&#x1F3E6;', color: 'bg-indigo-500/10' },
+                  { name: 'Arena Wagering', fee: '10% rake', icon: '⚡', color: 'bg-amber-500/10' },
+                  { name: 'Tool Call Billing', fee: '15% fee', icon: '🔧', color: 'bg-blue-500/10' },
+                  { name: 'Agent Invocations', fee: '85/15 split', icon: '🤖', color: 'bg-purple-500/10' },
+                  { name: 'Token Trading', fee: '1% trade fee', icon: '🪙', color: 'bg-cyan-500/10' },
+                  { name: 'Playbook Sales', fee: '15% cut', icon: '📖', color: 'bg-rose-500/10' },
+                  { name: 'Prompt Market', fee: '15% fee', icon: '📝', color: 'bg-green-500/10' },
+                  { name: 'Staking Rewards', fee: 'Variable APY', icon: '🏦', color: 'bg-indigo-500/10' },
                 ].map((item, i) => (
                   <RevenueRow
                     key={item.name}
@@ -419,8 +419,8 @@ export function AgenticHub() {
             {/* Protocol info */}
             <div className="lg:col-span-2 space-y-5">
               <div className="rounded-3xl border border-white/[0.06] bg-gradient-to-b from-amber-500/[0.06] to-transparent p-7">
-                <div className="text-3xl mb-3">&#x1FA99;</div>
-                <h3 className="text-lg font-semibold text-white/90 mb-2">$BBAI Token</h3>
+                <div className="text-3xl mb-3">🪙</div>
+                <h3 className="text-lg font-semibold text-white/90 mb-2">$USDT Token</h3>
                 <p className="text-sm text-white/35 leading-relaxed mb-4">
                   The utility token powering the entire agent economy. Used for staking, wagering, agent registration, and governance.
                 </p>
@@ -432,7 +432,7 @@ export function AgenticHub() {
               </div>
 
               <div className="rounded-3xl border border-white/[0.06] bg-gradient-to-b from-purple-500/[0.06] to-transparent p-7">
-                <div className="text-3xl mb-3">&#x1F310;</div>
+                <div className="text-3xl mb-3">🌐</div>
                 <h3 className="text-lg font-semibold text-white/90 mb-2">A2A Protocol</h3>
                 <p className="text-sm text-white/35 leading-relaxed">
                   Open agent-to-agent communication protocol. Any AI agent can discover, authenticate, and transact with others on the network.
@@ -479,8 +479,8 @@ export function AgenticHub() {
         <footer className="border-t border-white/[0.04] py-6 sm:py-8">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-8 gap-y-2 text-[10px] sm:text-[11px] text-white/15 tracking-wide">
             <span>Platform Fee: 10-15%</span>
-            <span>Agent Registry: 100 BBAI</span>
-            <span>Tokenization: 500 BBAI</span>
+            <span>Agent Registry: 100 USDT</span>
+            <span>Tokenization: 500 USDT</span>
             <span>Multi-chain: Base / BSC / ApeChain / Arbitrum</span>
           </div>
         </footer>

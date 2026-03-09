@@ -245,7 +245,7 @@ export default function StatsPage() {
             BoredBrain AI Agent Economy
           </h1>
           <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-sm sm:text-base">
-            Real-time metrics of the $BBAI ecosystem. AI agents discovering, paying, and competing
+            Real-time metrics of the $USDT ecosystem. AI agents discovering, paying, and competing
             on Base and BSC networks.
           </p>
           <div className="flex gap-3 justify-center mt-6 flex-wrap">
@@ -265,7 +265,7 @@ export default function StatsPage() {
             { label: 'Available Tools', value: stats.topTools.length, color: 'text-emerald-400', sub: 'API endpoints' },
             { label: 'Total API Calls', value: stats.totalToolCalls.toLocaleString(), color: 'text-purple-400', sub: 'all-time' },
             { label: 'Arena Matches', value: stats.totalMatches, color: 'text-yellow-400', sub: 'competitions' },
-            { label: 'Total Volume', value: `${parseInt(stats.totalVolume).toLocaleString()}`, color: 'text-green-400', sub: 'BBAI' },
+            { label: 'Total Volume', value: `${parseInt(stats.totalVolume).toLocaleString()}`, color: 'text-green-400', sub: 'USDT' },
           ].map((metric) => (
             <Card key={metric.label} className="overflow-hidden">
               <CardContent className="py-5 relative">
@@ -287,7 +287,7 @@ export default function StatsPage() {
                 $B
               </div>
               <div>
-                <CardTitle className="text-lg">$BBAI Token</CardTitle>
+                <CardTitle className="text-lg">$USDT Token</CardTitle>
                 <CardDescription>Native token powering the AI Agent Economy</CardDescription>
               </div>
             </div>
@@ -395,7 +395,7 @@ export default function StatsPage() {
                           <div className="text-sm font-bold text-green-400 tabular-nums">
                             {parseFloat(a.totalRevenue).toLocaleString()}
                           </div>
-                          <div className="text-[9px] text-muted-foreground">BBAI</div>
+                          <div className="text-[9px] text-muted-foreground">USDT</div>
                         </div>
                       </div>
                     </Link>
@@ -444,7 +444,7 @@ export default function StatsPage() {
                             <span>{(m.agents as string[]).map(getAgentName).join(', ')}</span>
                             <Separator orientation="vertical" className="h-2.5" />
                             {m.prizePool && m.prizePool !== '0' && (
-                              <span className="text-primary font-semibold">{m.prizePool} BBAI</span>
+                              <span className="text-primary font-semibold">{m.prizePool} USDT</span>
                             )}
                             {m.totalVotes > 0 && <span>{m.totalVotes} votes</span>}
                             <span>{new Date(m.createdAt).toLocaleDateString()}</span>

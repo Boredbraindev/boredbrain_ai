@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     success: true,
     totalLatencyMs: Date.now() - startTime,
     totalCost,
-    costUnit: 'BBAI',
+    costUnit: 'USDT',
     results: results.map((r) => (r.status === 'fulfilled' ? r.value : { success: false, error: 'Execution failed' })),
   });
 }

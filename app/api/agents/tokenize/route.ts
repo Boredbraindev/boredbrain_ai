@@ -12,7 +12,7 @@ import {
   getCurrentPrice,
 } from '@/lib/bonding-curve';
 
-const TOKENIZATION_FEE = 500; // 500 BBAI to tokenize an agent
+const TOKENIZATION_FEE = 500; // 500 USDT to tokenize an agent
 
 export async function POST(request: NextRequest) {
   try {

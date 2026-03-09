@@ -145,7 +145,7 @@ export default function CreateAgentPage() {
           <CardHeader>
             <CardTitle>Tools ({selectedTools.length} selected)</CardTitle>
             <CardDescription>
-              Choose which tools your agent can use. Estimated cost per query: {estimatedCost} BBAI
+              Choose which tools your agent can use. Estimated cost per query: {estimatedCost} USDT
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -176,7 +176,7 @@ export default function CreateAgentPage() {
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">{tool.name}</span>
-                                <span className="text-xs text-muted-foreground">{tool.pricePerCall} BBAI</span>
+                                <span className="text-xs text-muted-foreground">{tool.pricePerCall} USDT</span>
                               </div>
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                 {tool.description}
@@ -200,7 +200,7 @@ export default function CreateAgentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Price per Query (BBAI)</label>
+              <label className="text-sm font-medium mb-1.5 block">Price per Query (USDT)</label>
               <input
                 type="number"
                 value={pricePerQuery}
@@ -234,14 +234,14 @@ export default function CreateAgentPage() {
         {/* Submit */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Registration fee: 100 BBAI (on-chain NFT minting)
+            Registration fee: 100 USDT (on-chain NFT minting)
           </p>
           <Button
             onClick={handleCreate}
             disabled={!name.trim() || selectedTools.length === 0 || creating}
             size="lg"
           >
-            {creating ? 'Creating...' : 'Register Agent (100 BBAI)'}
+            {creating ? 'Creating...' : 'Register Agent (100 USDT)'}
           </Button>
         </div>
       </div>

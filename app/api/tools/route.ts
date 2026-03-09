@@ -13,7 +13,7 @@ export async function GET() {
   return NextResponse.json({
     platform: 'BoredBrain AI Agent Economy',
     version: '1.0.0',
-    token: '$BBAI',
+    token: '$USDT',
     chains: [
       { chainId: 8453, name: 'Base', status: 'active' },
       { chainId: 56, name: 'BNB Smart Chain', status: 'active' },

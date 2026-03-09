@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
     stats: {
       totalAgents: MOCK_MARKETPLACE_LISTINGS.length,
       totalCalls: MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls, 0),
+      totalVolume: MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls * l.pricing.perCall, 0),
       avgRating: +(MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.rating, 0) / MOCK_MARKETPLACE_LISTINGS.length).toFixed(1),
       topSpecializations: ['defi', 'market', 'security', 'utility', 'research'],
     },

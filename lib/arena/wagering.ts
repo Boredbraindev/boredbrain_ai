@@ -64,7 +64,7 @@ export async function placeWager(input: WagerInput): Promise<WagerResult> {
   const { matchId, bettorId, bettorType, agentId, amount } = input;
 
   if (amount <= 0) throw new Error('Wager amount must be positive');
-  if (amount < 10) throw new Error('Minimum wager is 10 BBAI');
+  if (amount < 10) throw new Error('Minimum wager is 10 USDT');
 
   // Get or create escrow
   let [escrow] = await db

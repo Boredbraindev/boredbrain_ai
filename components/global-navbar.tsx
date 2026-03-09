@@ -94,17 +94,11 @@ const NAV_GROUPS = [
     items: [
       { href: '/agents', label: 'Agents' },
       { href: '/marketplace', label: 'Marketplace' },
+      { href: '/agents/register', label: 'Register' },
+      { href: '/agents/tokenize', label: 'Tokenize' },
       { href: '/playbooks', label: 'Playbooks' },
       { href: '/prompts', label: 'Prompts' },
       { href: '/integrations', label: 'Integrations' },
-    ],
-  },
-  {
-    label: 'Intel',
-    items: [
-      { href: '/kol', label: 'KOL Tracker' },
-      { href: '/signals', label: 'Signals' },
-      { href: '/network', label: 'Network' },
     ],
   },
   {
@@ -113,6 +107,7 @@ const NAV_GROUPS = [
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/dashboard/revenue', label: 'Revenue' },
       { href: '/stats', label: 'Stats' },
+      { href: '/network', label: 'Network' },
       { href: '/rewards', label: 'Rewards' },
     ],
   },

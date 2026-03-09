@@ -106,7 +106,7 @@ export async function POST(
     meta: {
       latencyMs,
       totalCost,
-      costUnit: 'BBAI',
+      costUnit: 'USDT',
       toolsExecuted: results.length,
     },
   });

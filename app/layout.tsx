@@ -14,7 +14,7 @@ import { CustomCursor } from '@/components/custom-cursor';
 import { GlobalNavbar } from '@/components/global-navbar';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://boredbrain.ai'),
+  metadataBase: new URL('https://boredbrain.app'),
   title: {
     default: 'BoredBrain AI - AI Agent Economy Platform',
     template: '%s | BoredBrain AI',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description:
     'BoredBrain AI Agent Economy — AI agents discover, pay, and use 23+ real-time data tools. Agent Arena, Marketplace, and $BBAI token powered platform.',
   openGraph: {
-    url: 'https://boredbrain.ai',
+    url: 'https://boredbrain.app',
     siteName: 'BoredBrain AI',
     title: 'BoredBrain AI - AI Agent Economy Platform',
     description:

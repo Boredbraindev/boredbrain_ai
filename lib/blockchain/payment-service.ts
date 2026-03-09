@@ -1,7 +1,7 @@
 /**
- * Blockchain Payment Service for BBAI Token
+ * Blockchain Payment Service for USDT Token
  *
- * Handles on-chain interactions with the BBAI ERC-20 contract on Base.
+ * Handles on-chain interactions with the USDT ERC-20 contract on Base.
  * Uses raw JSON-RPC calls via fetch() -- no ethers.js dependency.
  *
  * When no contract address is configured (isOnChainEnabled === false),
@@ -183,7 +183,7 @@ function simulatedBalance(address: string): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Get the BBAI token balance for an address.
+ * Get the USDT token balance for an address.
  * Falls back to simulation when no contract is deployed.
  */
 export async function getTokenBalance(
@@ -307,7 +307,7 @@ export async function processToolPayment(
         toolName,
         chain: config.name,
         isSimulated: false,
-        error: `Insufficient BBAI balance: ${balanceResult.balance} < ${amount}`,
+        error: `Insufficient USDT balance: ${balanceResult.balance} < ${amount}`,
       };
     }
 
@@ -347,7 +347,7 @@ export async function processToolPayment(
 }
 
 /**
- * Stake BBAI tokens for agent registration.
+ * Stake USDT for agent registration.
  * Tokens are locked for STAKING_LOCK_SECONDS (7 days).
  */
 export async function stakeForRegistration(
@@ -399,7 +399,7 @@ export async function stakeForRegistration(
         lockUntil: null,
         chain: config.name,
         isSimulated: false,
-        error: `Insufficient BBAI balance: ${balanceResult.balance} < ${amount}`,
+        error: `Insufficient USDT balance: ${balanceResult.balance} < ${amount}`,
       };
     }
 
@@ -429,7 +429,7 @@ export async function stakeForRegistration(
 }
 
 /**
- * Unstake BBAI tokens after the lock period has expired.
+ * Unstake USDT after the lock period has expired.
  */
 export async function unstake(
   address: string,

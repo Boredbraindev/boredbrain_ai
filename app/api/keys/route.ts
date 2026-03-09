@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       rateLimit: 100,
       totalQueries: 0,
       totalSpent: '0',
-      creditBalance: '1000', // 1000 BBAI free credits for new keys
+      creditBalance: '1000', // 1000 USDT free credits for new keys
       status: 'active',
       createdAt: new Date(),
     })

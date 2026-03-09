@@ -100,7 +100,8 @@ function keywordOverlap(response: string, topic: string): number {
 function simulatedCriteria(
   response: string,
   topic: string,
-  agentId: string
+  agentId: string,
+  roundNumber: number = 0
 ): ScoringCriteria {
   const len = response.length;
   const words = response.split(/\s+/).filter(Boolean);
@@ -136,13 +137,19 @@ function simulatedCriteria(
   // Creativity: vocabulary diversity
   const uniqueWords = new Set(words.map((w) => w.toLowerCase()));
   const diversity = wordCount > 0 ? uniqueWords.size / wordCount : 0;
-  // Add a small deterministic variance per agent so identical responses still differ
-  const agentVariance = hashToFloat(agentId + topic) * 10;
+  // Add a small deterministic variance per agent and round so scores differ between rounds
+  const agentVariance = hashToFloat(agentId + topic + `round${roundNumber}`) * 10;
+  const roundVariance = hashToFloat(`${roundNumber}-${agentId}-${topic}`) * 8 - 4; // -4 to +4
   const creativity = Math.round(
     Math.min(100, diversity * 80 + 15 + agentVariance)
   );
 
-  return { relevance, insight, accuracy, creativity };
+  return {
+    relevance: Math.round(Math.min(100, Math.max(0, relevance + roundVariance))),
+    insight: Math.round(Math.min(100, Math.max(0, insight + roundVariance * 0.7))),
+    accuracy: Math.round(Math.min(100, Math.max(0, accuracy + roundVariance * 1.2))),
+    creativity,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -159,9 +166,10 @@ function simulatedCriteria(
 export function scoreResponse(
   response: string,
   topic: string,
-  agentId: string
+  agentId: string,
+  roundNumber: number = 0
 ): ScoredResponse {
-  const criteria = simulatedCriteria(response, topic, agentId);
+  const criteria = simulatedCriteria(response, topic, agentId, roundNumber);
 
   const totalScore = Math.round(
     criteria.relevance * CRITERIA_WEIGHTS.relevance +

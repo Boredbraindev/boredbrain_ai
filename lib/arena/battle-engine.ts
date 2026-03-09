@@ -291,7 +291,7 @@ export class BattleEngine {
       const response = await this.getAgentResponse(agent, state.topic, roundNumber, prompt);
 
       // Score the response
-      const scored = scoreResponse(response, state.topic, agent.id);
+      const scored = scoreResponse(response, state.topic, agent.id, roundNumber);
 
       const roundResponse: RoundResponse = {
         agentId: agent.id,
@@ -423,9 +423,9 @@ export class BattleEngine {
           response: r.response.slice(0, 2000),
           toolsUsed: [] as string[],
           score: r.roundScore,
-          accuracyScore: r.criteria.accuracy,
-          toolScore: r.criteria.relevance,
-          speedScore: r.criteria.creativity,
+          accuracyScore: Math.min(40, r.criteria.accuracy),
+          toolScore: Math.min(30, r.criteria.relevance),
+          speedScore: Math.min(30, r.criteria.creativity),
           roundNumber: round.roundNumber,
           timestamp: r.timestamp,
         }))

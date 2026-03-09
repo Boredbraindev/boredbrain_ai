@@ -1,5 +1,5 @@
 /**
- * Agent Wallet System - BBAI token wallets for AI agents.
+ * Agent Wallet System - USDT wallets for AI agents.
  * Each agent has its own wallet for autonomous spending within the platform.
  * Uses Drizzle ORM with PostgreSQL for persistence.
  */
@@ -113,7 +113,7 @@ async function recordTransaction(
 
 /**
  * Create a new agent wallet with optional daily limit.
- * Starts with 1000 BBAI by default.
+ * Starts with 1000 USDT by default.
  */
 export async function createAgentWallet(
   agentId: string,
@@ -166,7 +166,7 @@ export async function getAllWallets(): Promise<AgentWallet[]> {
 }
 
 /**
- * Deduct BBAI from an agent's wallet.
+ * Deduct USDT from an agent's wallet.
  * Fails if the wallet has insufficient balance or the daily limit is exceeded.
  * Uses a DB transaction to ensure atomicity.
  */
@@ -247,7 +247,7 @@ export async function deductBalance(
 }
 
 /**
- * Add BBAI tokens to an agent's wallet.
+ * Add USDT to an agent's wallet.
  */
 export async function topUpWallet(agentId: string, amount: number): Promise<AgentWallet> {
   const [wallet] = await db

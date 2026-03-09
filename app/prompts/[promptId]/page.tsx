@@ -182,7 +182,7 @@ export default function PromptDetailPage() {
                   size="lg"
                   className="holographic-button text-white border-0"
                 >
-                  {purchasing ? 'Purchasing...' : `Buy for ${prompt.price} BBAI`}
+                  {purchasing ? 'Purchasing...' : `Buy for ${prompt.price} USDT`}
                 </Button>
               )}
             </div>
@@ -196,7 +196,7 @@ export default function PromptDetailPage() {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-amber-500">{prompt.price}</div>
-              <div className="text-xs text-muted-foreground uppercase">BBAI Price</div>
+              <div className="text-xs text-muted-foreground uppercase">USDT Price</div>
             </CardContent>
           </Card>
           <Card>
@@ -214,7 +214,7 @@ export default function PromptDetailPage() {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold">{parseFloat(prompt.totalRevenue || '0').toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground uppercase">BBAI Volume</div>
+              <div className="text-xs text-muted-foreground uppercase">USDT Volume</div>
             </CardContent>
           </Card>
         </div>
@@ -290,7 +290,7 @@ export default function PromptDetailPage() {
                       size="sm"
                       className="mt-2 holographic-button text-white border-0"
                     >
-                      {purchasing ? 'Purchasing...' : `${prompt.price} BBAI`}
+                      {purchasing ? 'Purchasing...' : `${prompt.price} USDT`}
                     </Button>
                   </div>
                 </div>
@@ -343,7 +343,7 @@ export default function PromptDetailPage() {
               <div>
                 <h3 className="font-semibold text-lg">Deploy as AI Agent</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Turn this prompt into a live AI agent on the marketplace and start earning BBAI from every query.
+                  Turn this prompt into a live AI agent on the marketplace and start earning USDT from every query.
                 </p>
               </div>
               <Button

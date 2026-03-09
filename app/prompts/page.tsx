@@ -185,7 +185,7 @@ export default function PromptMarketplacePage() {
               </div>
               <div className="p-3 rounded-xl bg-muted/50 border border-border/30">
                 <div className="text-lg sm:text-xl font-bold">{totalRevenue.toLocaleString()}</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">BBAI Volume</div>
+                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">USDT Volume</div>
               </div>
             </div>
           )}
@@ -365,7 +365,7 @@ function PromptCard({ prompt: p, featured = false }: { prompt: PromptTemplate; f
             {/* Price - prominent */}
             <div className="flex items-baseline gap-1 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
               <span className={`font-bold ${priceNum >= 150 ? 'text-lg' : 'text-base'} text-amber-500`}>{p.price}</span>
-              <span className="text-[10px] text-amber-500/70 font-semibold">BBAI</span>
+              <span className="text-[10px] text-amber-500/70 font-semibold">USDT</span>
             </div>
 
             {/* Stats */}

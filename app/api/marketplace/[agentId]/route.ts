@@ -38,7 +38,7 @@ function mockReviews(agentId: string, listing: typeof MOCK_MARKETPLACE_LISTINGS[
     'Fast response times and accurate data. One of the best agents on the platform.',
     'Good performance overall. The tool integration is seamless and the output is actionable.',
     'Been using this for a few weeks now. Very stable and the accuracy is impressive.',
-    'Great value for the BBAI cost. Saves me hours of manual research.',
+    'Great value for the USDT cost. Saves me hours of manual research.',
   ];
   return Array.from({ length: Math.min(listing.reviewCount, 5) }, (_, i) => ({
     id: `review-${agentId}-${i}`,

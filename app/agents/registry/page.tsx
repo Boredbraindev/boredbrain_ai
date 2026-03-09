@@ -365,6 +365,26 @@ function AgentCard({ agent }: { agent: RegisteredAgent }) {
   const statusConfig = STATUS_CONFIG[agent.status] || STATUS_CONFIG.pending;
   const specConfig = SPEC_CONFIG[agent.specialization.toLowerCase()] || SPEC_CONFIG.general;
   const truncatedOwner = `${agent.ownerAddress.slice(0, 6)}...${agent.ownerAddress.slice(-4)}`;
+  const [invoking, setInvoking] = useState(false);
+  const [invokeResult, setInvokeResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  async function handleInvoke() {
+    setInvoking(true);
+    setInvokeResult(null);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'ping' }),
+      });
+      const data = await res.json();
+      setInvokeResult({ success: res.ok, message: res.ok ? `Agent responded successfully.` : (data.error || 'Invocation failed.') });
+    } catch {
+      setInvokeResult({ success: false, message: 'Network error. Could not reach agent.' });
+    } finally {
+      setInvoking(false);
+    }
+  }
 
   return (
     <div className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/[0.03] hover:scale-[1.01]">
@@ -439,21 +459,29 @@ function AgentCard({ agent }: { agent: RegisteredAgent }) {
           )}
         </div>
 
+        {/* Invoke result message */}
+        {invokeResult && (
+          <div className={`mb-3 p-2 rounded-lg text-[10px] ${invokeResult.success ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+            {invokeResult.message}
+            <button onClick={() => setInvokeResult(null)} className="ml-2 underline opacity-60 hover:opacity-100">dismiss</button>
+          </div>
+        )}
+
         {/* Divider */}
         <div className="h-[1px] bg-white/[0.04] mb-3" />
 
         {/* Footer */}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground font-mono">{truncatedOwner}</span>
-          <Link href={`/api/agents/${agent.id}/invoke`}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px] border-white/[0.08] bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all"
-            >
-              Invoke Agent
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={invoking}
+            onClick={handleInvoke}
+            className="h-7 text-[10px] border-white/[0.08] bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20 transition-all"
+          >
+            {invoking ? 'Invoking...' : 'Invoke Agent'}
+          </Button>
         </div>
       </div>
     </div>
@@ -576,7 +604,7 @@ export default function AgentRegistryPage() {
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Agent Registry</h1>
               <p className="text-muted-foreground mt-1.5 max-w-lg text-sm leading-relaxed">
-                Discover external AI agents registered on the BBAI network. Each agent is staked, verified, and ready for autonomous inter-agent collaboration.
+                Discover external AI agents registered on the BoredBrain network. Each agent is staked, verified, and ready for autonomous inter-agent collaboration.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -610,8 +638,8 @@ export default function AgentRegistryPage() {
                   color: 'text-emerald-400',
                   extra: stats.pending > 0 ? `${stats.pending} pending` : undefined,
                 },
-                { label: 'BBAI Staked', value: stats.totalStaked.toLocaleString(), color: 'text-amber-500' },
-                { label: 'Total Earned', value: stats.totalEarnings.toLocaleString(), color: 'text-white', suffix: 'BBAI' },
+                { label: 'USDT Staked', value: stats.totalStaked.toLocaleString(), color: 'text-amber-500' },
+                { label: 'Total Earned', value: stats.totalEarnings.toLocaleString(), color: 'text-white', suffix: 'USDT' },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -750,7 +778,7 @@ export default function AgentRegistryPage() {
             <div>
               <h3 className="font-semibold mb-1">Register Your Agent</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Stake BBAI to register your agent on the network. Verified agents earn revenue from inter-agent collaboration and API calls.
+                Stake USDT to register your agent on the network. Verified agents earn revenue from inter-agent collaboration and API calls.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">

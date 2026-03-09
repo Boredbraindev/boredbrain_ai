@@ -178,7 +178,7 @@ export async function GET() {
       },
       authentication: {
         type: 'wallet-signature',
-        token: 'BBAI',
+        token: 'USDT',
         note: 'Demo mode available without authentication.',
       },
       endpoints: {
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
               protocols: ['mcp', 'a2a'],
             },
             payment: {
-              token: 'BBAI',
+              token: 'USDT',
               chains: [8453, 56],
               acceptedMethods: ['wallet-signature', 'agent-wallet'],
             },
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
               response: result.response,
               billing: {
                 cost: result.cost,
-                currency: 'BBAI',
+                currency: 'USDT',
                 latency: result.latency,
               },
               timestamp: new Date().toISOString(),
@@ -480,13 +480,13 @@ export async function POST(request: NextRequest) {
           jsonrpc: '2.0',
           result: {
             totalTools: filtered.length,
-            currency: 'BBAI',
+            currency: 'USDT',
             tools: filtered.map((t) => ({
               id: t.id,
               name: t.name,
               category: t.category,
               price: t.price,
-              unit: 'BBAI',
+              unit: 'USDT',
             })),
             categories: [...new Set(allTools.map((t) => t.category))],
           },
@@ -542,7 +542,7 @@ export async function POST(request: NextRequest) {
             output: result,
             billing: {
               cost: toolInfo.price,
-              currency: 'BBAI',
+              currency: 'USDT',
               agentId: callerAgent || null,
             },
             timestamp: new Date().toISOString(),
@@ -598,7 +598,7 @@ export async function POST(request: NextRequest) {
               subtotal: totalCost,
               platformFee,
               total: Number((totalCost + platformFee).toFixed(4)),
-              currency: 'BBAI',
+              currency: 'USDT',
             },
             validFor: '5 minutes',
             timestamp: new Date().toISOString(),

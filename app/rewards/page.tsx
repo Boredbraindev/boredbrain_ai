@@ -98,7 +98,7 @@ const MISSIONS_CONFIG: Mission[] = [
   },
   {
     id: 'stake-bbai',
-    title: 'Stake 100+ BBAI',
+    title: 'Stake 100+ USDT',
     description: 'Stake your tokens to earn additional rewards',
     reward: 150,
     progress: 0,
@@ -395,7 +395,7 @@ export default function RewardsPage() {
             <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-5 py-2.5">
               <CoinsIcon className="size-5 text-amber-400" />
               <span className="text-lg font-bold text-amber-400">
-                {state.balance.toLocaleString()} BBAI
+                {state.balance.toLocaleString()} USDT
               </span>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-5 py-2.5">
@@ -460,7 +460,7 @@ export default function RewardsPage() {
                             : 'text-zinc-400'
                       }`}
                     >
-                      {reward.amount} BBAI
+                      {reward.amount} USDT
                     </span>
 
                     {isClaimed && (
@@ -539,7 +539,7 @@ export default function RewardsPage() {
                                 : 'text-zinc-300'
                           }`}
                         >
-                          {reward.amount} BBAI
+                          {reward.amount} USDT
                         </span>
                         <span className="text-sm text-amber-400/80">
                           + {reward.special}
@@ -576,7 +576,7 @@ export default function RewardsPage() {
                 {canClaim ? (
                   <>
                     <GiftIcon className="size-5" />
-                    Claim {todayReward?.amount ?? 0} BBAI
+                    Claim {todayReward?.amount ?? 0} USDT
                   </>
                 ) : (
                   'Come Back Tomorrow!'
@@ -587,7 +587,7 @@ export default function RewardsPage() {
             {claimAnimation && (
               <div className="mt-3 text-center">
                 <span className="animate-bounce text-lg font-bold text-green-400">
-                  +{lastClaimedAmount} BBAI claimed!
+                  +{lastClaimedAmount} USDT claimed!
                 </span>
               </div>
             )}
@@ -603,7 +603,7 @@ export default function RewardsPage() {
                 <h3 className="font-semibold text-white">Monthly Streak Bonus</h3>
                 <p className="text-sm text-zinc-400">
                   Complete 4 weekly streaks for{' '}
-                  <span className="font-bold text-amber-400">5,000 BBAI</span>{' '}
+                  <span className="font-bold text-amber-400">5,000 USDT</span>{' '}
                   bonus
                 </p>
               </div>
@@ -643,7 +643,7 @@ export default function RewardsPage() {
             <h2 className="text-2xl font-bold text-white">Missions</h2>
           </div>
           <p className="mb-6 text-zinc-400">
-            Complete missions to earn bonus BBAI tokens
+            Complete missions to earn bonus USDT
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -672,7 +672,7 @@ export default function RewardsPage() {
                           : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
                       }
                     >
-                      {mission.reward} BBAI
+                      {mission.reward} USDT
                     </Badge>
                   </div>
 
@@ -761,7 +761,7 @@ export default function RewardsPage() {
                       </div>
                     </div>
                     <span className="font-bold text-green-400">
-                      +{entry.amount} BBAI
+                      +{entry.amount} USDT
                     </span>
                   </div>
                 ))}

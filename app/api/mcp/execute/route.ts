@@ -228,13 +228,13 @@ export async function POST(request: NextRequest) {
           content: [
             {
               type: 'text',
-              text: `Insufficient BBAI balance. Required: ${cost} BBAI, Available: ${wallet.balance} BBAI. Top up your agent wallet to continue.`,
+              text: `Insufficient USDT balance. Required: ${cost} USDT, Available: ${wallet.balance} USDT. Top up your agent wallet to continue.`,
             },
           ],
           isError: true,
           billing: {
             cost: 0,
-            unit: 'BBAI',
+            unit: 'USDT',
             error: 'insufficient_balance',
             required: cost,
             available: wallet.balance,
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
           isError: true,
           billing: {
             cost: 0,
-            unit: 'BBAI',
+            unit: 'USDT',
             error: 'payment_failed',
             remaining: deductResult.remaining,
           },
@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
         isError: false,
         billing: {
           cost,
-          unit: 'BBAI',
+          unit: 'USDT',
           txId: deductResult.txId,
           remaining: deductResult.remaining,
           agentId,
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
   // ---------------------------------------------------------------------------
   const resultText = generateMockResult(toolName, args);
   // In demo mode, truncate the result to indicate limited access
-  const demoText = `[DEMO MODE] ${resultText.slice(0, 200)}... (Full results require an agent wallet with BBAI tokens. Register at /api/agents or provide meta.agentId)`;
+  const demoText = `[DEMO MODE] ${resultText.slice(0, 200)}... (Full results require an agent wallet with USDT. Register at /api/agents or provide meta.agentId)`;
 
   return NextResponse.json(
     {
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
       isError: false,
       billing: {
         cost: 0,
-        unit: 'BBAI',
+        unit: 'USDT',
         mode: 'demo',
         note: 'Free demo mode - limited results. Provide meta.agentId for full access.',
       },
@@ -441,7 +441,7 @@ async function handleExternalMCPExecution(body: {
   }
 
   // ---------------------------------------------------------------------------
-  // Billing for external MCP calls (2 BBAI per call)
+  // Billing for external MCP calls (2 USDT per call)
   // ---------------------------------------------------------------------------
   const externalToolCost = 2;
 
@@ -457,13 +457,13 @@ async function handleExternalMCPExecution(body: {
           content: [
             {
               type: 'text',
-              text: `Insufficient BBAI balance for external MCP call. Required: ${externalToolCost} BBAI, Available: ${wallet.balance} BBAI.`,
+              text: `Insufficient USDT balance for external MCP call. Required: ${externalToolCost} USDT, Available: ${wallet.balance} USDT.`,
             },
           ],
           isError: true,
           billing: {
             cost: 0,
-            unit: 'BBAI',
+            unit: 'USDT',
             error: 'insufficient_balance',
             required: externalToolCost,
             available: wallet.balance,
@@ -491,7 +491,7 @@ async function handleExternalMCPExecution(body: {
           isError: true,
           billing: {
             cost: 0,
-            unit: 'BBAI',
+            unit: 'USDT',
             error: 'payment_failed',
             remaining: deductResult.remaining,
           },
@@ -536,12 +536,12 @@ async function handleExternalMCPExecution(body: {
         billing: agentId
           ? {
               cost: externalToolCost,
-              unit: 'BBAI',
+              unit: 'USDT',
               agentId,
             }
           : {
               cost: 0,
-              unit: 'BBAI',
+              unit: 'USDT',
               mode: 'demo',
             },
         _meta: {

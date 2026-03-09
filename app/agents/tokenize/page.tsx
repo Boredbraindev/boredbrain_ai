@@ -184,10 +184,10 @@ function TokenCard({
         <div className="mb-4">
           <div className="text-2xl font-bold tracking-tight">
             {token.price.toFixed(4)}
-            <span className="text-xs text-muted-foreground ml-1.5">BBAI</span>
+            <span className="text-xs text-muted-foreground ml-1.5">USDT</span>
           </div>
           <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-            MCap: {formatNumber(token.marketCap)} BBAI
+            MCap: {formatNumber(token.marketCap)} USDT
           </div>
         </div>
 
@@ -206,11 +206,11 @@ function TokenCard({
           </div>
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
             <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Volume</p>
-            <p className="text-xs font-semibold">{formatNumber(token.totalVolume)} <span className="text-muted-foreground">BBAI</span></p>
+            <p className="text-xs font-semibold">{formatNumber(token.totalVolume)} <span className="text-muted-foreground">USDT</span></p>
           </div>
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
             <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Buyback</p>
-            <p className="text-xs font-semibold text-emerald-400">{formatNumber(token.buybackPool)} <span className="text-muted-foreground">BBAI</span></p>
+            <p className="text-xs font-semibold text-emerald-400">{formatNumber(token.buybackPool)} <span className="text-muted-foreground">USDT</span></p>
           </div>
         </div>
 
@@ -427,8 +427,8 @@ export default function AgentTokenizePage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             {[
               { label: 'Active Tokens', value: stats.count.toString(), color: 'text-white' },
-              { label: 'Total MCap', value: formatNumber(stats.totalMcap), suffix: 'BBAI', color: 'text-amber-500' },
-              { label: 'Total Volume', value: formatNumber(stats.totalVol), suffix: 'BBAI', color: 'text-white' },
+              { label: 'Total MCap', value: formatNumber(stats.totalMcap), suffix: 'USDT', color: 'text-amber-500' },
+              { label: 'Total Volume', value: formatNumber(stats.totalVol), suffix: 'USDT', color: 'text-white' },
               { label: 'Total Holders', value: stats.totalHolders.toLocaleString(), color: 'text-emerald-400' },
             ].map((stat) => (
               <div
@@ -508,7 +508,7 @@ export default function AgentTokenizePage() {
                       Processing...
                     </span>
                   ) : (
-                    'Tokenize (500 BBAI)'
+                    'Tokenize (500 USDT)'
                   )}
                 </Button>
               </div>
@@ -585,7 +585,7 @@ export default function AgentTokenizePage() {
                   <span className="text-amber-500">${tradeToken.tokenSymbol}</span>
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  Current price: {tradeToken.price.toFixed(4)} BBAI per token
+                  Current price: {tradeToken.price.toFixed(4)} USDT per token
                 </DialogDescription>
               </DialogHeader>
 
@@ -634,7 +634,7 @@ export default function AgentTokenizePage() {
                   <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Estimated {tradeType === 'buy' ? 'cost' : 'proceeds'}</span>
-                      <span className="font-bold">{estimatedCost.toFixed(4)} BBAI</span>
+                      <span className="font-bold">{estimatedCost.toFixed(4)} USDT</span>
                     </div>
                     <div className="flex items-center justify-between text-xs mt-1.5">
                       <span className="text-muted-foreground">Bonding curve impact</span>

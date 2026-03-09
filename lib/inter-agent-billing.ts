@@ -1,7 +1,7 @@
 /**
  * Inter-Agent Billing System
  *
- * Handles automatic BBAI settlement when Agent A calls Agent B.
+ * Handles automatic USDT settlement when Agent A calls Agent B.
  * Revenue is split 85% to the provider agent and 15% platform fee.
  * All data is persisted via Drizzle ORM (PostgreSQL).
  */

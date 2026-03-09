@@ -161,12 +161,16 @@ function PlaybookCard({
   buying: boolean;
   onBuy: (id: string, price: number) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const matchStyle = playbook.matchType
     ? MATCH_TYPE_STYLES[playbook.matchType] || { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' }
     : null;
 
   return (
-    <div className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/[0.03] hover:scale-[1.01]">
+    <div
+      className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/[0.03] hover:scale-[1.01] cursor-pointer"
+      onClick={() => setExpanded(!expanded)}
+    >
       {/* Featured indicator */}
       {playbook.featured && (
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
@@ -187,18 +191,23 @@ function PlaybookCard({
               )}
             </div>
           </div>
-          {playbook.featured && (
-            <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-mono tracking-widest uppercase text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-              FEATURED
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {playbook.featured && (
+              <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-mono tracking-widest uppercase text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                FEATURED
+              </span>
+            )}
+            <svg className={`w-4 h-4 text-white/30 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
         </div>
 
         {/* Description */}
-        <p className="text-xs text-muted-foreground mb-5 line-clamp-2 leading-relaxed">
+        <p className={`text-xs text-muted-foreground mb-5 leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
           {playbook.description || 'A winning arena strategy ready to deploy.'}
         </p>
 
@@ -220,14 +229,36 @@ function PlaybookCard({
           </div>
         </div>
 
+        {/* Expanded details */}
+        {expanded && (
+          <div className="mb-5 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Match Type</span>
+              <span className="font-medium">{playbook.matchType ? playbook.matchType.replace('_', ' ') : 'Any'}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Win Rate</span>
+              <span className="font-medium text-emerald-400">{Math.round(playbook.winRate * 100)}%</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Total Sales</span>
+              <span className="font-medium">{playbook.totalSales.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Created</span>
+              <span className="font-medium">{new Date(playbook.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+          </div>
+        )}
+
         {/* Price + Buy */}
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <span className="text-lg font-bold text-white">{playbook.price}</span>
-            <span className="text-xs text-muted-foreground ml-1">BBAI</span>
+            <span className="text-xs text-muted-foreground ml-1">USDT</span>
           </div>
           <button
-            onClick={() => onBuy(playbook.id, playbook.price)}
+            onClick={(e) => { e.stopPropagation(); onBuy(playbook.id, playbook.price); }}
             disabled={buying}
             className="flex-1 py-2.5 rounded-lg bg-amber-500/15 border border-amber-500/25 text-amber-500 text-xs font-semibold hover:bg-amber-500/25 hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -379,7 +410,7 @@ export default function PlaybooksPage() {
               { label: 'Total Playbooks', value: stats.count.toString(), color: 'text-white' },
               { label: 'Avg Win Rate', value: `${(stats.avgWinRate * 100).toFixed(0)}%`, color: 'text-emerald-400' },
               { label: 'Total Sales', value: stats.totalSales.toLocaleString(), color: 'text-white' },
-              { label: 'Total Revenue', value: `${stats.totalRevenue.toLocaleString()}`, suffix: 'BBAI', color: 'text-amber-500' },
+              { label: 'Total Revenue', value: `${stats.totalRevenue.toLocaleString()}`, suffix: 'USDT', color: 'text-amber-500' },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -491,7 +522,7 @@ export default function PlaybooksPage() {
             <div>
               <h3 className="font-semibold mb-1">Create Your Own Playbook</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Win arena matches and sell your winning strategies. Earn BBAI every time someone purchases your playbook.
+                Win arena matches and sell your winning strategies. Earn USDT every time someone purchases your playbook.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -520,7 +551,7 @@ export default function PlaybooksPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet</h3>
-            <p className="text-sm text-white/40 mb-6">Connect your wallet with BBAI tokens to purchase playbooks.</p>
+            <p className="text-sm text-white/40 mb-6">Connect your wallet with USDT to purchase playbooks.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setPurchasePrompt(false)}

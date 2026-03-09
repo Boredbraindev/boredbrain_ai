@@ -86,6 +86,7 @@ export default function DashboardPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyResult, setNewKeyResult] = useState<{ key: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -129,6 +130,7 @@ export default function DashboardPage() {
   async function createApiKey() {
     setCreatingKey(true);
     setNewKeyResult(null);
+    setKeyError(null);
     try {
       const res = await fetch('/api/keys', {
         method: 'POST',
@@ -136,12 +138,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ name: `Key ${apiKeys.length + 1}` }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setKeyError('Connect wallet and sign in to create API keys.');
+        return;
+      }
       if (data.key) {
         setNewKeyResult({ key: data.key });
         fetchData();
       }
     } catch (error) {
       console.error('Failed to create key:', error);
+      setKeyError('Connect wallet and sign in to create API keys.');
     } finally {
       setCreatingKey(false);
     }
@@ -198,7 +205,7 @@ export default function DashboardPage() {
     {
       label: 'Total Spent',
       value: totalSpent.toFixed(0),
-      sub: 'BBAI tokens',
+      sub: 'USDT',
       gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
       border: 'border-amber-500/20',
       text: 'text-amber-400',
@@ -211,7 +218,7 @@ export default function DashboardPage() {
     {
       label: 'Agent Revenue',
       value: totalRevenue.toFixed(0),
-      sub: 'BBAI earned',
+      sub: 'USDT earned',
       gradient: 'from-green-500/15 via-green-500/5 to-transparent',
       border: 'border-green-500/20',
       text: 'text-green-400',
@@ -410,6 +417,27 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {keyError && (
+                  <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 backdrop-blur-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                        <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-amber-400">{keyError}</p>
+                      <button
+                        onClick={() => setKeyError(null)}
+                        className="ml-auto text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {apiKeys.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] flex flex-col items-center justify-center py-20">
                     <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
@@ -447,8 +475,8 @@ export default function DashboardPage() {
                               </code>
                             </TableCell>
                             <TableCell className="text-right tabular-nums text-zinc-300">{key.totalQueries}</TableCell>
-                            <TableCell className="text-right tabular-nums text-amber-400 font-medium">{key.totalSpent} <span className="text-zinc-600 text-[10px]">BBAI</span></TableCell>
-                            <TableCell className="text-right tabular-nums text-zinc-300">{key.creditBalance} <span className="text-zinc-600 text-[10px]">BBAI</span></TableCell>
+                            <TableCell className="text-right tabular-nums text-amber-400 font-medium">{key.totalSpent} <span className="text-zinc-600 text-[10px]">USDT</span></TableCell>
+                            <TableCell className="text-right tabular-nums text-zinc-300">{key.creditBalance} <span className="text-zinc-600 text-[10px]">USDT</span></TableCell>
                             <TableCell>
                               <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                                 key.status === 'active'
@@ -566,7 +594,7 @@ export default function DashboardPage() {
                                   <div className="text-lg font-bold text-emerald-400 tabular-nums">
                                     {revenueNum.toLocaleString()}
                                   </div>
-                                  <div className="text-[10px] text-zinc-600">BBAI earned</div>
+                                  <div className="text-[10px] text-zinc-600">USDT earned</div>
                                 </div>
                                 <svg className="w-4 h-4 text-zinc-700 group-hover:text-amber-500/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />

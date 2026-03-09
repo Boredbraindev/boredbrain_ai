@@ -765,7 +765,7 @@ export default function NetworkPage() {
             </div>
             <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] px-3 py-2">
               <span className="text-xs text-muted-foreground">
-                <span className="text-sm font-semibold text-amber-500">{stats.totalVolume.toFixed(1)}</span> BBAI
+                <span className="text-sm font-semibold text-amber-500">{stats.totalVolume.toFixed(1)}</span> USDT
               </span>
             </div>
           </div>
@@ -777,7 +777,7 @@ export default function NetworkPage() {
             { label: 'Total Nodes', value: stats.totalNodes.toString(), color: 'text-white' },
             { label: 'Online', value: stats.onlineNodes.toString(), color: 'text-emerald-400' },
             { label: 'Avg Latency', value: `${stats.avgLatency}ms`, color: 'text-white' },
-            { label: 'Total Volume', value: `${stats.totalVolume.toFixed(1)}`, suffix: 'BBAI', color: 'text-amber-500' },
+            { label: 'Total Volume', value: `${stats.totalVolume.toFixed(1)}`, suffix: 'USDT', color: 'text-amber-500' },
             { label: 'Avg Trust', value: `${avgTrust}`, suffix: '/100', color: 'text-white' },
           ].map((stat) => (
             <div
