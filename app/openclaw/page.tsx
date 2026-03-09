@@ -123,13 +123,15 @@ export default function OpenClawPage() {
           <div className="flex justify-center mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
-              <Image
-                src="/footer-logo.png"
-                alt="BoredBrain AI"
-                width={80}
-                height={80}
-                className="relative opacity-90 invert dark:invert-0 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-              />
+              <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-amber-500/30 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                <Image
+                  src="/ape-avatar.png"
+                  alt="BoredBrain AI"
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           </div>
           <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 text-xs text-amber-400 font-medium">
@@ -231,13 +233,13 @@ export default function OpenClawPage() {
           <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 space-y-5">
             {/* DID Status */}
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20 flex-shrink-0 overflow-hidden">
                 <Image
-                  src="/footer-logo.png"
-                  alt="BoredBrain"
-                  width={36}
-                  height={36}
-                  className="opacity-80 invert dark:invert-0"
+                  src="/ape-avatar.png"
+                  alt="BoredBrain AI"
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-cover"
                 />
               </div>
               <div className="flex-1 min-w-0">
