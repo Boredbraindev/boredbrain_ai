@@ -41,7 +41,10 @@ export async function POST(request: NextRequest) {
     return apiError('QSTASH_TOKEN not configured', 500);
   }
 
-  const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
+  const qstash = new Client({
+    token: serverEnv.QSTASH_TOKEN,
+    baseUrl: process.env.QSTASH_URL || 'https://qstash.upstash.io',
+  });
 
   try {
     // Parse optional cron expression from body
@@ -81,7 +84,10 @@ export async function GET(request: NextRequest) {
     return apiError('QSTASH_TOKEN not configured', 500);
   }
 
-  const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
+  const qstash = new Client({
+    token: serverEnv.QSTASH_TOKEN,
+    baseUrl: process.env.QSTASH_URL || 'https://qstash.upstash.io',
+  });
 
   try {
     const schedules = await qstash.schedules.list();
@@ -114,7 +120,10 @@ export async function DELETE(request: NextRequest) {
     return apiError('QSTASH_TOKEN not configured', 500);
   }
 
-  const qstash = new Client({ token: serverEnv.QSTASH_TOKEN });
+  const qstash = new Client({
+    token: serverEnv.QSTASH_TOKEN,
+    baseUrl: process.env.QSTASH_URL || 'https://qstash.upstash.io',
+  });
 
   try {
     const schedules = await qstash.schedules.list();
