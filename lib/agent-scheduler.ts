@@ -7,7 +7,7 @@
 
 import { db } from '@/lib/db';
 import { externalAgent } from '@/lib/db/schema';
-import { getAgentWallet } from '@/lib/agent-wallet';
+import { getAgentWallet, createAgentWallet } from '@/lib/agent-wallet';
 import { eq, sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
@@ -447,15 +447,21 @@ export async function generateScenarios(count: number): Promise<AgentScenario[]>
     .select()
     .from(externalAgent)
     .where(
-      sql`${externalAgent.status} IN ('active', 'verified')`,
+      sql`${externalAgent.status} IN ('active', 'verified', 'online')`,
     );
 
   if (agents.length < 2) return [];
 
-  // Filter agents whose wallet balance > 20
+  // Sample a random subset to avoid querying all 190 wallets (Vercel 10s timeout)
+  const shuffled = agents.sort(() => Math.random() - 0.5).slice(0, 30);
+
+  // Filter agents whose wallet balance > 20 (create wallet if missing)
   const eligible: typeof agents = [];
-  for (const agent of agents) {
-    const wallet = await getAgentWallet(agent.id);
+  for (const agent of shuffled) {
+    let wallet = await getAgentWallet(agent.id);
+    if (!wallet) {
+      wallet = await createAgentWallet(agent.id);
+    }
     if (wallet && wallet.balance > 20) {
       eligible.push(agent);
     }
@@ -524,7 +530,7 @@ export async function getRebalanceCandidates(): Promise<
     .select()
     .from(externalAgent)
     .where(
-      sql`${externalAgent.status} IN ('active', 'verified')`,
+      sql`${externalAgent.status} IN ('active', 'verified', 'online')`,
     );
 
   const candidates: Array<{ agentId: string; name: string; balance: number }> = [];
