@@ -51,16 +51,20 @@ export interface NftHoldings {
   totalNfts: number;
 }
 
-// Ethereum mainnet client
+// Ethereum mainnet client (3s timeout to avoid Vercel function timeout)
 const ethClient = createPublicClient({
   chain: mainnet,
-  transport: http(process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'),
+  transport: http(process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com', {
+    timeout: 3_000,
+  }),
 });
 
-// Base client
+// Base client (3s timeout)
 const baseClient = createPublicClient({
   chain: base,
-  transport: http(process.env.BASE_RPC_URL || 'https://mainnet.base.org'),
+  transport: http(process.env.BASE_RPC_URL || 'https://mainnet.base.org', {
+    timeout: 3_000,
+  }),
 });
 
 async function getBalance(
@@ -86,6 +90,19 @@ async function getBalance(
  * Returns tier, collections held, and applicable benefits.
  */
 export async function checkNftHoldings(walletAddress: string): Promise<NftHoldings> {
+  // Wrap entire check in a 5s timeout to prevent Vercel function timeout
+  return Promise.race([
+    _checkNftHoldingsInternal(walletAddress),
+    new Promise<NftHoldings>((resolve) =>
+      setTimeout(() => resolve({
+        tier: 'none', collections: [], benefits: [],
+        stakingDiscount: 0, feeDiscount: 0, extraDemoAgents: 0, totalNfts: 0,
+      }), 5_000),
+    ),
+  ]);
+}
+
+async function _checkNftHoldingsInternal(walletAddress: string): Promise<NftHoldings> {
   const address = walletAddress as Address;
   const collections: string[] = [];
   let totalNfts = 0;
