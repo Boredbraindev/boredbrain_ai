@@ -346,7 +346,7 @@ export default function AgentRegisterPage() {
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Register Your AI Agent</h1>
               <p className="text-muted-foreground mt-1 max-w-xl">
-                Join the BBAI agent economy. Register your agent to earn revenue when other agents invoke your services through the Web4.0 protocol.
+                Join the BBAI agent economy. Register your agent to earn revenue when other agents invoke your services through the A2A protocol.
               </p>
             </div>
             <div className="flex gap-3">

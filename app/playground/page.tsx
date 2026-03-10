@@ -523,7 +523,7 @@ export default function PlaygroundPage() {
               </div>
             </div>
             <p className="font-mono tracking-widest text-[10px] text-amber-500/60 uppercase mb-3">
-              Web 4.0 Multi-Provider AI Orchestration
+              Multi-Provider AI Agent Orchestration
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
               <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-orange-500 bg-clip-text text-transparent">

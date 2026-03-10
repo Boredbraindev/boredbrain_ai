@@ -93,17 +93,6 @@ export default function DashboardPage() {
   }, []);
 
   async function fetchData() {
-    const SHOWCASE_KEYS: ApiKeyInfo[] = [
-      { id: 'key-1', name: 'Production API', keyPreview: 'bb_sk_prod_****7f2a', permissions: ['read', 'write', 'execute'], rateLimit: 1000, totalQueries: 24580, totalSpent: '4916', creditBalance: '15084', status: 'active', createdAt: '2025-11-01T00:00:00Z', lastUsedAt: '2026-03-08T11:45:00Z' },
-      { id: 'key-2', name: 'Research Bot', keyPreview: 'bb_sk_res_****3e1b', permissions: ['read', 'execute'], rateLimit: 500, totalQueries: 12340, totalSpent: '2468', creditBalance: '7532', status: 'active', createdAt: '2025-12-15T00:00:00Z', lastUsedAt: '2026-03-08T10:30:00Z' },
-      { id: 'key-3', name: 'Trading Signal', keyPreview: 'bb_sk_trd_****9d4c', permissions: ['read', 'write', 'execute'], rateLimit: 2000, totalQueries: 45120, totalSpent: '13536', creditBalance: '6464', status: 'active', createdAt: '2025-10-20T00:00:00Z', lastUsedAt: '2026-03-08T12:00:00Z' },
-    ];
-    const SHOWCASE_AGENTS: AgentInfo[] = [
-      { id: 'agent-defi-oracle', name: 'DeFi Oracle', tools: ['coin_data', 'wallet_analyzer', 'web_search'], totalExecutions: 14520, totalRevenue: '87120', rating: 4.9, status: 'active' },
-      { id: 'agent-market-sentinel', name: 'Market Sentinel', tools: ['stock_chart', 'coin_data', 'coin_ohlc'], totalExecutions: 12800, totalRevenue: '76800', rating: 4.85, status: 'active' },
-      { id: 'agent-alpha-researcher', name: 'Alpha Researcher', tools: ['web_search', 'x_search', 'coin_data'], totalExecutions: 11300, totalRevenue: '67800', rating: 4.8, status: 'active' },
-      { id: 'agent-code-wizard', name: 'Code Wizard', tools: ['code_interpreter', 'web_search'], totalExecutions: 8500, totalRevenue: '51000', rating: 4.9, status: 'active' },
-    ];
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
@@ -114,14 +103,12 @@ export default function DashboardPage() {
       clearTimeout(timer);
       const keysData = await keysRes.json();
       const agentsData = await agentsRes.json();
-      const apiKeys = keysData.keys || [];
-      const apiAgents = agentsData.agents || [];
-      setApiKeys(apiKeys.length > 0 ? apiKeys : SHOWCASE_KEYS);
-      setAgents(apiAgents.length > 0 ? apiAgents : SHOWCASE_AGENTS);
+      setApiKeys(keysData.keys || []);
+      setAgents(agentsData.agents || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      setApiKeys(SHOWCASE_KEYS);
-      setAgents(SHOWCASE_AGENTS);
+      setApiKeys([]);
+      setAgents([]);
     } finally {
       setLoading(false);
     }
@@ -250,13 +237,15 @@ export default function DashboardPage() {
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-amber-500/[0.04] rounded-full blur-[120px]" />
       </div>
 
-      {/* Demo Mode Banner */}
-      <div className="relative border-b border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.04] to-amber-500/[0.08]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-xs text-amber-400/80 font-medium">Demo Mode &mdash; Connect wallet to see your real data</span>
+      {/* Demo Mode Banner — only shown when no real data */}
+      {apiKeys.length === 0 && agents.length === 0 && !loading && (
+        <div className="relative border-b border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.04] to-amber-500/[0.08]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs text-amber-400/80 font-medium">Demo Mode &mdash; Connect wallet to see your real data</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Header */}
       <div className="relative border-b border-white/[0.06] bg-gradient-to-b from-amber-500/[0.03] via-transparent to-transparent">
@@ -284,6 +273,11 @@ export default function DashboardPage() {
               <Link href="/dashboard/revenue">
                 <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:text-white hover:bg-white/[0.05] hover:border-white/[0.12]">
                   Revenue
+                </Button>
+              </Link>
+              <Link href="/fleet">
+                <Button variant="outline" size="sm" className="border-amber-500/20 bg-amber-500/5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 hover:border-amber-500/30">
+                  Fleet Dashboard
                 </Button>
               </Link>
               <Link href="/agents/create">

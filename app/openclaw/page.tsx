@@ -60,6 +60,8 @@ interface DiscoveryAgent {
   status: 'online' | 'offline';
   rating?: number;
   totalCalls?: number;
+  bscAddress?: string;
+  chainId?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,7 +348,44 @@ export default function OpenClawPage() {
           ))}
         </section>
 
-        {/* Admin buttons hidden — use /api/agents/seed (POST) and /api/agents/boost (POST) directly */}
+        {/* On-Chain Fleet Status */}
+        {agents.some((a) => a.bscAddress) && (
+          <section className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 border border-amber-500/10 rounded-2xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div>
+                  <h3 className="text-sm font-semibold text-white/90">BSC Testnet Fleet</h3>
+                  <p className="text-[11px] text-white/30 font-mono">Chain ID: 97</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6 text-xs text-white/40">
+                <div>
+                  <span className="text-white/80 font-semibold">{agents.filter(a => a.bscAddress).length}</span>
+                  <span className="ml-1">wallets mapped</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-medium">
+                    HYBRID
+                  </span>
+                  <span>settlement ready</span>
+                </div>
+                <Link
+                  href="/fleet"
+                  className="text-amber-400/70 hover:text-amber-400 transition-colors underline underline-offset-2"
+                >
+                  Fleet Dashboard
+                </Link>
+                <Link
+                  href="/onchain"
+                  className="text-white/40 hover:text-white/60 transition-colors underline underline-offset-2"
+                >
+                  On-Chain
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* --------------------------------------------------------------- */}
         {/* Category Filter                                                  */}
@@ -460,6 +499,22 @@ export default function OpenClawPage() {
                         <span>{agent.totalCalls.toLocaleString()} calls</span>
                       )}
                     </div>
+                    {agent.bscAddress && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400/60 border border-amber-500/15 font-mono">
+                          BSC
+                        </span>
+                        <a
+                          href={`https://testnet.bscscan.com/address/${agent.bscAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[9px] font-mono text-white/20 hover:text-amber-400/60 transition-colors truncate"
+                        >
+                          {agent.bscAddress.slice(0, 6)}...{agent.bscAddress.slice(-4)}
+                        </a>
+                      </div>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-1">
                       {agent.tools.slice(0, 3).map((tool) => (
                         <span

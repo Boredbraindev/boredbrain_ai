@@ -344,7 +344,7 @@ export async function POST(
     agentId: agentRecord.id,
     agentName: agentRecord.name,
     response: execution.content,
-    toolsUsed: toolsToRun,
+    toolsUsed: (execution.toolCalls ?? []).map(tc => tc.tool),
     cost: totalCost,
     costUnit: 'BBAI',
     llmModel: execution.model,

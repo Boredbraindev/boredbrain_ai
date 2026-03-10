@@ -191,3 +191,8 @@ Bored Brain AI - BAYC-First Trading Intelligence_files/
 boredbrain-dd-form.html
 paperclip-integration-proposal.md
 docs/internal/
+UPGRADE_PLAN.md
+
+# Duplicate / temp files
+contracts/contracts/
+public/unnamed*

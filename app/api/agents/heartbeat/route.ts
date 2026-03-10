@@ -21,6 +21,7 @@ import { settleBilling } from '@/lib/inter-agent-billing';
 import { createAgentWallet, getAgentWallet } from '@/lib/agent-wallet';
 import { topUpWallet } from '@/lib/agent-wallet';
 import { apiSuccess } from '@/lib/api-utils';
+import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -165,6 +166,80 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown rebalance error';
       errors.push(`Rebalance phase: ${msg}`);
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Generate prediction betting activity
+    // ------------------------------------------------------------------
+    let predictBetsGenerated = 0;
+    try {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'https://boredbrain.app';
+      const predictRes = await fetch(`${baseUrl}/api/predict/feed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(serverEnv.CRON_SECRET ? { Authorization: `Bearer ${serverEnv.CRON_SECRET}` } : {}),
+        },
+        body: JSON.stringify({ count: Math.floor(Math.random() * 5) + 3 }),
+      });
+      if (predictRes.ok) {
+        const data = await predictRes.json();
+        predictBetsGenerated = data.generated ?? 0;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Predict feed error';
+      errors.push(`Predict feed: ${msg}`);
+    }
+    // ------------------------------------------------------------------
+    // 5. Settle prediction round on-chain (BSC Testnet)
+    // ------------------------------------------------------------------
+    let settlementTxHash: string | null = null;
+    try {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'https://boredbrain.app';
+
+      // Create a round to settle based on current 5-min window
+      const roundId = Math.floor(Date.now() / 300000);
+      const assets = ['BTC', 'ETH', 'SOL'];
+      const asset = assets[roundId % 3];
+      const basePrices: Record<string, number> = { BTC: 65000, ETH: 3400, SOL: 145 };
+      const base = basePrices[asset];
+      const startPrice = base + (Math.random() - 0.5) * base * 0.02;
+      const endPrice = startPrice + (Math.random() - 0.5) * base * 0.01;
+      const outcome = endPrice > startPrice ? 'UP' : 'DOWN';
+
+      // Pick a fleet agent BSC address as the settler (rotate through first 50 fleet wallets)
+      const settlerIndex = roundId % 50;
+      const settlerBscAddress = getFleetBscAddressCached(settlerIndex);
+
+      const settleRes = await fetch(`${baseUrl}/api/predict/settlement`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(serverEnv.CRON_SECRET ? { Authorization: `Bearer ${serverEnv.CRON_SECRET}` } : {}),
+        },
+        body: JSON.stringify({
+          roundId,
+          asset,
+          startPrice: Math.round(startPrice * 100) / 100,
+          endPrice: Math.round(endPrice * 100) / 100,
+          outcome,
+          upPool: Math.floor(Math.random() * 3000) + 500,
+          downPool: Math.floor(Math.random() * 3000) + 500,
+          totalBets: Math.floor(Math.random() * 20) + 5,
+          settlerAddress: settlerBscAddress,
+        }),
+      });
+      if (settleRes.ok) {
+        const data = await settleRes.json();
+        settlementTxHash = data.txHash ?? null;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Settlement error';
+      errors.push(`Settlement: ${msg}`);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown heartbeat error';

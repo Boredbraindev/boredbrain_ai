@@ -2,8 +2,8 @@
  * Agent Execution Engine
  *
  * Core engine that routes agent prompts to real LLM providers (OpenAI, Anthropic,
- * xAI/Grok, Google Gemini) with automatic provider selection and graceful fallback
- * to simulated responses when no API keys are configured.
+ * xAI/Grok, Google Gemini) with automatic provider selection.
+ * Returns an error response when no API keys are configured (no simulation).
  *
  * Uses raw fetch() for all API calls -- no SDK imports needed.
  */
@@ -393,32 +393,15 @@ async function callGoogle(
 }
 
 // ---------------------------------------------------------------------------
-// Simulated response fallback
+// Error response when LLM is unavailable
 // ---------------------------------------------------------------------------
 
-function generateSimulatedResponse(agent: AgentConfig, prompt: string): AgentResponse {
-  const toolsList = agent.tools?.length
-    ? agent.tools.join(', ')
-    : 'general knowledge';
-
+function generateLLMUnavailableResponse(agent: AgentConfig, reason: string): AgentResponse {
   return {
-    content: [
-      `[Simulated Response from ${agent.name}]`,
-      '',
-      `Based on your query: "${prompt.slice(0, 200)}${prompt.length > 200 ? '...' : ''}"`,
-      '',
-      `As ${agent.name}, I would analyze this using my available tools (${toolsList}) to provide comprehensive insights.`,
-      '',
-      `Key observations:`,
-      `1. The query relates to ${agent.description || 'general analysis'}.`,
-      `2. A full response would integrate data from ${agent.tools?.length ?? 0} specialized tool(s).`,
-      `3. This is a simulated response because no LLM API keys are configured.`,
-      '',
-      `To enable real AI responses, configure at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY in your environment.`,
-    ].join('\n'),
-    model: 'simulated',
+    content: `[Agent ${agent.name}] LLM unavailable: ${reason}. Configure OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY.`,
+    model: 'none',
     tokensUsed: 0,
-    simulated: true,
+    simulated: false,
   };
 }
 
@@ -552,9 +535,9 @@ export async function executeAgent(
   // Select provider
   const provider = selectProvider(agent.preferredProvider, agent.preferredModel);
 
-  // No API key available: return simulated response
+  // No API key available: return error (no silent simulation)
   if (!provider) {
-    return generateSimulatedResponse(agent, prompt);
+    return generateLLMUnavailableResponse(agent, 'No LLM API keys configured');
   }
 
   // Build system prompt
@@ -801,13 +784,11 @@ export async function executeAgent(
   } catch (error) {
     console.error(`[agent-executor] LLM call failed for ${agent.name}:`, error);
 
-    // Graceful fallback to simulated response on error
-    const simulated = generateSimulatedResponse(agent, prompt);
-    simulated.content =
-      `[LLM Error — falling back to simulated response]\n` +
-      `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
-      simulated.content;
-    return simulated;
+    // Return error — no silent simulation
+    return generateLLMUnavailableResponse(
+      agent,
+      error instanceof Error ? error.message : 'LLM call failed',
+    );
   }
 }
 

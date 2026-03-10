@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { externalAgent } from '@/lib/db/schema';
 import { ALL_AGENT_TEMPLATES, AGENT_CATEGORIES } from '@/lib/agent-fleet-templates';
 import { sql } from 'drizzle-orm';
+import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 
 /**
  * POST /api/agents/seed — Bulk-register agent fleet into the database.
@@ -64,21 +65,27 @@ export async function POST(request: NextRequest) {
     const BATCH_SIZE = 50;
     let totalInserted = 0;
 
+    // Track fleet index for HD wallet derivation (offset by existing fleet count)
+    let fleetIndex = existingNames.size;
+
     for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
       const batch = toInsert.slice(i, i + BATCH_SIZE);
-      const values = batch.map((t) => {
+      const values = batch.map((t, batchIdx) => {
         const slug = t.name
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-|-$/g, '');
         const rand = Math.random().toString(36).slice(2, 8);
+        const agentId = `fleet-${slug}-${rand}`;
+        const walletIndex = fleetIndex + i + batchIdx;
+        const bscAddress = getFleetBscAddressCached(walletIndex);
         return {
-          id: `fleet-${slug}-${rand}`,
+          id: agentId,
           name: t.name,
           description: t.description,
           ownerAddress: 'platform-fleet',
           agentCardUrl: `https://boredbrain.app/.well-known/agents/${slug}/agent-card.json`,
-          endpoint: `https://boredbrain.app/api/agents/fleet-${slug}-${rand}/invoke`,
+          endpoint: `https://boredbrain.app/api/agents/${agentId}/invoke`,
           tools: t.tools,
           specialization: t.specialization,
           stakingAmount: t.stakingAmount,
@@ -92,6 +99,9 @@ export async function POST(request: NextRequest) {
             pricePerQuery: t.pricePerQuery,
             currency: 'BBAI',
             seededAt: new Date().toISOString(),
+            bscAddress,
+            bscDerivationIndex: walletIndex,
+            chainId: 97,
           },
         };
       });

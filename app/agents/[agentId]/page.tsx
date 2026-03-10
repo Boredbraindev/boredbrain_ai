@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface Agent {
   id: string;
@@ -51,46 +49,6 @@ function getGradient(name: string): [string, string] {
   return gradients[hashStr(name) % gradients.length];
 }
 
-// Generate deterministic weekly chart data from agent name
-function getWeeklyData(name: string): number[] {
-  const h = hashStr(name);
-  return Array.from({ length: 7 }, (_, i) => {
-    const seed = hashStr(name + i.toString() + 'day');
-    return 20 + (seed % 80);
-  });
-}
-
-// Generate deterministic mock reviews from agent ID
-function getMockReviews(agentId: string) {
-  const reviewers = [
-    { name: 'Alex K.', avatar: 'AK' },
-    { name: 'Sarah M.', avatar: 'SM' },
-    { name: 'David L.', avatar: 'DL' },
-    { name: 'Jenny W.', avatar: 'JW' },
-  ];
-  const comments = [
-    'Incredibly fast and accurate. This agent saved me hours of manual work. The response quality is consistently high across different query types.',
-    'Great value for the price. I\'ve been using this agent daily for the past month and it handles complex queries with ease. Highly recommended.',
-    'Solid performance overall. The tool integration is seamless and results are reliable. Would love to see even more capabilities added.',
-    'One of the best agents on the platform. The accuracy is impressive and the response time is blazing fast. Worth every BBAI.',
-  ];
-  const ratings = [5, 4.5, 4, 5];
-  const daysAgo = [2, 5, 12, 21];
-
-  return reviewers.map((r, i) => ({
-    ...r,
-    comment: comments[(hashStr(agentId) + i) % comments.length],
-    rating: ratings[(hashStr(agentId) + i) % ratings.length],
-    daysAgo: daysAgo[i],
-  }));
-}
-
-// Similar agents mock data
-const similarAgents = [
-  { id: 'similar-1', name: 'DataForge AI', description: 'Advanced data analysis and visualization agent', price: '2.5', rating: 4.7, executions: 8420 },
-  { id: 'similar-2', name: 'CodePilot Pro', description: 'Expert code review and generation assistant', price: '3.0', rating: 4.9, executions: 12350 },
-  { id: 'similar-3', name: 'MarketSense', description: 'Real-time market analysis and trading signals', price: '5.0', rating: 4.5, executions: 6780 },
-];
 
 // Star rating component
 function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'lg' }) {
@@ -230,10 +188,6 @@ export default function AgentDetailPage() {
   }
 
   const [gradA, gradB] = getGradient(agent.name);
-  const weeklyData = getWeeklyData(agent.name);
-  const maxData = Math.max(...weeklyData);
-  const reviews = getMockReviews(agentId);
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const chainName = agent.chainId === 8453 ? 'Base' : agent.chainId === 56 ? 'BSC' : agent.chainId ? `Chain ${agent.chainId}` : null;
   const explorerBase = agent.chainId === 8453 ? 'https://basescan.org' : agent.chainId === 56 ? 'https://bscscan.com' : null;
 
@@ -322,7 +276,6 @@ export default function AgentDetailPage() {
                 <div className="flex items-center gap-2">
                   <StarRating rating={agent.rating} size="lg" />
                   <span className="text-white/60 font-medium">{agent.rating?.toFixed(1) || '0.0'}</span>
-                  <span className="text-white/30">({reviews.length} reviews)</span>
                 </div>
                 <span className="text-white/10">|</span>
                 <span className="text-white/40">
@@ -419,49 +372,6 @@ export default function AgentDetailPage() {
               <div className="text-xs text-white/30 mt-1">{stat.label}</div>
             </div>
           ))}
-        </div>
-
-        {/* =================== PERFORMANCE CHART =================== */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-white font-semibold text-base">Weekly Performance</h3>
-              <p className="text-white/30 text-xs mt-0.5">Executions over the last 7 days</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-xs text-white/40">Executions</span>
-            </div>
-          </div>
-
-          {/* Chart */}
-          <div className="flex items-end justify-between gap-2 h-40">
-            {weeklyData.map((val, i) => {
-              const height = (val / maxData) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar">
-                  <span className="text-[10px] text-white/0 group-hover/bar:text-white/50 transition-colors font-medium tabular-nums">
-                    {val}
-                  </span>
-                  <div className="w-full relative" style={{ height: `${height}%` }}>
-                    <div
-                      className="absolute inset-0 rounded-lg transition-all duration-300 group-hover/bar:opacity-100 opacity-80"
-                      style={{
-                        background: `linear-gradient(to top, ${gradA}99, ${gradA}33)`,
-                      }}
-                    />
-                    <div
-                      className="absolute inset-0 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity duration-300"
-                      style={{
-                        boxShadow: `0 0 20px ${gradA}44`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-white/30 font-medium">{dayLabels[i]}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         {/* Two-column layout for mid sections */}
@@ -602,46 +512,23 @@ export default function AgentDetailPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-white font-semibold text-base">User Reviews</h3>
-              <p className="text-white/30 text-xs mt-0.5">{reviews.length} reviews from verified users</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-white">{agent.rating?.toFixed(1) || '0.0'}</span>
               <div>
                 <StarRating rating={agent.rating} size="sm" />
-                <p className="text-[10px] text-white/30 mt-0.5">{reviews.length} reviews</p>
               </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {reviews.map((review, i) => (
-              <div
-                key={i}
-                className="px-4 py-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/70"
-                      style={{ background: `linear-gradient(135deg, ${getGradient(review.name)[0]}66, ${getGradient(review.name)[1]}66)` }}
-                    >
-                      {review.avatar}
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-white/80">{review.name}</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <StarRating rating={review.rating} size="sm" />
-                        <span className="text-[10px] text-white/20">{review.daysAgo} days ago</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-xs text-emerald-400/60 bg-emerald-500/5 px-2 py-0.5 rounded-full border border-emerald-500/10">
-                    Verified User
-                  </span>
-                </div>
-                <p className="text-sm text-white/50 leading-relaxed">{review.comment}</p>
-              </div>
-            ))}
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-white/20">
+                <path d="M10 2L12.09 6.26L16.8 6.97L13.4 10.27L14.18 14.97L10 12.77L5.82 14.97L6.6 10.27L3.2 6.97L7.91 6.26L10 2Z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+            </div>
+            <p className="text-white/40 text-sm">No reviews yet</p>
+            <p className="text-white/20 text-xs mt-1">Be the first to review this agent after using it.</p>
           </div>
         </div>
 
@@ -723,41 +610,6 @@ export default function AgentDetailPage() {
                 </button>
               </a>
             </div>
-          </div>
-        </div>
-
-        {/* =================== SIMILAR AGENTS =================== */}
-        <div>
-          <h3 className="text-white font-semibold text-base mb-4">Similar Agents</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {similarAgents.map((sa) => {
-              const [saGradA, saGradB] = getGradient(sa.name);
-              return (
-                <Link
-                  key={sa.id}
-                  href={`/agents/${sa.id}`}
-                  className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-5 transition-all duration-300 hover:border-amber-500/20 hover:bg-white/[0.04] hover:shadow-lg hover:shadow-amber-500/[0.03]"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold text-white"
-                      style={{ background: `linear-gradient(135deg, ${saGradA}, ${saGradB})` }}
-                    >
-                      {sa.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-white/90 truncate group-hover:text-white transition-colors">{sa.name}</h4>
-                      <StarRating rating={sa.rating} size="sm" />
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/40 mb-3 line-clamp-2">{sa.description}</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-amber-400/80 font-medium">{sa.price} BBAI/query</span>
-                    <span className="text-white/30">{sa.executions.toLocaleString()} runs</span>
-                  </div>
-                </Link>
-              );
-            })}
           </div>
         </div>
 

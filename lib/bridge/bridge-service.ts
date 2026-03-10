@@ -309,10 +309,10 @@ export async function initiateBridge(
   const toConfig = getBridgeChainConfig(toChain);
   const isSimulated = !isBridgeRouteOnChain(fromChain, toChain);
 
-  // -- Simulation mode --
+  // Bridge contracts not deployed — return error
   if (isSimulated) {
     return {
-      success: true,
+      success: false,
       tx: null,
       fromChain,
       toChain,
@@ -321,7 +321,8 @@ export async function initiateBridge(
       provider: selectedProvider,
       quote,
       isSimulated: true,
-      simulatedTxHash: simulatedTxHash(`${fromChain}-${toChain}-${recipient}-${amount}`),
+      simulatedTxHash: null,
+      error: `Bridge contracts not deployed for ${fromChain} → ${toChain}. Deploy LayerZero/Wormhole adapters.`,
     };
   }
 

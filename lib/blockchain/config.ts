@@ -1,9 +1,12 @@
 /**
- * Blockchain Configuration for BBAI Token Operations
+ * Blockchain Configuration for BBAI Points / Future Token Operations
  *
- * Supports Base mainnet (chainId 8453) and Base Sepolia testnet (chainId 84532).
- * Contract addresses are placeholders until deployment; when no address is
- * configured the payment service falls back to simulation mode.
+ * HYBRID MODE:
+ * - Betting: off-chain points (PostgreSQL)
+ * - Settlement: on-chain via PredictionSettlement contract (BSC Testnet)
+ * - TGE: full on-chain migration (BSC Mainnet + BBAI Token)
+ *
+ * Chains: Base (8453), Base Sepolia (84532), BSC (56), BSC Testnet (97)
  */
 
 // ---------------------------------------------------------------------------
@@ -21,7 +24,18 @@ export interface ChainConfig {
   avgBlockTimeMs: number;
 }
 
+export interface SettlementChainConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  blockExplorerUrl: string;
+  settlementContract: string | null;
+  isTestnet: boolean;
+  avgBlockTimeMs: number;
+}
+
 export type SupportedChainId = 8453 | 84532;
+export type SettlementChainId = 56 | 97;
 
 // ---------------------------------------------------------------------------
 // Environment helpers
@@ -71,6 +85,54 @@ export const BASE_SEPOLIA: ChainConfig = {
   isTestnet: true,
   avgBlockTimeMs: 2000,
 };
+
+// ---------------------------------------------------------------------------
+// BSC Settlement chains
+// ---------------------------------------------------------------------------
+
+export const BSC_MAINNET: SettlementChainConfig = {
+  chainId: 56,
+  name: 'BNB Smart Chain',
+  rpcUrl: envOrDefault('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
+  blockExplorerUrl: 'https://bscscan.com',
+  settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC', '') || null,
+  isTestnet: false,
+  avgBlockTimeMs: 3000,
+};
+
+export const BSC_TESTNET: SettlementChainConfig = {
+  chainId: 97,
+  name: 'BSC Testnet',
+  rpcUrl: envOrDefault('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
+  blockExplorerUrl: 'https://testnet.bscscan.com',
+  settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC_TESTNET', '') || null,
+  isTestnet: true,
+  avgBlockTimeMs: 3000,
+};
+
+const SETTLEMENT_CHAIN_MAP: Record<SettlementChainId, SettlementChainConfig> = {
+  56: BSC_MAINNET,
+  97: BSC_TESTNET,
+};
+
+/**
+ * Get settlement chain config.
+ * Defaults to BSC Testnet (pre-TGE).
+ */
+export function getSettlementChainConfig(chainId?: SettlementChainId): SettlementChainConfig {
+  if (chainId && SETTLEMENT_CHAIN_MAP[chainId]) {
+    return SETTLEMENT_CHAIN_MAP[chainId];
+  }
+  return BSC_TESTNET; // default to testnet until TGE
+}
+
+/**
+ * Returns true when PredictionSettlement contract is deployed and configured.
+ */
+export function isSettlementEnabled(chainId?: SettlementChainId): boolean {
+  const config = getSettlementChainConfig(chainId);
+  return config.settlementContract !== null;
+}
 
 // ---------------------------------------------------------------------------
 // Lookup
@@ -134,3 +196,4 @@ export function fromTokenUnits(raw: bigint): number {
   const fracPart = str.slice(str.length - BBAI_TOKEN.decimals);
   return parseFloat(`${intPart}.${fracPart}`);
 }
+

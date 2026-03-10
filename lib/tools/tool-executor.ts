@@ -205,20 +205,13 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     },
     execute: async (args) => {
       const { address, chain } = args as { address: string; chain?: string };
-      // Mock wallet analysis -- real implementation would use Alchemy/Etherscan
+      // Requires ALCHEMY_API_KEY for real wallet analysis
       return {
-        success: true,
+        success: false,
         address,
         chain: chain ?? 'ethereum',
-        simulated: true,
-        summary: `Wallet analysis for ${address} on ${chain ?? 'ethereum'}`,
-        data: {
-          balance: '0.00 ETH (simulated)',
-          tokenCount: 0,
-          nftCount: 0,
-          transactionCount: 0,
-          note: 'Configure ALCHEMY_API_KEY for real wallet analysis.',
-        },
+        unavailable: true,
+        error: 'Configure ALCHEMY_API_KEY for real wallet analysis.',
       };
     },
   },
@@ -237,15 +230,13 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     },
     execute: async (args) => {
       const { amount, from, to } = args as { amount: number; from: string; to: string };
-      // Simple mock -- real implementation would use exchange rate API
       return {
-        success: true,
-        simulated: true,
+        success: false,
+        unavailable: true,
         amount,
         from,
         to,
-        result: amount, // 1:1 mock
-        note: 'Simulated conversion. Real rates require an exchange rate API.',
+        error: 'Currency conversion requires an exchange rate API key.',
       };
     },
   },
@@ -264,11 +255,11 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       const { symbol, period } = args as { symbol: string; period?: string };
       return {
-        success: true,
-        simulated: true,
+        success: false,
+        unavailable: true,
         symbol,
         period: period ?? '1d',
-        note: 'Simulated stock data. Configure a financial data API for real data.',
+        error: 'Stock data requires a financial data API key.',
       };
     },
   },
@@ -287,11 +278,10 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       const { code, language } = args as { code: string; language?: string };
       return {
-        success: true,
-        simulated: true,
+        success: false,
+        unavailable: true,
         language: language ?? 'python',
-        note: 'Code interpreter is simulated. Configure DAYTONA_API_KEY for real code execution.',
-        input: code.slice(0, 500),
+        error: 'Code interpreter requires DAYTONA_API_KEY.',
       };
     },
   },
@@ -350,8 +340,8 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       return {
         success: true,
-        simulated: true,
-        note: 'Whale alert is simulated. Configure WHALE_ALERT_API_KEY for real data.',
+        unavailable: true,
+        error: 'Whale alert is simulated. Configure WHALE_ALERT_API_KEY for real data.',
         ...(args as Record<string, unknown>),
       };
     },
@@ -371,8 +361,8 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       return {
         success: true,
-        simulated: true,
-        note: 'Token retrieval is simulated. Configure ALCHEMY_API_KEY for real data.',
+        unavailable: true,
+        error: 'Token retrieval is simulated. Configure ALCHEMY_API_KEY for real data.',
         ...(args as Record<string, unknown>),
       };
     },
@@ -392,8 +382,8 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       return {
         success: true,
-        simulated: true,
-        note: 'NFT retrieval is simulated. Configure ALCHEMY_API_KEY for real data.',
+        unavailable: true,
+        error: 'NFT retrieval is simulated. Configure ALCHEMY_API_KEY for real data.',
         ...(args as Record<string, unknown>),
       };
     },
@@ -413,8 +403,8 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       return {
         success: true,
-        simulated: true,
-        note: 'Smart contract audit is simulated.',
+        unavailable: true,
+        error: 'Smart contract audit is simulated.',
         ...(args as Record<string, unknown>),
       };
     },
@@ -435,8 +425,8 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     execute: async (args) => {
       return {
         success: true,
-        simulated: true,
-        note: 'Translation is simulated.',
+        unavailable: true,
+        error: 'Translation is simulated.',
         ...(args as Record<string, unknown>),
       };
     },

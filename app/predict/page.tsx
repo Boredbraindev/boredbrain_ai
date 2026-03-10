@@ -57,6 +57,25 @@ interface LiveBet {
   isAgent: boolean;
 }
 
+interface SettlementInfo {
+  chain: string;
+  contractAddress: string | null;
+  isLive: boolean;
+  mode: string;
+  totalRoundsSettled: number;
+  totalVolumeSettled: number;
+}
+
+interface SettledRound {
+  roundId: number;
+  asset: string;
+  outcome: string;
+  txHash: string;
+  explorer: string;
+  isSimulated: boolean;
+  settledAt: number;
+}
+
 // ─── Mock Bet Names ─────────────────────────────────────────────────────────
 
 const AGENT_NAMES = [
@@ -330,11 +349,16 @@ export default function PredictPage() {
   const [liveBets, setLiveBets] = useState<LiveBet[]>([]);
   const liveBetIdRef = useRef(0);
   const feedRef = useRef<HTMLDivElement>(null);
+  const lastFetchRef = useRef(0);
 
   // Price history for heartbeat chart
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const prevPriceRef = useRef<number>(currentPrice);
   const priceFlashRef = useRef<'up' | 'down' | null>(null);
+
+  // On-chain settlement status
+  const [settlement, setSettlement] = useState<SettlementInfo | null>(null);
+  const [recentSettlements, setRecentSettlements] = useState<SettledRound[]>([]);
 
   // Refs for timer/price intervals
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -346,6 +370,55 @@ export default function PredictPage() {
   // Load stats from localStorage
   useEffect(() => {
     setUserStats(loadUserStats());
+  }, []);
+
+  // Fetch server-side betting feed + poll every 15s
+  useEffect(() => {
+    async function fetchFeed() {
+      try {
+        const since = lastFetchRef.current;
+        const res = await fetch(`/api/predict/feed?limit=50${since ? `&since=${since}` : ''}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.bets?.length) {
+          lastFetchRef.current = Date.now();
+          const serverBets: LiveBet[] = data.bets.map((b: { id: string; user: string; direction: Direction; amount: number; timestamp: number; isAgent: boolean }) => ({
+            id: b.id,
+            user: b.user,
+            direction: b.direction,
+            amount: b.amount,
+            timestamp: b.timestamp,
+            isAgent: b.isAgent,
+          }));
+          setLiveBets(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newBets = serverBets.filter(b => !existingIds.has(b.id));
+            return [...newBets, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
+          });
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchFeed();
+    const poll = setInterval(fetchFeed, 15000);
+    return () => clearInterval(poll);
+  }, []);
+
+  // Fetch on-chain settlement status
+  useEffect(() => {
+    async function fetchSettlement() {
+      try {
+        const res = await fetch('/api/predict/settlement');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.settlement) setSettlement(data.settlement);
+        if (data.rounds) setRecentSettlements(data.rounds.slice(0, 5));
+      } catch { /* silent */ }
+    }
+    fetchSettlement();
+    const poll = setInterval(fetchSettlement, 30000);
+    return () => clearInterval(poll);
   }, []);
 
   // Randomize agent predictions each round
@@ -962,6 +1035,57 @@ export default function PredictPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ─── On-Chain Settlement Status ─── */}
+        {settlement && (
+          <Card className="border-zinc-800 bg-zinc-900/60 overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className={`w-3 h-3 rounded-full ${settlement.isLive ? 'bg-green-500' : 'bg-amber-500'}`} />
+                    <div className={`absolute inset-0 w-3 h-3 rounded-full animate-ping ${settlement.isLive ? 'bg-green-500' : 'bg-amber-500'} opacity-40`} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white flex items-center gap-2">
+                      Settlement: {settlement.chain}
+                      <Badge variant="outline" className={`text-[10px] ${settlement.isLive ? 'border-green-500/40 text-green-400 bg-green-950/20' : 'border-amber-500/40 text-amber-400 bg-amber-950/20'}`}>
+                        {settlement.isLive ? 'ON-CHAIN' : 'READY'}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      {settlement.totalRoundsSettled} rounds settled | {settlement.totalVolumeSettled.toLocaleString()} BBAI volume
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {recentSettlements.slice(0, 3).map((s) => (
+                    <a
+                      key={s.roundId}
+                      href={s.explorer}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                      title={`Round #${s.roundId} — ${s.txHash.slice(0, 10)}...`}
+                    >
+                      <span className={`${s.outcome === 'UP' ? 'text-green-400' : 'text-red-400'}`}>
+                        {s.outcome === 'UP' ? '\u2191' : '\u2193'}
+                      </span>
+                      <span className="font-mono">{s.txHash.slice(0, 8)}...</span>
+                      <span className="text-zinc-600 group-hover:text-zinc-400">&#8599;</span>
+                    </a>
+                  ))}
+                  <a
+                    href="/onchain"
+                    className="text-xs text-amber-400 hover:text-amber-300 font-medium transition-colors"
+                  >
+                    Dashboard &#8594;
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ─── Tabs: Agents / Results / Leaderboard ─── */}
         <Tabs defaultValue="agents" className="space-y-4">

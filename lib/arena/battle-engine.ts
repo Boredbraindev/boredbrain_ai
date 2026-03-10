@@ -357,13 +357,15 @@ export class BattleEngine {
             .join('\n\n');
           return combined.slice(0, 3000);
         }
-      } catch {
-        // Agent execution failed - fall through to simulation
+      } catch (err) {
+        // Agent execution failed — return error message, not simulated content
+        const errMsg = err instanceof Error ? err.message : 'Agent execution failed';
+        return `[Agent ${agent.name}] Error: ${errMsg}. LLM API keys required for real arena battles.`;
       }
     }
 
-    // Simulation mode
-    return generateSimulatedResponse(agent, topic, roundNumber, prompt);
+    // No LLM available — return error instead of simulation
+    return `[Agent ${agent.name}] Arena battle unavailable: No LLM API keys configured.`;
   }
 
   /**

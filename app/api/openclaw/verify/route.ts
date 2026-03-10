@@ -1,7 +1,7 @@
 import { apiSuccess, apiError, parseJsonBody, validateBody } from '@/lib/api-utils';
 import { generateProof, verifyProof } from '@/lib/openclaw';
 
-// POST /api/openclaw/verify — Verify identity and return iden3 ZK proof
+// POST /api/openclaw/verify — Generate and verify iden3 ZK proof (Poseidon + EdDSA)
 export async function POST(request: Request) {
   const parsed = await parseJsonBody<{ address: string }>(request);
 
@@ -18,7 +18,12 @@ export async function POST(request: Request) {
 
   const address = sanitized.address as string;
 
-  // Generate iden3 ZK proof for the address
+  // Validate Ethereum address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return apiError('Invalid Ethereum address format', 400);
+  }
+
+  // Generate real iden3 ZK proof using Poseidon hash + EdDSA signature
   const proof = generateProof(address);
   const verified = verifyProof(proof);
 
@@ -26,5 +31,12 @@ export async function POST(request: Request) {
     address,
     verified,
     proof,
+    crypto: {
+      poseidonHash: proof.poseidonHash,
+      identityCommitment: proof.identityCommitment,
+      eddsaVerified: verified,
+      algorithm: 'Poseidon + Baby JubJub EdDSA',
+      library: '@iden3/js-crypto v1.3.2',
+    },
   });
 }

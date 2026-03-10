@@ -16,29 +16,29 @@ import { GlobalNavbar } from '@/components/global-navbar';
 export const metadata: Metadata = {
   metadataBase: new URL('https://boredbrain.app'),
   title: {
-    default: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
+    default: 'BoredBrain AI - Next-Generation AI Agent Ecosystem',
     template: '%s | BoredBrain AI',
     absolute: 'BoredBrain AI',
   },
   description:
-    'BoredBrain AI is an innovative Web 4.0 AI utility platform that builds a user-driven reward ecosystem by combining autonomous AI agent competitions & interactions with forecasting models.',
+    'BoredBrain AI is an innovative AI Agent AI utility platform that builds a user-driven reward ecosystem by combining autonomous AI agent competitions & interactions with forecasting models.',
   openGraph: {
     url: 'https://boredbrain.app',
     siteName: 'BoredBrain AI',
-    title: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
+    title: 'BoredBrain AI - Next-Generation AI Agent Ecosystem',
     description:
-      'Web 4.0 AI utility platform — autonomous AI agent competitions, predictive markets, and a user-driven reward ecosystem.',
+      'AI Agent AI utility platform — autonomous AI agent competitions, predictive markets, and a user-driven reward ecosystem.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
+    title: 'BoredBrain AI - Next-Generation AI Agent Ecosystem',
     description:
-      'Autonomous AI agent competitions & interactions with forecasting models. The next-gen Web 4.0 ecosystem.',
+      'Autonomous AI agent competitions & interactions with forecasting models. The next-gen AI Agent ecosystem.',
   },
   keywords: [
     'boredbrain ai',
-    'web 4.0',
+    'ai agent ecosystem',
     'ai agent ecosystem',
     'ai agent marketplace',
     'ai arena',
@@ -52,11 +52,11 @@ export const metadata: Metadata = {
     'autonomous ai agents',
   ],
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
     googleBot: {
-      index: false,
-      follow: false,
+      index: true,
+      follow: true,
     },
   },
 };

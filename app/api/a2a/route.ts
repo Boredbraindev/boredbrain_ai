@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllTools, getToolPrice, getToolInfo } from '@/lib/tool-pricing';
 import { getAllNodes, getNode, getNetworkStats, invokeExternalAgent, registerNode } from '@/lib/agent-network';
 import { settleBilling, getRevenueStats } from '@/lib/inter-agent-billing';
+import { db } from '@/lib/db';
+import { externalAgent } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * A2A (Agent-to-Agent) Protocol Endpoint
@@ -28,53 +31,40 @@ const corsHeaders = {
 };
 
 // ---------------------------------------------------------------------------
-// Agent definitions for discovery
+// Fetch agents from the database (same source as /api/agents/discover)
 // ---------------------------------------------------------------------------
 
-const BOREDBRAIN_AGENTS = [
-  {
-    id: 'agent-defi-oracle',
-    name: 'DeFi Oracle',
-    description: 'Analyzes DeFi protocols, yield farming, and liquidity pool data across chains.',
-    tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'],
-    specialization: 'defi',
-  },
-  {
-    id: 'agent-alpha-hunter',
-    name: 'Alpha Hunter',
-    description: 'Hunts for market opportunities via whale movements, social sentiment, and on-chain signals.',
-    tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'],
-    specialization: 'market',
-  },
-  {
-    id: 'agent-research-bot',
-    name: 'Research Bot',
-    description: 'Academic and deep-web research agent for papers, code, and multi-source data.',
-    tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'],
-    specialization: 'research',
-  },
-  {
-    id: 'agent-news-aggregator',
-    name: 'News Aggregator',
-    description: 'Compiles breaking news from web, social media, Reddit, and YouTube into structured briefings.',
-    tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'],
-    specialization: 'news',
-  },
-  {
-    id: 'agent-code-auditor',
-    name: 'Code Auditor',
-    description: 'Audits smart contracts for vulnerabilities, gas optimization, and best-practice compliance.',
-    tools: ['code_interpreter', 'smart_contract_audit', 'web_search'],
-    specialization: 'security',
-  },
-  {
-    id: 'agent-nft-analyst',
-    name: 'NFT Analyst',
-    description: 'Tracks NFT market trends, collection analytics, whale purchases, and social buzz.',
-    tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'],
-    specialization: 'nft',
-  },
-];
+interface A2AAgent {
+  id: string;
+  name: string;
+  description: string;
+  tools: string[];
+  specialization: string;
+}
+
+async function getRegisteredAgents(): Promise<A2AAgent[]> {
+  try {
+    const dbPromise = db
+      .select()
+      .from(externalAgent)
+      .where(eq(externalAgent.status, 'active'));
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 3000),
+    );
+    const dbAgents = await Promise.race([dbPromise, timeout]);
+
+    return dbAgents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      description: a.description ?? '',
+      tools: (a.tools as string[]) ?? [],
+      specialization: a.specialization,
+    }));
+  } catch {
+    // DB unavailable — return empty list rather than fake agents
+    return [];
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Mock tool execution
@@ -241,13 +231,15 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------------------
     case 'agent/discover': {
       const allTools = getAllTools();
+      const agents = await getRegisteredAgents();
 
       return NextResponse.json(
         {
           jsonrpc: '2.0',
           result: {
             platform: 'BoredBrain AI',
-            agents: BOREDBRAIN_AGENTS,
+            agents,
+            totalAgents: agents.length,
             totalTools: allTools.length,
             capabilities: {
               streaming: true,
@@ -295,8 +287,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // First check built-in BoredBrain agents
-      const builtInAgent = BOREDBRAIN_AGENTS.find((a) => a.id === agentId);
+      // First check registered BoredBrain agents from DB
+      const registeredAgents = await getRegisteredAgents();
+      const builtInAgent = registeredAgents.find((a) => a.id === agentId);
 
       // If not a built-in agent, check external network nodes
       let externalNode = null;
@@ -314,7 +307,7 @@ export async function POST(request: NextRequest) {
             jsonrpc: '2.0',
             error: {
               code: -32602,
-              message: `Unknown agent: "${agentId}". Available built-in: ${BOREDBRAIN_AGENTS.map((a) => a.id).join(', ')}. External agents can be discovered via the network.`,
+              message: `Unknown agent: "${agentId}". Available agents: ${registeredAgents.map((a) => a.id).join(', ')}. External agents can be discovered via the network.`,
             },
             id: rpcRequest.id,
           },
@@ -403,9 +396,10 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------------------
     case 'agent/status': {
       const { agentId: statusAgentId } = params;
+      const statusAgents = await getRegisteredAgents();
 
       if (statusAgentId) {
-        const agent = BOREDBRAIN_AGENTS.find((a) => a.id === statusAgentId);
+        const agent = statusAgents.find((a) => a.id === statusAgentId);
         if (!agent) {
           return NextResponse.json(
             {
@@ -445,7 +439,7 @@ export async function POST(request: NextRequest) {
           jsonrpc: '2.0',
           result: {
             platform: 'online',
-            agents: BOREDBRAIN_AGENTS.map((a) => ({
+            agents: statusAgents.map((a) => ({
               id: a.id,
               name: a.name,
               status: 'online',

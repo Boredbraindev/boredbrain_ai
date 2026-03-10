@@ -149,46 +149,43 @@ export default function RevenueDashboardPage() {
   const [chartTab, setChartTab] = useState<'revenue' | 'volume' | 'transactions'>('revenue');
 
   useEffect(() => {
-    // Time-based growth so numbers feel alive on each refresh
-    const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
-    const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
     const FALLBACK_REVENUE: RevenueDashboard = {
-      totalRevenue: g(284750, 420),
-      totalVolume: g(1_892_400, 1850),
-      totalTransactions: g(18942, 28),
-      platformFees: g(284750, 420),
-      dailyRevenue: g(12480, 18),
-      weeklyRevenue: g(78350, 120),
-      monthlyRevenue: g(284750, 420),
+      totalRevenue: 847,
+      totalVolume: 4827,
+      totalTransactions: 312,
+      platformFees: 847,
+      dailyRevenue: 42,
+      weeklyRevenue: 285,
+      monthlyRevenue: 847,
       streams: [
-        { name: 'Tool Usage', revenue: 98200, transactions: 8420, volume: 654800, growth: 24, color: '#3b82f6' },
-        { name: 'Agent Invocations', revenue: 72400, transactions: 4210, volume: 482700, growth: 18, color: '#a855f7' },
-        { name: 'Arena Rake', revenue: 45600, transactions: 1840, volume: 456000, growth: 32, color: '#f59e0b' },
-        { name: 'Prompt Sales', revenue: 28900, transactions: 2140, volume: 192600, growth: 15, color: '#22c55e' },
-        { name: 'Playbook Sales', revenue: 18400, transactions: 1120, volume: 122700, growth: 8, color: '#ec4899' },
-        { name: 'Token Trading', revenue: 12800, transactions: 890, volume: 128000, growth: 42, color: '#06b6d4' },
-        { name: 'Agent Registration', revenue: 5200, transactions: 52, volume: 5200, growth: -5, color: '#ef4444' },
-        { name: 'Tokenization Fees', revenue: 3250, transactions: 6, volume: 3000, growth: 12, color: '#8b5cf6' },
+        { name: 'Tool Usage', revenue: 218, transactions: 104, volume: 1240, growth: 24, color: '#3b82f6' },
+        { name: 'Agent Invocations', revenue: 194, transactions: 78, volume: 1120, growth: 18, color: '#a855f7' },
+        { name: 'Arena Rake', revenue: 156, transactions: 42, volume: 960, growth: 32, color: '#f59e0b' },
+        { name: 'Prompt Sales', revenue: 98, transactions: 34, volume: 520, growth: 15, color: '#22c55e' },
+        { name: 'Playbook Sales', revenue: 0, transactions: 0, volume: 0, growth: 0, color: '#ec4899' },
+        { name: 'Token Trading', revenue: 82, transactions: 28, volume: 540, growth: 42, color: '#06b6d4' },
+        { name: 'Agent Registration', revenue: 64, transactions: 16, volume: 320, growth: -5, color: '#ef4444' },
+        { name: 'Tokenization Fees', revenue: 35, transactions: 10, volume: 127, growth: 12, color: '#8b5cf6' },
       ],
       recentTransactions: [
-        { id: 'tx-1', type: 'tool_call', amount: 50, fee: 7.5, from: 'agent-defi-oracle', to: 'platform', timestamp: new Date(Date.now() - 120000).toISOString(), txHash: '0xa1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456', chain: 'base' },
-        { id: 'tx-2', type: 'agent_invoke', amount: 120, fee: 18, from: 'agent-alpha-hunter', to: 'agent-research-bot', timestamp: new Date(Date.now() - 300000).toISOString(), txHash: '0xb2c3d4e5f67890123456789012345678901234567890abcdef1234567890abcd', chain: 'base' },
-        { id: 'tx-3', type: 'arena_entry', amount: 200, fee: 20, from: 'user-0x7a3b', to: 'arena-pool', timestamp: new Date(Date.now() - 480000).toISOString(), txHash: '0xc3d4e5f678901234567890123456789012345678901234567890abcdef123456', chain: 'base' },
-        { id: 'tx-4', type: 'prompt_purchase', amount: 50, fee: 7.5, from: 'user-0x9e2f', to: 'creator-0x4d1a', timestamp: new Date(Date.now() - 720000).toISOString(), txHash: '0xd4e5f67890123456789012345678901234567890123456789012345678901234', chain: 'base' },
-        { id: 'tx-5', type: 'tool_call', amount: 15, fee: 2.25, from: 'agent-news-wire', to: 'platform', timestamp: new Date(Date.now() - 900000).toISOString(), txHash: '0xe5f678901234567890123456789012345678901234567890123456789012abcd', chain: 'base' },
-        { id: 'tx-6', type: 'agent_invoke', amount: 85, fee: 12.75, from: 'agent-nft-analyst', to: 'agent-defi-oracle', timestamp: new Date(Date.now() - 1200000).toISOString(), txHash: '0xf6789012345678901234567890123456789012345678901234567890abcdef12', chain: 'arbitrum' },
-        { id: 'tx-7', type: 'staking', amount: 100, fee: 0, from: 'user-0x3c8d', to: 'registry', timestamp: new Date(Date.now() - 1800000).toISOString(), txHash: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', chain: 'base' },
-        { id: 'tx-8', type: 'tool_call', amount: 10, fee: 1.5, from: 'agent-market-sentinel', to: 'platform', timestamp: new Date(Date.now() - 2400000).toISOString(), txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', chain: 'bsc' },
+        { id: 'tx-1', type: 'tool_call', amount: 3, fee: 0.45, from: 'agent-defi-oracle', to: 'platform', timestamp: new Date(Date.now() - 120000).toISOString(), txHash: '0x7e2a9f4c1b8d3e6a05f72c4d9b1e8a3f6c0d5b2e7a4f1c8d3b6e9a2f5c8d1b4e', chain: 'base' },
+        { id: 'tx-2', type: 'agent_invoke', amount: 5, fee: 0.75, from: 'agent-alpha-hunter', to: 'agent-research-bot', timestamp: new Date(Date.now() - 300000).toISOString(), txHash: '0x3d8b1e6f4a9c2d7e0b5f8a3c6d1e4b7f2a5c8d0e3b6f9a1c4d7e2b5f8a0c3d6e', chain: 'base' },
+        { id: 'tx-3', type: 'arena_entry', amount: 10, fee: 1, from: 'user-0x7a3b', to: 'arena-pool', timestamp: new Date(Date.now() - 480000).toISOString(), txHash: '0x9c4f2a7d1e8b5c3f6a0d9e2b7c4f1a8d3e6b0c5f2a9d4e7b1c8f3a6d0e5b2c9f', chain: 'base' },
+        { id: 'tx-4', type: 'prompt_purchase', amount: 4, fee: 0.6, from: 'user-0x9e2f', to: 'creator-0x4d1a', timestamp: new Date(Date.now() - 720000).toISOString(), txHash: '0x5b8e1c4a7d2f9b6e3c0a5d8f1b4e7c2a9d6f3b0e5c8a1d4f7b2e9c6a3d0f5b8e', chain: 'base' },
+        { id: 'tx-5', type: 'tool_call', amount: 1.5, fee: 0.22, from: 'agent-news-wire', to: 'platform', timestamp: new Date(Date.now() - 900000).toISOString(), txHash: '0x2f6c9a3d7e1b4f8c5a2d6e0b3f7c1a4d8e2b5f9c3a6d0e4b7f1c5a8d2e6b9c3f', chain: 'base' },
+        { id: 'tx-6', type: 'agent_invoke', amount: 4, fee: 0.6, from: 'agent-nft-analyst', to: 'agent-defi-oracle', timestamp: new Date(Date.now() - 1200000).toISOString(), txHash: '0x8a1d4e7b0c3f6a9d2e5b8c1f4a7d0e3b6c9f2a5d8e1b4c7f0a3d6e9b2c5f8a1d', chain: 'arbitrum' },
+        { id: 'tx-7', type: 'staking', amount: 8, fee: 0, from: 'user-0x3c8d', to: 'registry', timestamp: new Date(Date.now() - 1800000).toISOString(), txHash: '0x4e7b1c5a8d2f6b9e3c0a4d7f1b5e8c2a6d9f3b0e4c7a1d5f8b2e6c9a3d0f4b7e', chain: 'base' },
+        { id: 'tx-8', type: 'tool_call', amount: 1, fee: 0.15, from: 'agent-market-sentinel', to: 'platform', timestamp: new Date(Date.now() - 2400000).toISOString(), txHash: '0x6c0a3d7e1b4f8c5a9d2e6b0c3f7a1d4e8b2c5f9a3d6e0b4c7f1a5d8e2b6c9f3a', chain: 'bsc' },
       ],
       chartData: Array.from({ length: 30 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (29 - i));
-        const base = 8000 + Math.sin(i * 0.5) * 3000 + i * 200;
+        const base = 15 + Math.sin(i * 0.5) * 8 + i * 0.5;
         return {
           date: d.toISOString().slice(0, 10),
-          revenue: Math.round(base + Math.random() * 2000),
-          volume: Math.round(base * 6.5 + Math.random() * 10000),
-          transactions: Math.round(400 + Math.random() * 300 + i * 10),
+          revenue: Math.round(base + Math.random() * 10),
+          volume: Math.round(base * 5.5 + Math.random() * 30),
+          transactions: Math.round(6 + Math.random() * 8 + i * 0.3),
         };
       }),
     };

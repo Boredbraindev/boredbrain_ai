@@ -10,6 +10,7 @@ import { db } from '@/lib/db';
 import { smartWallet } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateMockTxHash, generateMockBlockNumber } from '@/lib/payment-pipeline';
+import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,36 +62,25 @@ export interface UserOpResult {
 // Deterministic smart wallet address generation
 // ---------------------------------------------------------------------------
 
-function generateSmartWalletAddress(agentId: string, chain: string): string {
+function generateSmartWalletAddress(agentId: string, _chain: string): string {
+  // Derive from a high-range index to avoid collision with fleet wallet addresses
+  // Use agentId hash as the index offset (10000+ range)
   let hash = 0;
-  const input = `${agentId}-smart-${chain}`;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+  for (let i = 0; i < agentId.length; i++) {
+    hash = ((hash << 5) - hash + agentId.charCodeAt(i)) | 0;
   }
-  let hex = '';
-  let seed = Math.abs(hash);
-  while (hex.length < 40) {
-    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) >>> 0;
-    hex += seed.toString(16);
-  }
-  return '0x' + hex.slice(0, 40);
+  const index = 10000 + (Math.abs(hash) % 10000);
+  return getFleetBscAddressCached(index);
 }
 
-function generateGuardianAddress(agentId: string, index: number): string {
+function generateGuardianAddress(agentId: string, guardianIndex: number): string {
   let hash = 0;
-  const input = `${agentId}-guardian-${index}`;
+  const input = `${agentId}-guardian-${guardianIndex}`;
   for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
   }
-  let hex = '';
-  let seed = Math.abs(hash);
-  while (hex.length < 40) {
-    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) >>> 0;
-    hex += seed.toString(16);
-  }
-  return '0x' + hex.slice(0, 40);
+  const index = 20000 + (Math.abs(hash) % 10000);
+  return getFleetBscAddressCached(index);
 }
 
 // ---------------------------------------------------------------------------

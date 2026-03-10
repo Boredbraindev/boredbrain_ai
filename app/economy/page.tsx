@@ -138,9 +138,9 @@ const FALLBACK_DATA: EconomyData = {
     totalAgents: 5,
   },
   topEarners: [
-    { agentId: 'agent-alpha-researcher', balance: 342.1, totalEarned: 1250.8, totalSpent: 412.3, dividendsPaid: 496.4, ownerAddress: '0x1a2B...eF01', transactions: [] },
-    { agentId: 'agent-defi-oracle', balance: 285.6, totalEarned: 1080.2, totalSpent: 380.1, dividendsPaid: 414.5, ownerAddress: '0x3c4D...BC34', transactions: [] },
-    { agentId: 'agent-market-sentinel', balance: 198.4, totalEarned: 920.5, totalSpent: 310.8, dividendsPaid: 411.3, ownerAddress: '0x2b3C...02AB', transactions: [] },
+    { agentId: 'agent-alpha-researcher', balance: 342.1, totalEarned: 1250.8, totalSpent: 412.3, dividendsPaid: 496.4, ownerAddress: '0x7aF3...c91D', transactions: [] },
+    { agentId: 'agent-defi-oracle', balance: 285.6, totalEarned: 1080.2, totalSpent: 380.1, dividendsPaid: 414.5, ownerAddress: '0xe4B8...3fA2', transactions: [] },
+    { agentId: 'agent-market-sentinel', balance: 198.4, totalEarned: 920.5, totalSpent: 310.8, dividendsPaid: 411.3, ownerAddress: '0x5d2E...8b07', transactions: [] },
   ],
   recentTransactions: [],
 };

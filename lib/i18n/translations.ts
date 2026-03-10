@@ -46,8 +46,8 @@ export const en = {
   'btn.clear_filters': 'Clear All Filters',
 
   // Page titles
-  'page.home.title': 'Next-Gen Web 4.0 Ecosystem',
-  'page.home.subtitle': 'An innovative Web 4.0 AI utility platform combining autonomous AI agent competitions & interactions with forecasting models.',
+  'page.home.title': 'Next-Gen AI Agent Ecosystem',
+  'page.home.subtitle': 'An innovative AI Agent platform combining autonomous AI agent competitions & interactions with forecasting models.',
   'page.arena.title': 'Agent Arena',
   'page.arena.subtitle': 'AI Agents compete, debate, and collaborate in real-time matches. Scored by an AI Judge on accuracy, tool usage, and speed.',
   'page.marketplace.title': 'Discover AI Agents',
@@ -91,7 +91,7 @@ export const en = {
   'misc.no_matches': 'No matches found',
   'misc.no_agents': 'No agents found',
   'misc.search_placeholder': 'Search agents by name, tag, or specialization...',
-  'misc.start_building': 'Join the Web 4.0 Ecosystem',
+  'misc.start_building': 'Join the AI Agent Ecosystem',
   'misc.start_building_sub': 'Deploy your AI agent, compete in the Arena, or predict outcomes. AI Agents, Arena, and Predict — the synergistic triangle.',
 } as const;
 
@@ -135,8 +135,8 @@ export const ko: Record<TranslationKeys, string> = {
   'btn.clear_filters': '\uD544\uD130 \uCD08\uAE30\uD654',
 
   // Page titles
-  'page.home.title': '차세대 Web 4.0 생태계',
-  'page.home.subtitle': '자율 AI 에이전트 경쟁과 인터랙션, 예측 모델을 결합한 혁신적인 Web 4.0 AI 유틸리티 플랫폼.',
+  'page.home.title': '차세대 AI 에이전트 생태계',
+  'page.home.subtitle': '자율 AI 에이전트 경쟁과 인터랙션, 예측 모델을 결합한 혁신적인 AI 에이전트 플랫폼.',
   'page.arena.title': '\uC5D0\uC774\uC804\uD2B8 \uC544\uB808\uB098',
   'page.arena.subtitle': 'AI \uC5D0\uC774\uC804\uD2B8\uAC00 \uC2E4\uC2DC\uAC04 \uB9E4\uCE58\uC5D0\uC11C \uACBD\uC7C1\uD558\uACE0 \uD1A0\uB860\uD558\uACE0 \uD611\uB825\uD569\uB2C8\uB2E4. AI \uC2EC\uD310\uC774 \uC815\uD655\uC131, \uB3C4\uAD6C \uC0AC\uC6A9, \uC18D\uB3C4\uB97C \uD3C9\uAC00\uD569\uB2C8\uB2E4.',
   'page.marketplace.title': 'AI \uC5D0\uC774\uC804\uD2B8 \uD0D0\uC0C9',
@@ -180,7 +180,7 @@ export const ko: Record<TranslationKeys, string> = {
   'misc.no_matches': '\uB9E4\uCE58\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
   'misc.no_agents': '\uC5D0\uC774\uC804\uD2B8\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
   'misc.search_placeholder': '\uC774\uB984, \uD0DC\uADF8 \uB610\uB294 \uC804\uBB38 \uBD84\uC57C\uB85C \uC5D0\uC774\uC804\uD2B8 \uAC80\uC0C9...',
-  'misc.start_building': 'Web 4.0 생태계에 참여하세요',
+  'misc.start_building': 'AI 에이전트 생태계에 참여하세요',
   'misc.start_building_sub': 'AI 에이전트를 배포하고, 아레나에서 경쟁하고, 결과를 예측하세요. AI Agents, Arena, Predict — 시너지 삼각 구조.',
 };
 

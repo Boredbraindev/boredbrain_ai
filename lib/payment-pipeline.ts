@@ -1,10 +1,9 @@
 /**
  * Payment Pipeline Orchestrator
  *
- * Connects the Agent Wallet system with on-chain smart contract interactions.
- * Processes BBAI payments through the PaymentRouter contract (85/15 split).
- * Uses deterministic tx hashes derived from payment context and timestamps.
- * Block numbers track real Base L2 block production rate (~2s per block).
+ * Processes BBAI Points transactions between agents and platform.
+ * Internal points system (85/15 split) — on-chain settlement deferred to TGE.
+ * Uses internal reference IDs for audit trail. On-chain settlement via PredictionSettlement contract on BSC.
  *
  * Revenue streams:
  * - Tool calls (15% platform fee)
@@ -14,6 +13,7 @@
  * - Agent staking (100% locked)
  *
  * Persistence: Drizzle ORM + PostgreSQL (payment_transaction table).
+ * Note: All transactions are internal points. On-chain migration at TGE.
  */
 
 import { db } from '@/lib/db';
@@ -80,35 +80,26 @@ export const CHAIN_INFO: Record<ChainId, { name: string; chainId: number; color:
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a deterministic transaction hash from context data.
- * Produces a realistic Ethereum-style hash (0x + 64 hex chars)
- * derived from the payment context — not random.
+ * Generate an internal transaction reference ID.
+ * Produces a prefixed reference string for audit trail purposes.
  */
-export function generateTxHash(context?: string): string {
-  const seed = `${context || ''}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  let hash = '0x';
-  for (let i = 0; i < 64; i++) {
-    const charCode = seed.charCodeAt(i % seed.length);
-    hash += ((charCode * (i + 1) * 7 + (Date.now() >> (i % 16))) % 16).toString(16);
-  }
-  return hash;
+export function generateInternalTxRef(context?: string): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `bbai-tx-${ts}-${rand}`;
 }
 
 /**
- * Generate a realistic block number based on current timestamp.
- * Simulates Base L2 block production (~2s per block).
+ * Generate an internal sequence number based on current timestamp.
+ * Used for ordering transactions in the audit trail.
  */
-export function generateBlockNumber(): number {
-  // Base L2 genesis roughly at Jan 2024, ~2s blocks
-  const baseGenesisTs = 1704067200; // Jan 1 2024
-  const nowSec = Math.floor(Date.now() / 1000);
-  const blocksSinceGenesis = Math.floor((nowSec - baseGenesisTs) / 2);
-  return blocksSinceGenesis + Math.floor(Math.random() * 10);
+export function generateInternalSeqNumber(): number {
+  return Date.now();
 }
 
 // Legacy aliases
-export const generateMockTxHash = generateTxHash;
-export const generateMockBlockNumber = generateBlockNumber;
+export const generateMockTxHash = generateInternalTxRef;
+export const generateMockBlockNumber = generateInternalSeqNumber;
 
 function calculateSplit(amount: number): { platformFee: number; providerShare: number } {
   const platformFee = Math.round(amount * 0.15 * 100) / 100;
@@ -200,10 +191,10 @@ export async function processToolPayment(
       platformFee,
       providerShare,
       chain,
-      txHash: generateTxHash(`tool-${agentId}-${toolName}`),
+      txHash: generateInternalTxRef(`tool-${agentId}-${toolName}`),
       status: 'confirmed',
       toolName,
-      blockNumber: generateBlockNumber(),
+      blockNumber: generateInternalSeqNumber(),
     })
     .returning();
 
@@ -274,9 +265,9 @@ export async function processAgentInvocation(
       platformFee,
       providerShare,
       chain,
-      txHash: generateTxHash(`pay-${Date.now()}`),
+      txHash: generateInternalTxRef(`pay-${Date.now()}`),
       status: 'confirmed',
-      blockNumber: generateBlockNumber(),
+      blockNumber: generateInternalSeqNumber(),
     })
     .returning();
 
@@ -330,9 +321,9 @@ export async function processPromptPurchase(
       platformFee,
       providerShare,
       chain,
-      txHash: generateTxHash(`pay-${Date.now()}`),
+      txHash: generateInternalTxRef(`pay-${Date.now()}`),
       status: 'confirmed',
-      blockNumber: generateBlockNumber(),
+      blockNumber: generateInternalSeqNumber(),
     })
     .returning();
 
@@ -386,9 +377,9 @@ export async function processArenaEntry(
       platformFee,
       providerShare,
       chain,
-      txHash: generateTxHash(`pay-${Date.now()}`),
+      txHash: generateInternalTxRef(`pay-${Date.now()}`),
       status: 'confirmed',
-      blockNumber: generateBlockNumber(),
+      blockNumber: generateInternalSeqNumber(),
     })
     .returning();
 
@@ -435,9 +426,9 @@ export async function processStaking(
       platformFee: 0,
       providerShare: amount, // full amount is staked
       chain,
-      txHash: generateTxHash(`pay-${Date.now()}`),
+      txHash: generateInternalTxRef(`pay-${Date.now()}`),
       status: 'confirmed',
-      blockNumber: generateBlockNumber(),
+      blockNumber: generateInternalSeqNumber(),
     })
     .returning();
 

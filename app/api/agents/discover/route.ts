@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_AGENTS } from '@/lib/mock-data';
 import { getToolPrice } from '@/lib/tool-pricing';
 import { db } from '@/lib/db';
 import { externalAgent } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 /**
  * Agent Discovery Endpoint
@@ -38,42 +37,17 @@ interface DiscoveryAgent {
   rating?: number;
   totalCalls?: number;
   badge?: 'verified' | 'community';
+  bscAddress?: string;
+  chainId?: number;
 }
 
 // ---------------------------------------------------------------------------
-// Agent specialization mapping (for mock agents)
-// ---------------------------------------------------------------------------
-
-const AGENT_SPECIALIZATIONS: Record<string, string> = {
-  'agent-defi-oracle': 'defi',
-  'agent-alpha-hunter': 'market',
-  'agent-research-bot': 'research',
-  'agent-news-aggregator': 'news',
-  'agent-code-auditor': 'security',
-  'agent-nft-analyst': 'nft',
-  'agent-alpha-researcher': 'market',
-  'agent-market-sentinel': 'market',
-  'agent-news-hunter': 'news',
-  'agent-code-wizard': 'development',
-  'agent-whale-tracker': 'onchain',
-  'agent-content-scout': 'media',
-  'agent-travel-planner': 'travel',
-  'agent-extreme-searcher': 'research',
-  'agent-movie-buff': 'media',
-  'agent-polyglot': 'translation',
-  'agent-academic-mind': 'research',
-};
-
-// ---------------------------------------------------------------------------
-// Build full agent list: DB agents + mock agents (deduped)
+// Build agent list from DB only (no mock/fleet inflation)
 // ---------------------------------------------------------------------------
 
 async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
-  const merged: DiscoveryAgent[] = [];
-  const seenIds = new Set<string>();
-  const seenNames = new Set<string>();
+  const agents: DiscoveryAgent[] = [];
 
-  // 1. Try DB first — get all active agents
   try {
     const dbPromise = db
       .select()
@@ -99,7 +73,9 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
           ? 'verified'
           : 'community';
 
-      merged.push({
+      const meta = a.metadata as Record<string, any> | null;
+
+      agents.push({
         id: a.id,
         name: a.name,
         description: a.description ?? '',
@@ -111,39 +87,15 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
         rating: a.rating,
         totalCalls: a.totalCalls,
         badge,
+        bscAddress: meta?.bscAddress ?? undefined,
+        chainId: meta?.chainId ?? undefined,
       });
-      seenIds.add(a.id);
-      seenNames.add(a.name);
     }
   } catch {
-    // DB unavailable — continue with mock data
+    // DB unavailable — return empty list (no fake agents)
   }
 
-  // 2. Supplement from MOCK_AGENTS (marketplace agents not already in the list)
-  for (const mock of MOCK_AGENTS) {
-    if (seenIds.has(mock.id) || seenNames.has(mock.name)) continue;
-
-    const tools = (mock.tools as string[]) || [];
-    const avgCost =
-      tools.reduce((sum, t) => sum + (getToolPrice(t) ?? 5), 0) ||
-      Number(mock.pricePerQuery) ||
-      10;
-
-    merged.push({
-      id: mock.id,
-      name: mock.name,
-      description: mock.description,
-      tools,
-      specialization: AGENT_SPECIALIZATIONS[mock.id] ?? 'general',
-      pricing: { averageCostPerQuery: avgCost, currency: 'BBAI' },
-      status: mock.status === 'active' ? 'online' : 'offline',
-      endpoint: `/api/agents/${mock.id}/invoke`,
-      badge: 'verified',
-    });
-    seenIds.add(mock.id);
-  }
-
-  return merged;
+  return agents;
 }
 
 // ---------------------------------------------------------------------------

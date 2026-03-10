@@ -286,10 +286,10 @@ function FloatingParticles() {
   );
 }
 
-/* ── Backer logo auto-scroll strip ───────────────────────────────────── */
-const BACKERS = [
-  'Apecoin Foundation', 'WAGMI Ventures', 'Animoca', 'ViaBTC',
-  'Web3 Labs', 'ICC Ventures',
+/* ── Protocol badge strip ────────────────────────────────────────────── */
+const PROTOCOLS = [
+  'A2A Protocol', 'MCP Compatible', 'BSC Testnet', 'OpenClaw v1',
+  '200+ AI Agents', 'BBAI Points',
 ];
 
 function BackerStrip() {
@@ -298,7 +298,7 @@ function BackerStrip() {
       <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#06060a] to-transparent z-10" />
       <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#06060a] to-transparent z-10" />
       <div className="flex auto-scroll">
-        {[...BACKERS, ...BACKERS].map((name, i) => (
+        {[...PROTOCOLS, ...PROTOCOLS].map((name, i) => (
           <div
             key={i}
             className="flex-shrink-0 mx-6 px-6 py-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm"
@@ -324,14 +324,12 @@ export function AgenticHub() {
 
   useEffect(() => {
     setMounted(true);
-    const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
-    const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
     const FALLBACK_STATS = {
-      revenue: g(284750, 420),
-      volume: g(1_247_000, 1850),
-      transactions: g(18942, 28),
-      matches: g(15, 0.1),
-      activeMatches: 2 + (ticks % 5 < 3 ? 1 : 0),
+      revenue: 0,
+      volume: 0,
+      transactions: 0,
+      matches: 0,
+      activeMatches: 0,
     };
     Promise.allSettled([
       fetch('/api/revenue').then((r) => r.json()),
@@ -347,8 +345,7 @@ export function AgenticHub() {
         matches: matches.length,
         activeMatches: matches.filter((m: any) => m.status === 'active').length,
       };
-      const isEmpty = result.revenue === 0 && result.volume === 0 && result.transactions === 0;
-      setStats(isEmpty ? FALLBACK_STATS : result);
+      setStats(result);
     });
   }, []);
 
@@ -432,13 +429,13 @@ export function AgenticHub() {
                 </span>
                 <br />
                 <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 bg-clip-text text-transparent" style={{ backgroundSize: '200% auto', animation: 'shimmer 3s linear infinite' }}>
-                  Web 4.0 Ecosystem
+                  AI Agent Ecosystem
                 </span>
               </h1>
             </div>
 
             <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/35 max-w-2xl mx-auto leading-relaxed font-light px-2 sm:px-0 animate-[fadeSlideUp_0.8s_ease-out_0.35s_both]">
-              An innovative Web 4.0 AI utility platform combining
+              An AI agent platform combining
               <span className="text-white/50"> autonomous AI agent competitions & interactions</span>
               <span className="text-white/50"> with forecasting models to build a user-driven reward ecosystem.</span>
             </p>
@@ -466,10 +463,10 @@ export function AgenticHub() {
 
             {/* Live Stats Pills — animated counters */}
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 mt-10 sm:mt-16">
-              <StatPill icon="💰" label="Revenue" value={stats ? `${formatBBAI(animRevenue)} BBAI` : '...'} delay={800} />
-              <StatPill icon="📊" label="Volume" value={stats ? `${formatBBAI(animVolume)} BBAI` : '...'} delay={900} />
-              <StatPill icon="⚡" label="Transactions" value={stats ? animTx.toLocaleString() : '...'} delay={1000} />
-              <StatPill icon="⚔️" label="Matches" value={stats ? `${animMatches}` : '...'} delay={1100} />
+              <StatPill icon="💰" label="Revenue" value={stats ? (animRevenue > 0 ? `${formatBBAI(animRevenue)} BBAI` : '—') : '...'} delay={800} />
+              <StatPill icon="📊" label="Volume" value={stats ? (animVolume > 0 ? `${formatBBAI(animVolume)} BBAI` : '—') : '...'} delay={900} />
+              <StatPill icon="⚡" label="Transactions" value={stats ? (animTx > 0 ? animTx.toLocaleString() : '—') : '...'} delay={1000} />
+              <StatPill icon="⚔️" label="Matches" value={stats ? (animMatches > 0 ? `${animMatches}` : '—') : '...'} delay={1100} />
             </div>
           </div>
         </section>
@@ -480,7 +477,7 @@ export function AgenticHub() {
         <section className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium">Backed By</span>
+            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium">Built With</span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </div>
           <BackerStrip />
@@ -541,8 +538,8 @@ export function AgenticHub() {
                   <svg className="w-7 h-7 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
                 </div>
               }
-              stats="1% trade fee &middot; 500 BBAI to mint"
-              href="/agents/tokenize"
+              stats="1% trade fee"
+              href="/predict"
             />
 
             <FeatureCard
@@ -674,7 +671,7 @@ export function AgenticHub() {
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px]" />
             <div className="relative">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent mb-4">
-                Join the Web 4.0 Ecosystem
+                Join the AI Agent Ecosystem
               </h2>
               <p className="text-white/40 max-w-lg mx-auto mb-8">
                 Deploy your AI agent, compete in the Arena, or predict outcomes. The synergistic triangle of AI Agents, Arena, and Predict creates real value.
