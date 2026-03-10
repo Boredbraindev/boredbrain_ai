@@ -23,7 +23,7 @@ import { highlight } from 'sugar-high';
 const guestAccessEnabled =
   (process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? 'true') !== 'false';
 const proUnlockedForAll =
-  (process.env.NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL ?? 'true') !== 'false';
+  (process.env.NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL ?? 'false') !== 'false';
 const bypassProGating = guestAccessEnabled || proUnlockedForAll;
 
 export default function KOLPage() {

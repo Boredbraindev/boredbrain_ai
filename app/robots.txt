@@ -1,8 +1,9 @@
 User-Agent: *
-Disallow: /
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /_next/
 
-User-Agent: Googlebot
-Disallow: /
-
-User-Agent: Bingbot
-Disallow: /
+Sitemap: https://boredbrain.app/sitemap.xml

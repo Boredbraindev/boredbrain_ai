@@ -145,7 +145,7 @@ const UserProfile = memo(
 
               {/* External Links */}
               <DropdownMenuItem className="cursor-pointer" asChild>
-                <a href="https://boredbrain.ai" target="_blank" rel="noopener noreferrer" className="flex items-center">
+                <a href="https://boredbrain.app" target="_blank" rel="noopener noreferrer" className="flex items-center">
                   <InfoIcon className="size-4 mr-2" weight="regular" />
                   <span>About</span>
                 </a>

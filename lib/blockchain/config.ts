@@ -7,7 +7,41 @@
  * - TGE: full on-chain migration (BSC Mainnet + BBAI Token)
  *
  * Chains: Base (8453), Base Sepolia (84532), BSC (56), BSC Testnet (97)
+ *
+ * PRE-TGE STATUS (as of 2026-03):
+ * ─────────────────────────────────────────────────────────────────────
+ * All smart contracts are pending deployment. The platform currently
+ * operates in SIMULATION MODE where on-chain interactions are mocked.
+ * Contract addresses will be populated via environment variables once
+ * deployed. Until then, `isSimulationMode()` returns true and all
+ * token/settlement operations fall back to off-chain PostgreSQL logic.
+ *
+ * Required environment variables for production on-chain mode:
+ *   BBAI_TOKEN_ADDRESS          – ERC-20 BBAI token on Base
+ *   BBAI_PLATFORM_WALLET        – Platform fee recipient wallet
+ *   SETTLEMENT_CONTRACT_BSC     – PredictionSettlement on BSC mainnet
+ *   BASE_RPC_URL                – (optional) Alchemy/Infura Base RPC
+ *   BSC_RPC_URL                 – (optional) Alchemy/Infura BSC RPC
+ *   BASE_SEPOLIA_RPC_URL        – (optional) testnet RPC override
+ *   BSC_TESTNET_RPC_URL         – (optional) testnet RPC override
+ *   BBAI_TOKEN_ADDRESS_TESTNET  – testnet token address
+ *   BBAI_PLATFORM_WALLET_TESTNET– testnet fee recipient
+ *   SETTLEMENT_CONTRACT_BSC_TESTNET – PredictionSettlement on BSC testnet
+ * ─────────────────────────────────────────────────────────────────────
  */
+
+// ---------------------------------------------------------------------------
+// Deployment Status — tracks what's deployed vs pending across chains
+// ---------------------------------------------------------------------------
+
+export const DEPLOYMENT_STATUS = {
+  network: 'pre-tge',
+  bbaiToken: { status: 'pending', chain: 'base', note: 'Pending TGE - Token Generation Event' },
+  agentRegistry: { status: 'pending', chain: 'base', note: 'ERC-721 agent NFT registry' },
+  predictionSettlement: { status: 'testnet-ready', chain: 'bsc-testnet', note: 'Deployable via hardhat' },
+  paymentRouter: { status: 'pending', chain: 'base', note: '85/15 split router' },
+  stakingContract: { status: 'pending', chain: 'base', note: 'Agent staking with NFT tiers' },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,7 +52,7 @@ export interface ChainConfig {
   name: string;
   rpcUrl: string;
   blockExplorerUrl: string;
-  bbaiTokenAddress: string | null; // null = simulation mode
+  bbaiTokenAddress: string | null; // null = simulation mode (pre-TGE)
   platformFeeRecipient: string;
   isTestnet: boolean;
   avgBlockTimeMs: number;
@@ -29,7 +63,7 @@ export interface SettlementChainConfig {
   name: string;
   rpcUrl: string;
   blockExplorerUrl: string;
-  settlementContract: string | null;
+  settlementContract: string | null; // null = not yet deployed
   isTestnet: boolean;
   avgBlockTimeMs: number;
 }
@@ -49,18 +83,34 @@ function envOrDefault(key: string, fallback: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Chain configs
+// RPC Endpoints
+// ---------------------------------------------------------------------------
+// Public fallback RPCs are provided for each chain. For production use,
+// set the corresponding env var to an Alchemy / Infura / QuickNode
+// endpoint for higher rate limits and reliability.
+//
+//   BASE_RPC_URL          → default: https://mainnet.base.org
+//   BASE_SEPOLIA_RPC_URL  → default: https://sepolia.base.org
+//   BSC_RPC_URL           → default: https://bsc-dataseed1.binance.org
+//   BSC_TESTNET_RPC_URL   → default: https://data-seed-prebsc-1-s1.binance.org:8545
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Chain configs — Base (BBAI token chain)
 // ---------------------------------------------------------------------------
 
 export const BASE_MAINNET: ChainConfig = {
   chainId: 8453,
   name: 'Base',
+  // Falls back to public Base RPC; set BASE_RPC_URL for Alchemy/Infura
   rpcUrl: envOrDefault(
     'BASE_RPC_URL',
     'https://mainnet.base.org',
   ),
   blockExplorerUrl: 'https://basescan.org',
+  // Pre-TGE: no token contract deployed yet
   bbaiTokenAddress: envOrDefault('BBAI_TOKEN_ADDRESS', '') || null,
+  // Pre-TGE: set BBAI_PLATFORM_WALLET once multisig is created
   platformFeeRecipient: envOrDefault(
     'BBAI_PLATFORM_WALLET',
     '0x0000000000000000000000000000000000000000',
@@ -87,14 +137,16 @@ export const BASE_SEPOLIA: ChainConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// BSC Settlement chains
+// BSC Settlement chains — PredictionSettlement contract
 // ---------------------------------------------------------------------------
 
 export const BSC_MAINNET: SettlementChainConfig = {
   chainId: 56,
   name: 'BNB Smart Chain',
+  // Falls back to public BSC RPC; set BSC_RPC_URL for production endpoint
   rpcUrl: envOrDefault('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
   blockExplorerUrl: 'https://bscscan.com',
+  // Post-TGE: set SETTLEMENT_CONTRACT_BSC after mainnet deployment
   settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC', '') || null,
   isTestnet: false,
   avgBlockTimeMs: 3000,
@@ -105,6 +157,7 @@ export const BSC_TESTNET: SettlementChainConfig = {
   name: 'BSC Testnet',
   rpcUrl: envOrDefault('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
   blockExplorerUrl: 'https://testnet.bscscan.com',
+  // Testnet-ready: deploy via `npx hardhat run contracts/scripts/deploy-settlement.ts --network bscTestnet`
   settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC_TESTNET', '') || null,
   isTestnet: true,
   avgBlockTimeMs: 3000,
@@ -167,6 +220,35 @@ export function isOnChainEnabled(chainId?: SupportedChainId): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Simulation Mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when the platform is running in simulation mode.
+ *
+ * Simulation mode is active when:
+ *   - No BBAI token contract is deployed (pre-TGE)
+ *   - No settlement contract is configured
+ *   - Platform fee recipient is the zero address
+ *
+ * In simulation mode, all token transfers, staking, and settlement
+ * operations are handled off-chain via PostgreSQL mock balances.
+ * This is the expected state until TGE and contract deployment.
+ */
+export function isSimulationMode(): boolean {
+  const chain = getChainConfig();
+  const settlement = getSettlementChainConfig();
+
+  const noToken = chain.bbaiTokenAddress === null;
+  const noSettlement = settlement.settlementContract === null;
+  const zeroFeeRecipient =
+    chain.platformFeeRecipient === '0x0000000000000000000000000000000000000000';
+
+  // Simulation if any critical contract is missing
+  return noToken || noSettlement || zeroFeeRecipient;
+}
+
+// ---------------------------------------------------------------------------
 // Token metadata
 // ---------------------------------------------------------------------------
 
@@ -196,4 +278,3 @@ export function fromTokenUnits(raw: bigint): number {
   const fracPart = str.slice(str.length - BBAI_TOKEN.decimals);
   return parseFloat(`${intPart}.${fracPart}`);
 }
-

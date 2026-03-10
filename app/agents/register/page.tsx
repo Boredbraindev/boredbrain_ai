@@ -212,8 +212,8 @@ export default function AgentRegisterPage() {
 
       if (isDemo) {
         // Demo agents get auto-generated URLs
-        payload.agentCardUrl = agentCardUrl || `https://boredbrain.ai/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/card`;
-        payload.endpoint = endpoint || `https://boredbrain.ai/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/invoke`;
+        payload.agentCardUrl = agentCardUrl || `https://boredbrain.app/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/card`;
+        payload.endpoint = endpoint || `https://boredbrain.app/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/invoke`;
         payload.stakingAmount = 0;
       } else {
         payload.agentCardUrl = agentCardUrl;

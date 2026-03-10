@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <div className="size-3 rounded-full bg-green-500/80" />
             </div>
             <div className="flex-1 text-center text-xs text-muted-foreground font-mono">
-              boredbrain.ai
+              boredbrain.app
             </div>
           </div>
 

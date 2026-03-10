@@ -58,15 +58,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
   return {
     title: title,
-    description: 'A search in boredbrain.ai',
+    description: 'A search in boredbrain.app',
     openGraph: {
       title: title,
-      url: `https://boredbrain.ai/search/${id}`,
-      description: 'A search in boredbrain.ai',
-      siteName: 'boredbrain.ai',
+      url: `https://boredbrain.app/search/${id}`,
+      description: 'A search in boredbrain.app',
+      siteName: 'boredbrain.app',
       images: [
         {
-          url: `https://boredbrain.ai/api/og/chat/${id}`,
+          url: `https://boredbrain.app/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
@@ -75,20 +75,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     twitter: {
       card: 'summary_large_image',
       title: title,
-      url: `https://boredbrain.ai/search/${id}`,
-      description: 'A search in boredbrain.ai',
-      siteName: 'boredbrain.ai',
+      url: `https://boredbrain.app/search/${id}`,
+      description: 'A search in boredbrain.app',
+      siteName: 'boredbrain.app',
       creator: '@boredbrainai',
       images: [
         {
-          url: `https://boredbrain.ai/api/og/chat/${id}`,
+          url: `https://boredbrain.app/api/og/chat/${id}`,
           width: 1200,
           height: 630,
         },
       ],
     },
     alternates: {
-      canonical: `https://boredbrain.ai/search/${id}`,
+      canonical: `https://boredbrain.app/search/${id}`,
     },
   } as Metadata;
 }

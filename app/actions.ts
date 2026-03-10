@@ -1069,7 +1069,7 @@ export async function updateSignalAction({
         } else {
           // Create new schedule with updated cron
           const scheduleResponse = await qstash.schedules.create({
-            destination: `https://boredbrain.ai/api/signals`,
+            destination: `https://boredbrain.app/api/signals`,
             method: 'POST',
             cron: cronSchedule,
             body: JSON.stringify({
@@ -1188,7 +1188,7 @@ export async function testSignalAction({ id }: { id: string }) {
     const response = await fetch(
       process.env.NODE_ENV === 'development'
         ? `http://localhost:3009/api/signals`
-        : `https://boredbrain.ai/api/signals`,
+        : `https://boredbrain.app/api/signals`,
       {
         method: 'POST',
         headers: {

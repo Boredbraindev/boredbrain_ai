@@ -21,7 +21,7 @@ export async function GET() {
   } catch {
     catalog = [];
   }
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://boredbrain.ai';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://boredbrain.app';
 
   // Unique tool names across all agents
   const uniqueTools = new Set(catalog.map((t) => t.name));

@@ -18,9 +18,9 @@ type DbUser = typeof user.$inferSelect;
 // The order of precedence:
 //   1. UNLOCK_PRO_FOR_ALL env var (explicit override)
 //   2. NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL (fallback / build-time)
-//   3. Default: "true"  <-- keeps the app working before Polar is set up
+//   3. Default: "false"  <-- pro requires real subscription via Polar
 const PRO_UNLOCK_FLAG =
-  (process.env.UNLOCK_PRO_FOR_ALL ?? process.env.NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL ?? 'true') !== 'false';
+  (process.env.UNLOCK_PRO_FOR_ALL ?? process.env.NEXT_PUBLIC_UNLOCK_PRO_FOR_ALL ?? 'false') !== 'false';
 
 const GUEST_ACCESS_FLAG =
   (process.env.ALLOW_GUEST_ACCESS ?? process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? 'true') !== 'false' ||
@@ -204,9 +204,9 @@ function buildGuestComprehensiveData(record: DbUser): ComprehensiveUserData {
     referredBy: record.referredBy || null,
     createdAt: record.createdAt || new Date(),
     updatedAt: record.updatedAt || new Date(),
-    isProUser: true,
+    isProUser: PRO_UNLOCK_FLAG,
     proSource: 'none',
-    subscriptionStatus: 'active',
+    subscriptionStatus: PRO_UNLOCK_FLAG ? 'active' : 'none',
     paymentHistory: [],
   };
 

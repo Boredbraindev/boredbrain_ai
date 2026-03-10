@@ -19,7 +19,7 @@ export async function sendSignalCompletionEmail({
 }: SendLookoutCompletionEmailParams) {
   try {
     const data = await resend.emails.send({
-      from: 'Bored Brain <noreply@boredbrain.ai>',
+      from: 'Bored Brain <noreply@boredbrain.app>',
       to: [to],
       subject: `Lookout Complete: ${chatTitle}`,
       react: SearchCompletedEmail({

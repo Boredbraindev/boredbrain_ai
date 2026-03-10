@@ -12,6 +12,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from './providers';
 import { CustomCursor } from '@/components/custom-cursor';
 import { GlobalNavbar } from '@/components/global-navbar';
+import { GlobalFooter } from '@/components/global-footer';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://boredbrain.app'),
@@ -129,6 +130,7 @@ export default function RootLayout({
             <CustomCursor />
             <GlobalNavbar />
             {children}
+            <GlobalFooter />
           </Providers>
         </NuqsAdapter>
         <Analytics />

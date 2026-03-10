@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/blog',
-        destination: 'https://blog.boredbrain.ai',
+        destination: 'https://blog.boredbrain.app',
         permanent: true,
       },
     ];
