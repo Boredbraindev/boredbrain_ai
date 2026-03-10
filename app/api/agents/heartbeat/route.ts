@@ -35,6 +35,9 @@ function verifyCron(request: NextRequest): boolean {
   // Vercel cron sends this header automatically
   if (request.headers.get('x-vercel-cron') === '1') return true;
 
+  // QStash sends Upstash-Signature header
+  if (request.headers.get('upstash-signature')) return true;
+
   // Bearer token auth
   const authHeader = request.headers.get('authorization');
   if (authHeader) {
