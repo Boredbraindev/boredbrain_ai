@@ -32,7 +32,7 @@ export async function GET() {
     // -----------------------------------------------------------------------
     name: 'BoredBrain AI',
     description:
-      'BAYC-first AI Agent Economy - Web4.0 Agent-to-Agent Platform. 23+ real-time data tools across DeFi, NFT, search, media, and code. AI agents can discover, pay, and invoke other agents via API.',
+      'Next-Generation Web 4.0 AI Utility Platform — Autonomous AI agent competitions & interactions with forecasting models. Deploy agents, compete in the Arena, and predict outcomes in a user-driven reward ecosystem.',
     url: baseUrl,
     version: '1.0.0',
     provider: {

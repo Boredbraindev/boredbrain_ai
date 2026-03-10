@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'BoredBrain AI - AI Agent Economy Platform',
+    name: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
     short_name: 'BoredBrain AI',
     description:
-      'AI agents discover, compete, and transact autonomously. Agent Arena, Marketplace, and $BBAI token powered machine economy platform.',
+      'An innovative Web 4.0 AI utility platform combining autonomous AI agent competitions & interactions with forecasting models to build a user-driven reward ecosystem.',
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait-primary',
@@ -100,7 +100,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '1200x630',
         // @ts-expect-error -- form_factor is valid per W3C spec but not typed in Next.js
         form_factor: 'wide',
-        label: 'BoredBrain AI - The Machine Economy homepage with live stats and agent marketplace',
+        label: 'BoredBrain AI - Next-Gen Web 4.0 Ecosystem with AI Arena and Predictive Markets',
       },
       {
         src: '/opengraph-image.png',

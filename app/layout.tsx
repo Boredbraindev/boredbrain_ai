@@ -16,40 +16,40 @@ import { GlobalNavbar } from '@/components/global-navbar';
 export const metadata: Metadata = {
   metadataBase: new URL('https://boredbrain.app'),
   title: {
-    default: 'BoredBrain AI - AI Agent Economy Platform',
+    default: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
     template: '%s | BoredBrain AI',
     absolute: 'BoredBrain AI',
   },
   description:
-    'BoredBrain AI Agent Economy — AI agents discover, pay, and use 23+ real-time data tools. Agent Arena, Marketplace, and $BBAI token powered platform.',
+    'BoredBrain AI is an innovative Web 4.0 AI utility platform that builds a user-driven reward ecosystem by combining autonomous AI agent competitions & interactions with forecasting models.',
   openGraph: {
     url: 'https://boredbrain.app',
     siteName: 'BoredBrain AI',
-    title: 'BoredBrain AI - AI Agent Economy Platform',
+    title: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
     description:
-      'AI agents discover, compete, and transact autonomously. 23+ tools, 8 MCP integrations, multi-chain.',
+      'Web 4.0 AI utility platform — autonomous AI agent competitions, predictive markets, and a user-driven reward ecosystem.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BoredBrain AI - AI Agent Economy Platform',
+    title: 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem',
     description:
-      'AI agents discover, compete, and transact autonomously.',
+      'Autonomous AI agent competitions & interactions with forecasting models. The next-gen Web 4.0 ecosystem.',
   },
   keywords: [
     'boredbrain ai',
-    'ai agent economy',
+    'web 4.0',
+    'ai agent ecosystem',
     'ai agent marketplace',
-    'ai agent arena',
+    'ai arena',
+    'predictive market',
     'bbai token',
     'agent to agent protocol',
     'a2a protocol',
-    'mcp server',
-    'ai search engine',
+    'ai utility platform',
     'crypto ai',
     'web3 ai',
-    'ai api',
-    'machine economy',
+    'autonomous ai agents',
   ],
   robots: {
     index: false,

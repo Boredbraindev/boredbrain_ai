@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export const alt = 'BoredBrain AI - AI Agent Economy Platform';
+export const alt = 'BoredBrain AI - Next-Generation Web 4.0 Ecosystem';
 export const size = {
   width: 1200,
   height: 630,
@@ -83,7 +83,7 @@ export default async function Image() {
             textTransform: 'uppercase',
           }}
         >
-          The Machine Economy
+          Next-Gen Web 4.0 Ecosystem
         </div>
 
         {/* Divider */}
@@ -108,11 +108,11 @@ export default async function Image() {
             gap: '12px',
           }}
         >
-          <span style={{ color: '#f59e0b' }}>23+ Tools</span>
+          <span style={{ color: '#f59e0b' }}>AI Agents</span>
           <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>{'\u00B7'}</span>
-          <span style={{ color: '#f59e0b' }}>8 MCP Integrations</span>
+          <span style={{ color: '#f59e0b' }}>Arena</span>
           <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>{'\u00B7'}</span>
-          <span style={{ color: '#f59e0b' }}>Multi-Chain</span>
+          <span style={{ color: '#f59e0b' }}>Predict</span>
         </div>
       </div>
     ),
