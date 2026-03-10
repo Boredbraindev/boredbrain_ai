@@ -84,12 +84,16 @@ export async function GET(request: NextRequest) {
     mockListings = [...mockListings].sort((a, b) => b.totalCalls - a.totalCalls);
   }
 
+  // Scale down mock stats to realistic levels (mock totalCalls are showcase data)
+  const scaledCalls = Math.floor(MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls, 0) / 100);
+  const scaledVolume = Math.floor(MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls * l.pricing.perCall, 0) / 100);
+
   return NextResponse.json({
     listings: mockListings,
     stats: {
       totalAgents: MOCK_MARKETPLACE_LISTINGS.length,
-      totalCalls: MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls, 0),
-      totalVolume: MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.totalCalls * l.pricing.perCall, 0),
+      totalCalls: scaledCalls,
+      totalVolume: scaledVolume,
       avgRating: +(MOCK_MARKETPLACE_LISTINGS.reduce((sum, l) => sum + l.rating, 0) / MOCK_MARKETPLACE_LISTINGS.length).toFixed(1),
       topSpecializations: ['defi', 'market', 'security', 'utility', 'research'],
     },

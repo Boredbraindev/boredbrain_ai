@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,28 @@ interface UserStats {
   losses: number;
   totalEarnings: number;
 }
+
+interface LiveBet {
+  id: string;
+  user: string;
+  direction: Direction;
+  amount: number;
+  timestamp: number;
+  isAgent: boolean;
+}
+
+// ─── Mock Bet Names ─────────────────────────────────────────────────────────
+
+const AGENT_NAMES = [
+  'DeFi Oracle', 'Alpha Hunter', 'Whale Tracker', 'Neural Trader',
+  'Momentum Bot', 'Sentiment AI', 'Quant Engine', 'Chain Prophet',
+];
+
+const USER_NAMES = [
+  '0xd4e...f2a1', '0x8b3...c4d7', '0x1f9...a6b2', '0xe7c...d3f8',
+  '0x5a2...b9e4', '0x3c6...f1a5', '0x9d8...e7c3', '0x2b4...a8f6',
+  '0x6e1...c5d9', '0xf3a...b2e7', '0x7c5...d4a1', '0x4d9...e6b3',
+];
 
 // ─── Constants & Data ────────────────────────────────────────────────────────
 
@@ -116,6 +138,146 @@ function saveUserStats(stats: UserStats): void {
   }
 }
 
+// ─── Heartbeat Chart Component ───────────────────────────────────────────────
+
+const HISTORY_LENGTH = 60;
+
+function HeartbeatChart({ prices, color }: { prices: number[]; color: string }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const W = 600;
+  const H = 80;
+  const PAD = 4;
+
+  const path = useMemo(() => {
+    if (prices.length < 2) return '';
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+
+    const points = prices.map((p, i) => ({
+      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
+      y: PAD + (1 - (p - min) / range) * (H - PAD * 2),
+    }));
+
+    // Smooth curve using cubic bezier
+    let d = `M ${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cpx = (prev.x + curr.x) / 2;
+      d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+    }
+    return d;
+  }, [prices]);
+
+  const fillPath = useMemo(() => {
+    if (prices.length < 2) return '';
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+
+    const points = prices.map((p, i) => ({
+      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
+      y: PAD + (1 - (p - min) / range) * (H - PAD * 2),
+    }));
+
+    let d = `M ${points[0].x},${H}`;
+    d += ` L ${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cpx = (prev.x + curr.x) / 2;
+      d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+    }
+    d += ` L ${points[points.length - 1].x},${H} Z`;
+    return d;
+  }, [prices]);
+
+  const lastPoint = useMemo(() => {
+    if (prices.length < 2) return null;
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+    const i = prices.length - 1;
+    return {
+      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
+      y: PAD + (1 - (prices[i] - min) / range) * (H - PAD * 2),
+    };
+  }, [prices]);
+
+  const isUp = prices.length >= 2 && prices[prices.length - 1] >= prices[0];
+  const lineColor = color || (isUp ? '#22c55e' : '#ef4444');
+  const glowColor = isUp ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)';
+
+  return (
+    <div className="relative w-full">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-20"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="heartbeatFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        {/* Fill area */}
+        {fillPath && (
+          <path d={fillPath} fill="url(#heartbeatFill)" />
+        )}
+        {/* Main line */}
+        {path && (
+          <path
+            d={path}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth="2"
+            strokeLinecap="round"
+            filter="url(#glow)"
+          />
+        )}
+        {/* Pulsing dot at the end */}
+        {lastPoint && (
+          <>
+            <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill={glowColor} className="animate-ping" />
+            <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={lineColor} filter="url(#glow)" />
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Pulse Ring Component ────────────────────────────────────────────────────
+
+function PulseRing({ color, children }: { color: 'green' | 'red' | 'neutral'; children: React.ReactNode }) {
+  const ringColor =
+    color === 'green' ? 'border-green-500/40' :
+    color === 'red' ? 'border-red-500/40' :
+    'border-zinc-500/30';
+  const shadowColor =
+    color === 'green' ? 'shadow-green-500/20' :
+    color === 'red' ? 'shadow-red-500/20' :
+    'shadow-zinc-500/10';
+
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <div className={`absolute inset-0 rounded-2xl border-2 ${ringColor} shadow-lg ${shadowColor} animate-[heartbeat_1.5s_ease-in-out_infinite]`} />
+      <div className={`absolute inset-0 rounded-2xl border ${ringColor} animate-[heartbeat_1.5s_ease-in-out_infinite_0.3s]`} />
+      {children}
+    </div>
+  );
+}
+
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 // Try to import wagmi hooks - may not be available if Web3 is not configured
@@ -164,6 +326,16 @@ export default function PredictPage() {
     ? results.filter(r => r.asset === resultAssetFilter)
     : results;
 
+  // Live betting feed
+  const [liveBets, setLiveBets] = useState<LiveBet[]>([]);
+  const liveBetIdRef = useRef(0);
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  // Price history for heartbeat chart
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
+  const prevPriceRef = useRef<number>(currentPrice);
+  const priceFlashRef = useRef<'up' | 'down' | null>(null);
+
   // Refs for timer/price intervals
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -186,6 +358,59 @@ export default function PredictPage() {
       }))
     );
   }, []);
+
+  // Track price flash direction
+  useEffect(() => {
+    if (currentPrice > prevPriceRef.current) {
+      priceFlashRef.current = 'up';
+    } else if (currentPrice < prevPriceRef.current) {
+      priceFlashRef.current = 'down';
+    }
+    prevPriceRef.current = currentPrice;
+    setPriceHistory(prev => {
+      const next = [...prev, currentPrice];
+      return next.length > HISTORY_LENGTH ? next.slice(-HISTORY_LENGTH) : next;
+    });
+  }, [currentPrice]);
+
+  // Reset price history when asset changes
+  useEffect(() => {
+    setPriceHistory([]);
+  }, [assetIndex]);
+
+  // Auto-generate live bets from AI agents and mock users
+  useEffect(() => {
+    if (isResolving || timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      const isAgent = Math.random() > 0.4;
+      const names = isAgent ? AGENT_NAMES : USER_NAMES;
+      const user = names[Math.floor(Math.random() * names.length)];
+      const direction: Direction = Math.random() > 0.45 ? 'UP' : 'DOWN';
+      const amount = isAgent
+        ? [50, 100, 150, 200, 250, 300, 500][Math.floor(Math.random() * 7)]
+        : [10, 25, 50, 75, 100, 150, 200][Math.floor(Math.random() * 7)];
+
+      liveBetIdRef.current += 1;
+      const newBet: LiveBet = {
+        id: `bet-${liveBetIdRef.current}`,
+        user,
+        direction,
+        amount,
+        timestamp: Date.now(),
+        isAgent,
+      };
+      setLiveBets(prev => [newBet, ...prev].slice(0, 50));
+
+      // Update pools
+      if (direction === 'UP') {
+        setUpPool(p => p + amount);
+      } else {
+        setDownPool(p => p + amount);
+      }
+    }, Math.random() * 2000 + 1500); // 1.5~3.5s
+
+    return () => clearInterval(interval);
+  }, [isResolving, timeLeft]);
 
   // Price random walk
   useEffect(() => {
@@ -376,29 +601,138 @@ export default function PredictPage() {
           background-size: 200% 100%;
           animation: shimmer 3s linear infinite;
         }
+        @keyframes heartbeat {
+          0%, 100% { transform: scale(1); opacity: 0.4; }
+          25% { transform: scale(1.04); opacity: 0.7; }
+          50% { transform: scale(1); opacity: 0.4; }
+          75% { transform: scale(1.02); opacity: 0.55; }
+        }
+        @keyframes price-flash-up {
+          0% { background-color: rgba(34, 197, 94, 0.2); }
+          100% { background-color: transparent; }
+        }
+        @keyframes price-flash-down {
+          0% { background-color: rgba(239, 68, 68, 0.2); }
+          100% { background-color: transparent; }
+        }
+        @keyframes bet-slide-in {
+          from { opacity: 0; transform: translateX(-20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        .bet-slide-in { animation: bet-slide-in 0.3s ease-out forwards; }
+        .feed-scroll::-webkit-scrollbar { width: 3px; }
+        .feed-scroll::-webkit-scrollbar-track { background: transparent; }
+        .feed-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
       `}</style>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* ─── Page Header ─── */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-green-500 bg-clip-text text-transparent">
+        <div className="text-center space-y-2 mb-6">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-green-500 bg-clip-text text-transparent">
             Price Prediction Arena
           </h1>
-          <p className="text-zinc-400 text-lg">
+          <p className="text-zinc-500 text-sm">
             AI Agents predict. You bet. Winner takes all.
           </p>
-          <div className="flex items-center justify-center gap-4 mt-3">
-            <Badge variant="outline" className="border-green-500/50 text-green-400">
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
               W: {userStats.wins}
             </Badge>
-            <Badge variant="outline" className="border-red-500/50 text-red-400">
+            <Badge variant="outline" className="border-red-500/50 text-red-400 text-xs">
               L: {userStats.losses}
             </Badge>
-            <Badge variant="outline" className={`${userStats.totalEarnings >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}>
+            <Badge variant="outline" className={`text-xs ${userStats.totalEarnings >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}>
               {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} BBAI
             </Badge>
           </div>
         </div>
+
+        {/* ─── 2-Column Layout: Feed | Main ─── */}
+        <div className="flex gap-4">
+          {/* ─── Left: Live Betting Feed ─── */}
+          <div className="hidden lg:block w-72 flex-shrink-0">
+            <div className="sticky top-20">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs font-semibold text-white uppercase tracking-wider">Live Bets</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-500">{liveBets.length} bets</span>
+                </div>
+                <div ref={feedRef} className="feed-scroll overflow-y-auto max-h-[calc(100vh-220px)] divide-y divide-zinc-800/50">
+                  {liveBets.length === 0 && (
+                    <div className="px-4 py-8 text-center text-zinc-600 text-xs">
+                      Waiting for bets...
+                    </div>
+                  )}
+                  {liveBets.map((bet, i) => {
+                    const secAgo = Math.floor((Date.now() - bet.timestamp) / 1000);
+                    return (
+                      <div
+                        key={bet.id}
+                        className={`px-3 py-2.5 hover:bg-zinc-800/40 transition-colors ${i === 0 ? 'bet-slide-in' : ''}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                              bet.direction === 'UP'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-red-500/20 text-red-400'
+                            }`}>
+                              {bet.direction === 'UP' ? '↑' : '↓'}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[11px] text-white font-medium truncate">
+                                  {bet.user}
+                                </span>
+                                {bet.isAgent && (
+                                  <span className="flex-shrink-0 text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">AI</span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-zinc-600">{secAgo < 60 ? `${secAgo}s ago` : `${Math.floor(secAgo / 60)}m ago`}</span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <span className={`text-xs font-bold ${
+                              bet.direction === 'UP' ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {bet.amount}
+                            </span>
+                            <div className="text-[9px] text-zinc-600">BBAI</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Feed summary bar */}
+                <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-950/50">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-green-400">↑ {liveBets.filter(b => b.direction === 'UP').length} bets</span>
+                    <span className="text-red-400">↓ {liveBets.filter(b => b.direction === 'DOWN').length} bets</span>
+                  </div>
+                  <div className="mt-1 flex h-1 rounded-full overflow-hidden bg-zinc-800">
+                    {(() => {
+                      const up = liveBets.filter(b => b.direction === 'UP').reduce((s, b) => s + b.amount, 0);
+                      const dn = liveBets.filter(b => b.direction === 'DOWN').reduce((s, b) => s + b.amount, 0);
+                      const total = up + dn || 1;
+                      return (
+                        <>
+                          <div className="bg-green-500 transition-all duration-500" style={{ width: `${(up / total) * 100}%` }} />
+                          <div className="bg-red-500 transition-all duration-500" style={{ width: `${(dn / total) * 100}%` }} />
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── Right: Main Content ─── */}
+          <div className="flex-1 min-w-0 space-y-6">
 
         {/* ─── Hero: Active Prediction Round ─── */}
         <Card className="border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden relative">
@@ -438,13 +772,39 @@ export default function PredictPage() {
           </CardHeader>
 
           <CardContent className="space-y-6 relative z-10">
-            {/* Price Display */}
-            <div className="text-center space-y-1">
-              <div className="text-5xl md:text-6xl font-mono font-bold tracking-tight">
-                ${formatPrice(currentPrice)}
-              </div>
-              <div className={`text-lg font-semibold ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {priceChange >= 0 ? '+' : ''}{formatPrice(priceChange)} ({priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(3)}%)
+            {/* Price Display with Heartbeat */}
+            <div className="text-center space-y-3">
+              <PulseRing color={priceChange >= 0 ? 'green' : priceChange < 0 ? 'red' : 'neutral'}>
+                <div className="px-8 py-4">
+                  <div
+                    className={`text-5xl md:text-6xl font-mono font-bold tracking-tight transition-colors duration-300 ${
+                      priceChange > 0 ? 'text-green-400' : priceChange < 0 ? 'text-red-400' : 'text-white'
+                    }`}
+                    style={{
+                      textShadow: priceChange >= 0
+                        ? '0 0 30px rgba(34,197,94,0.3)'
+                        : '0 0 30px rgba(239,68,68,0.3)',
+                    }}
+                  >
+                    ${formatPrice(currentPrice)}
+                  </div>
+                  <div className={`text-lg font-semibold mt-1 ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {priceChange >= 0 ? '+' : ''}{formatPrice(priceChange)} ({priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(3)}%)
+                  </div>
+                </div>
+              </PulseRing>
+
+              {/* Heartbeat Chart */}
+              <div className="max-w-2xl mx-auto mt-4">
+                <HeartbeatChart prices={priceHistory} color={currentAsset.color} />
+                <div className="flex justify-between text-[10px] text-zinc-600 mt-1 px-1">
+                  <span>60s ago</span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: currentAsset.color }} />
+                    LIVE
+                  </span>
+                  <span>now</span>
+                </div>
               </div>
             </div>
 
@@ -816,6 +1176,9 @@ export default function PredictPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+          </div>{/* end flex-1 main content */}
+        </div>{/* end 2-column flex */}
       </div>
     </div>
   );

@@ -90,7 +90,7 @@ export async function executeMatch(matchId: string): Promise<{
       const uniqueTools = new Set(toolsUsed);
       const toolScore = Math.round(Math.min(30, uniqueTools.size * 10));
       // Speed (0-30): faster = higher, based on execution time
-      const speedScore = Math.round(Math.max(0, 30 - (latencyMs / 1000) * 5));
+      const speedScore = Math.round(Math.min(30, Math.max(0, 30 - (latencyMs / 1000) * 5)));
       const score = Math.round(Math.min(100, accuracyScore + toolScore + speedScore));
 
       return {

@@ -133,7 +133,7 @@ export async function executeCoinData(args: { coinId: string }): Promise<unknown
     });
 
     if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+      throw new Error('Price data temporarily unavailable. Please try again.');
     }
 
     const data = await response.json();
@@ -205,7 +205,7 @@ export async function executeCoinOhlc(args: {
     });
 
     if (!response.ok) {
-      throw new Error(`CoinGecko OHLC API error: ${response.status} ${response.statusText}`);
+      throw new Error('Chart data temporarily unavailable. Please try again.');
     }
 
     const rawData = await response.json();

@@ -8,6 +8,6 @@ export const wagmiConfig = getDefaultConfig({
   appIcon: 'https://boredbrain.ai/footer-logo.png',
   // Replace with your WalletConnect Cloud projectId
   // Get one at https://cloud.walletconnect.com
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_WALLETCONNECT_PROJECT_ID',
+  projectId: (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_WALLETCONNECT_PROJECT_ID').trim(),
   chains: [base, bsc, arbitrum, apeChain],
 });

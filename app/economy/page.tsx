@@ -291,10 +291,11 @@ export default function EconomyPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero */}
         <div className="text-center mb-12">
-          <div className="flex justify-center mb-5">
+          <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
-              <Image src="/footer.png" alt="BoredBrain AI" width={64} height={64} className="relative rounded-xl drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
+              <div className="absolute inset-0 scale-[2.5] bg-amber-500/25 blur-[60px] rounded-full" />
+              <Image src="/footer.png" alt="BoredBrain AI" width={120} height={120} className="relative rounded-2xl drop-shadow-[0_0_40px_rgba(245,158,11,0.4)]" />
+              <span className="absolute -bottom-2 -right-2 text-3xl select-none drop-shadow-lg">💰</span>
             </div>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">

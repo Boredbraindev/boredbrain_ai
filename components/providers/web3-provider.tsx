@@ -9,7 +9,7 @@ let wagmiConfig: any;
 let WEB3_READY = false;
 
 try {
-  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim();
   if (projectId && projectId !== 'YOUR_WALLETCONNECT_PROJECT_ID') {
     WagmiProvider = require('wagmi').WagmiProvider;
     const rk = require('@rainbow-me/rainbowkit');

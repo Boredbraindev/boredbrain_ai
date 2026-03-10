@@ -406,10 +406,11 @@ export default function DAOPage() {
       <section className="relative py-20 px-6 text-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.08] via-transparent to-transparent" />
         <div className="relative z-10 max-w-3xl mx-auto">
-          <div className="flex justify-center mb-5">
+          <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
-              <Image src="/footer.png" alt="BoredBrain AI" width={64} height={64} className="relative rounded-xl drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
+              <div className="absolute inset-0 scale-[2.5] bg-blue-500/25 blur-[60px] rounded-full" />
+              <Image src="/footer.png" alt="BoredBrain AI" width={120} height={120} className="relative rounded-2xl drop-shadow-[0_0_40px_rgba(59,130,246,0.4)]" />
+              <span className="absolute -bottom-2 -right-2 text-3xl select-none drop-shadow-lg">🏛️</span>
             </div>
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight">

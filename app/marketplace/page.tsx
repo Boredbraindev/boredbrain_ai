@@ -617,10 +617,11 @@ export default function MarketplaceBrowsePage() {
   useEffect(() => {
     const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
     const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
+    // Scale mock totalCalls to realistic levels (/100) then apply modest growth
     const grownAgents = SHOWCASE_AGENTS.map((a) => ({
       ...a,
-      totalCalls: g(a.totalCalls, Math.floor(a.totalCalls / 1000)),
-      reviewCount: g(a.reviewCount, Math.max(1, Math.floor(a.reviewCount / 200))),
+      totalCalls: g(Math.floor(a.totalCalls / 100), Math.max(1, Math.floor(a.totalCalls / 10000))),
+      reviewCount: g(Math.floor(a.reviewCount / 10), Math.max(1, Math.floor(a.reviewCount / 200))),
     }));
     function makeStats(agents: AgentListing[]) {
       return {

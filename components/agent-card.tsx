@@ -193,7 +193,7 @@ export function AgentCard({
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       className={cn(
         // Base card
-        'group relative flex flex-col overflow-hidden rounded-xl',
+        'group relative flex flex-col overflow-hidden rounded-xl card-hover',
         'bg-white/[0.03] backdrop-blur-xl',
         'border border-white/[0.06]',
         'transition-all duration-300 ease-out',

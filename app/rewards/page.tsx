@@ -445,12 +445,21 @@ export default function RewardsPage() {
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="mb-10 text-center">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <GiftIcon className="size-8 text-amber-400" />
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-              Daily Rewards
-            </h1>
-            <GiftIcon className="size-8 text-amber-400" />
+          <div className="mb-4 flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 scale-[2.5] bg-amber-500/25 blur-[60px] rounded-full" />
+              <div className="relative flex items-center justify-center">
+                <GiftIcon className="size-16 text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]" />
+                <span className="absolute -bottom-2 -right-3 text-3xl select-none drop-shadow-lg">🎁</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <GiftIcon className="size-8 text-amber-400" />
+              <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                Daily Rewards
+              </h1>
+              <GiftIcon className="size-8 text-amber-400" />
+            </div>
           </div>
           <p className="text-lg text-zinc-400">
             Claim today&apos;s reward and keep your streak to earn even more!

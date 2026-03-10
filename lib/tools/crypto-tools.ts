@@ -49,7 +49,7 @@ export const coinDataTool = tool({
       });
 
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+        throw new Error('Price data temporarily unavailable. Please try again.');
       }
 
       const data = await response.json();
@@ -122,7 +122,7 @@ export const coinDataByContractTool = tool({
       });
 
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+        throw new Error('Price data temporarily unavailable. Please try again.');
       }
 
       const data = await response.json();
@@ -187,11 +187,11 @@ export const coinOhlcTool = tool({
       ]);
 
       if (!ohlcResponse.ok) {
-        throw new Error(`CoinGecko OHLC API error: ${ohlcResponse.status} ${ohlcResponse.statusText}`);
+        throw new Error('Chart data temporarily unavailable. Please try again.');
       }
 
       if (!coinDataResponse.ok) {
-        throw new Error(`CoinGecko Coin Data API error: ${coinDataResponse.status} ${coinDataResponse.statusText}`);
+        throw new Error('Price data temporarily unavailable. Please try again.');
       }
 
       const [ohlcData, coinData] = await Promise.all([ohlcResponse.json(), coinDataResponse.json()]);

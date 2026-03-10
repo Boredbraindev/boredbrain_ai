@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,76 @@ function formatBBAI(amount: number | undefined | null): string {
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K`;
   return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/* ── Animated counter hook ───────────────────────────────────────────── */
+function useAnimatedCounter(target: number, duration = 1500, enabled = true) {
+  const [count, setCount] = useState(0);
+  const rafRef = useRef<number>();
+
+  useEffect(() => {
+    if (!enabled || target === 0) { setCount(target); return; }
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(from + (target - from) * eased));
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration, enabled]);
+
+  return count;
+}
+
+/* ── Mouse parallax hook ─────────────────────────────────────────────── */
+function useMouseParallax(strength = 20) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let raf: number;
+    const handleMove = (e: MouseEvent) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = (e.clientX - cx) / (rect.width / 2);
+        const dy = (e.clientY - cy) / (rect.height / 2);
+        setOffset({ x: dx * strength, y: dy * strength });
+      });
+    };
+    window.addEventListener('mousemove', handleMove, { passive: true });
+    return () => { window.removeEventListener('mousemove', handleMove); cancelAnimationFrame(raf); };
+  }, [strength]);
+
+  return { ref, offset };
+}
+
+/* ── Intersection observer for scroll reveal ─────────────────────────── */
+function useScrollReveal(threshold = 0.15) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+
+  return { ref, visible };
 }
 
 /* ── Cinematic background ────────────────────────────────────────────── */
@@ -64,9 +134,12 @@ function CinematicBackground() {
 }
 
 /* ── Animated stat card ───────────────────────────────────────────────── */
-function StatPill({ label, value, icon }: { label: string; value: string; icon: string }) {
+function StatPill({ label, value, icon, delay = 0 }: { label: string; value: string; icon: string; delay?: number }) {
   return (
-    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm min-w-0">
+    <div
+      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm min-w-0 hover:bg-white/[0.08] hover:border-amber-500/20 transition-all duration-300 hover:scale-[1.04] animate-[fadeSlideUp_0.6s_ease-out_both]"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <span className="text-base sm:text-lg shrink-0">{icon}</span>
       <div className="min-w-0">
         <div className="text-xs sm:text-sm font-bold text-white/90 tabular-nums truncate">{value}</div>
@@ -76,7 +149,7 @@ function StatPill({ label, value, icon }: { label: string; value: string; icon: 
   );
 }
 
-/* ── Feature card ─────────────────────────────────────────────────────── */
+/* ── Feature card with cursor-tracking glow ──────────────────────────── */
 function FeatureCard({
   title,
   description,
@@ -85,6 +158,7 @@ function FeatureCard({
   stats,
   href,
   tag,
+  index = 0,
 }: {
   title: string;
   description: string;
@@ -93,15 +167,51 @@ function FeatureCard({
   stats?: string;
   href: string;
   tag?: string;
+  index?: number;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const card = cardRef.current;
+    const glow = glowRef.current;
+    if (!card || !glow) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    glow.style.transform = `translate(${x - 100}px, ${y - 100}px)`;
+    glow.style.opacity = '1';
+    // subtle 3D tilt
+    const rx = ((y / rect.height) - 0.5) * -8;
+    const ry = ((x / rect.width) - 0.5) * 8;
+    card.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    const card = cardRef.current;
+    const glow = glowRef.current;
+    if (card) card.style.transform = '';
+    if (glow) glow.style.opacity = '0';
+  }, []);
+
   return (
-    <Link href={href} className="group block">
-      <div className="relative h-full rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04] hover:shadow-2xl hover:shadow-black/20 hover:-translate-y-1">
-        {/* Glow */}
-        <div className={`absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-0 group-hover:opacity-30 transition-opacity duration-700 ${gradient}`} />
+    <Link href={href} className="group block" style={{ animationDelay: `${index * 100}ms` }}>
+      <div
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="relative h-full rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-300 ease-out hover:border-white/[0.15] hover:bg-white/[0.04] hover:shadow-2xl hover:shadow-amber-500/10 card-hover"
+      >
+        {/* Cursor-tracking glow */}
+        <div
+          ref={glowRef}
+          className={`absolute w-[200px] h-[200px] rounded-full blur-[80px] pointer-events-none opacity-0 transition-opacity duration-500 ${gradient}`}
+          style={{ willChange: 'transform' }}
+        />
+        {/* Static corner glow */}
+        <div className={`absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-0 group-hover:opacity-20 transition-opacity duration-700 ${gradient}`} />
 
         <div className="relative p-7">
-          {/* Tag */}
           {tag && (
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] mb-5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -109,22 +219,18 @@ function FeatureCard({
             </div>
           )}
 
-          {/* Icon */}
-          <div className="mb-5">{icon}</div>
+          <div className="mb-5 group-hover:scale-110 transition-transform duration-500">{icon}</div>
 
-          {/* Text */}
           <h3 className="text-xl font-semibold text-white/90 mb-2 group-hover:text-white transition-colors">
             {title}
           </h3>
           <p className="text-sm text-white/40 leading-relaxed mb-5">{description}</p>
 
-          {/* Stats */}
           {stats && <div className="text-xs text-white/25 font-mono">{stats}</div>}
 
-          {/* Arrow */}
           <div className="flex items-center gap-1 mt-4 text-xs text-white/30 group-hover:text-amber-400 transition-colors">
             <span>Explore</span>
-            <svg className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            <svg className="w-3.5 h-3.5 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </div>
         </div>
       </div>
@@ -153,13 +259,71 @@ function RevenueRow({ name, fee, icon, color, index }: { name: string; fee: stri
 /* ════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════════════════════ */
+/* ── Floating particles around hero ───────────────────────────────────── */
+function FloatingParticles() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full animate-[floatParticle_linear_infinite]"
+          style={{
+            width: `${2 + (i % 4)}px`,
+            height: `${2 + (i % 4)}px`,
+            left: `${(i * 5.3 + 3) % 100}%`,
+            top: `${(i * 7.1 + 10) % 100}%`,
+            background: i % 3 === 0
+              ? 'rgba(245, 158, 11, 0.4)'
+              : i % 3 === 1
+              ? 'rgba(168, 85, 247, 0.3)'
+              : 'rgba(59, 130, 246, 0.3)',
+            animationDuration: `${8 + (i % 7) * 2}s`,
+            animationDelay: `${(i * 0.5) % 6}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Backer logo auto-scroll strip ───────────────────────────────────── */
+const BACKERS = [
+  'Apecoin Foundation', 'WAGMI Ventures', 'Animoca', 'ViaBTC',
+  'Web3 Labs', 'ICC Ventures',
+];
+
+function BackerStrip() {
+  return (
+    <div className="relative overflow-hidden py-8">
+      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#06060a] to-transparent z-10" />
+      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#06060a] to-transparent z-10" />
+      <div className="flex auto-scroll">
+        {[...BACKERS, ...BACKERS].map((name, i) => (
+          <div
+            key={i}
+            className="flex-shrink-0 mx-6 px-6 py-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm"
+          >
+            <span className="text-sm text-white/30 font-medium whitespace-nowrap">{name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ════════════════════════════════════════════════════════════════════════ */
 export function AgenticHub() {
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const { ref: heroRef, offset } = useMouseParallax(30);
+  const featureReveal = useScrollReveal(0.1);
+  const revenueReveal = useScrollReveal(0.1);
+  const ctaReveal = useScrollReveal(0.15);
 
   useEffect(() => {
     setMounted(true);
-    // Time-based growth for realistic feel
     const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
     const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
     const FALLBACK_STATS = {
@@ -183,11 +347,16 @@ export function AgenticHub() {
         matches: matches.length,
         activeMatches: matches.filter((m: any) => m.status === 'active').length,
       };
-      // Use fallback if revenue data is zero (core business metrics)
       const isEmpty = result.revenue === 0 && result.volume === 0 && result.transactions === 0;
       setStats(isEmpty ? FALLBACK_STATS : result);
     });
   }, []);
+
+  // Animated counters
+  const animRevenue = useAnimatedCounter(stats?.revenue ?? 0, 2000, mounted);
+  const animVolume = useAnimatedCounter(stats?.volume ?? 0, 2000, mounted);
+  const animTx = useAnimatedCounter(stats?.transactions ?? 0, 1800, mounted);
+  const animMatches = useAnimatedCounter(stats?.matches ?? 0, 1200, mounted);
 
   const show = mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6';
 
@@ -209,82 +378,121 @@ export function AgenticHub() {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
         }
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes floatParticle {
+          0% { transform: translate(0, 0) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          50% { transform: translate(30px, -60px) scale(1.5); }
+          90% { opacity: 1; }
+          100% { transform: translate(-20px, -120px) scale(0.5); opacity: 0; }
+        }
       `}</style>
 
       <div className="relative z-10">
         <div className="h-16" />
 
         {/* ══════════════════════════════════════════════════════════════════
-           HERO
+           HERO — with mouse parallax + floating particles
            ══════════════════════════════════════════════════════════════════ */}
-        <section className={`relative pt-20 sm:pt-28 pb-24 transition-all duration-1000 ease-out ${show}`}>
+        <section
+          ref={heroRef as React.RefObject<HTMLElement>}
+          className={`relative pt-20 sm:pt-28 pb-24 transition-all duration-1000 ease-out ${show}`}
+        >
+          <FloatingParticles />
+
           <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-8">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            {/* Badge — animated entrance */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-8 animate-[fadeSlideUp_0.6s_ease-out_both]">
+              <span className="relative w-2 h-2 rounded-full bg-emerald-400 animate-pulse">
+                <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" />
+              </span>
               <span className="text-xs text-white/60">Powered by $BBAI &mdash; Live on 4 chains</span>
             </div>
 
-            {/* Logo */}
-            <div className="flex justify-center mb-10">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-amber-500/25 blur-3xl scale-[2]" />
-                <Image src="/footer.png" alt="BoredBrain" width={72} height={72} className="relative drop-shadow-2xl rounded-xl" />
+            {/* Logo — parallax layer */}
+            <div
+              className="flex justify-center mb-10 animate-[fadeSlideUp_0.7s_ease-out_0.1s_both]"
+              style={{ transform: `translate(${offset.x * 0.3}px, ${offset.y * 0.3}px)` }}
+            >
+              <div className="relative group">
+                <div className="absolute inset-0 rounded-full bg-amber-500/30 blur-3xl scale-[2.5] animate-[pulse_4s_ease-in-out_infinite] group-hover:scale-[3] transition-transform duration-700" />
+                <div className="absolute inset-0 rounded-full bg-purple-500/15 blur-3xl scale-[3] animate-[pulse_6s_ease-in-out_infinite_1s]" />
+                <Image src="/footer.png" alt="BoredBrain" width={88} height={88} className="relative drop-shadow-2xl rounded-xl hover:rotate-[8deg] transition-transform duration-500" />
               </div>
             </div>
 
-            {/* Heading */}
-            <h1 className="text-4xl sm:text-6xl md:text-8xl font-bold tracking-[-0.03em] leading-[0.95]">
-              <span className="bg-gradient-to-b from-white via-white/90 to-white/40 bg-clip-text text-transparent">
-                Next-Gen
-              </span>
-              <br />
-              <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 bg-clip-text text-transparent" style={{ backgroundSize: '200% auto', animation: 'shimmer 3s linear infinite' }}>
-                Web 4.0 Ecosystem
-              </span>
-            </h1>
+            {/* Heading — parallax layer (moves opposite) */}
+            <div style={{ transform: `translate(${offset.x * -0.15}px, ${offset.y * -0.15}px)` }}>
+              <h1 className="text-4xl sm:text-6xl md:text-8xl font-bold tracking-[-0.03em] leading-[0.95] animate-[fadeSlideUp_0.8s_ease-out_0.2s_both]">
+                <span className="bg-gradient-to-b from-white via-white/90 to-white/40 bg-clip-text text-transparent">
+                  Next-Gen
+                </span>
+                <br />
+                <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 bg-clip-text text-transparent" style={{ backgroundSize: '200% auto', animation: 'shimmer 3s linear infinite' }}>
+                  Web 4.0 Ecosystem
+                </span>
+              </h1>
+            </div>
 
-            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/35 max-w-2xl mx-auto leading-relaxed font-light px-2 sm:px-0">
+            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/35 max-w-2xl mx-auto leading-relaxed font-light px-2 sm:px-0 animate-[fadeSlideUp_0.8s_ease-out_0.35s_both]">
               An innovative Web 4.0 AI utility platform combining
               <span className="text-white/50"> autonomous AI agent competitions & interactions</span>
               <span className="text-white/50"> with forecasting models to build a user-driven reward ecosystem.</span>
             </p>
 
-            {/* CTAs */}
+            {/* CTAs — staggered entrance */}
             <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-8 sm:mt-12 px-2 sm:px-0">
-              <Link href="/arena">
-                <Button className="relative h-12 sm:h-13 px-6 sm:px-8 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-semibold text-sm shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transition-all hover:scale-[1.03] active:scale-[0.98]">
+              <Link href="/arena" className="animate-[fadeSlideUp_0.6s_ease-out_0.5s_both]">
+                <Button className="relative h-12 sm:h-13 px-6 sm:px-8 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-semibold text-sm shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transition-all hover:scale-[1.05] active:scale-[0.98] group overflow-hidden">
+                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/25 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
                   Enter Arena
                   <svg className="w-4 h-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </Button>
               </Link>
-              <Link href="/agents/register">
-                <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-white/80 text-sm backdrop-blur-sm">
+              <Link href="/agents/register" className="animate-[fadeSlideUp_0.6s_ease-out_0.6s_both]">
+                <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.2] text-white/80 text-sm backdrop-blur-sm transition-all hover:scale-[1.03]">
                   Deploy Agent
                 </Button>
               </Link>
-              <Link href="/marketplace">
-                <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-white/80 text-sm backdrop-blur-sm">
+              <Link href="/marketplace" className="animate-[fadeSlideUp_0.6s_ease-out_0.7s_both]">
+                <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.2] text-white/80 text-sm backdrop-blur-sm transition-all hover:scale-[1.03]">
                   Marketplace
                 </Button>
               </Link>
             </div>
 
-            {/* Live Stats Pills */}
+            {/* Live Stats Pills — animated counters */}
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 mt-10 sm:mt-16">
-              <StatPill icon="💰" label="Revenue" value={stats ? `${formatBBAI(stats.revenue)} BBAI` : '...'} />
-              <StatPill icon="📊" label="Volume" value={stats ? `${formatBBAI(stats.volume)} BBAI` : '...'} />
-              <StatPill icon="⚡" label="Transactions" value={stats ? (stats.transactions ?? 0).toLocaleString() : '...'} />
-              <StatPill icon="⚔️" label="Matches" value={stats ? `${stats.matches}` : '...'} />
+              <StatPill icon="💰" label="Revenue" value={stats ? `${formatBBAI(animRevenue)} BBAI` : '...'} delay={800} />
+              <StatPill icon="📊" label="Volume" value={stats ? `${formatBBAI(animVolume)} BBAI` : '...'} delay={900} />
+              <StatPill icon="⚡" label="Transactions" value={stats ? animTx.toLocaleString() : '...'} delay={1000} />
+              <StatPill icon="⚔️" label="Matches" value={stats ? `${animMatches}` : '...'} delay={1100} />
             </div>
           </div>
         </section>
 
         {/* ══════════════════════════════════════════════════════════════════
+           BACKERS — auto-scrolling strip
+           ══════════════════════════════════════════════════════════════════ */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium">Backed By</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          </div>
+          <BackerStrip />
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════════
            FEATURE GRID
            ══════════════════════════════════════════════════════════════════ */}
-        <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 transition-all duration-700 delay-200 ${show}`}>
-          {/* Section label */}
+        <section
+          ref={featureReveal.ref}
+          className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 transition-all duration-700 ${featureReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+        >
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <span className="text-xs text-white/25 uppercase tracking-[0.2em] font-medium">Core Modules</span>
@@ -294,6 +502,7 @@ export function AgenticHub() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <FeatureCard
               title="AI Arena"
+              index={0}
               description="The core proving ground where agents clash over complex tasks and strategic battles. Validate AI capabilities while driving continuous user engagement."
               gradient="bg-amber-500"
               tag={stats?.activeMatches > 0 ? `${stats.activeMatches} Live` : 'Ready'}
@@ -308,6 +517,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="Agent Marketplace"
+              index={1}
               description="Deploy and operate advanced autonomous AI agents with unique traits and strategic algorithms. Monitor performance through an intuitive centralized dashboard."
               gradient="bg-purple-500"
               tag="Marketplace"
@@ -322,6 +532,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="Predictive Market"
+              index={2}
               description="Analyze and forecast agent matchup outcomes. Generate tangible economic value through data-driven prediction models and reward-driven engagement."
               gradient="bg-cyan-500"
               tag="DeFi"
@@ -336,6 +547,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="A2A Network"
+              index={3}
               description="Agents discover and invoke each other through the Agent-to-Agent protocol. Real-time mesh topology with billing."
               gradient="bg-green-500"
               tag="Protocol"
@@ -350,6 +562,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="Playbooks"
+              index={4}
               description="Winning strategies codified and sold as playbooks. Agents learn from the best-performing strategies on the platform."
               gradient="bg-rose-500"
               tag="Strategy"
@@ -364,6 +577,7 @@ export function AgenticHub() {
 
             <FeatureCard
               title="Revenue Dashboard"
+              index={5}
               description="Track all 7 revenue streams in real-time. Platform fees, arena rakes, token trades, and agent billings."
               gradient="bg-blue-500"
               tag="Analytics"
@@ -381,7 +595,10 @@ export function AgenticHub() {
         {/* ══════════════════════════════════════════════════════════════════
            REVENUE MODEL
            ══════════════════════════════════════════════════════════════════ */}
-        <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 transition-all duration-700 delay-300 ${show}`}>
+        <section
+          ref={revenueReveal.ref}
+          className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 transition-all duration-700 ${revenueReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+        >
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <span className="text-xs text-white/25 uppercase tracking-[0.2em] font-medium">Revenue Model</span>
@@ -449,7 +666,10 @@ export function AgenticHub() {
         {/* ══════════════════════════════════════════════════════════════════
            CTA FOOTER
            ══════════════════════════════════════════════════════════════════ */}
-        <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-24 transition-all duration-700 delay-400 ${show}`}>
+        <section
+          ref={ctaReveal.ref}
+          className={`max-w-6xl mx-auto px-4 sm:px-6 pb-24 transition-all duration-700 ${ctaReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+        >
           <div className="relative rounded-3xl border border-white/[0.06] bg-gradient-to-r from-amber-500/[0.06] via-transparent to-purple-500/[0.06] overflow-hidden p-6 sm:p-12 md:p-16 text-center">
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px]" />
             <div className="relative">

@@ -1323,3 +1323,67 @@ body {
 .dark .sh__token--punctuation {
   color: #03dac6;
 }
+
+/* Card hover animations */
+@keyframes card-hover-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.15); }
+}
+
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(245, 158, 11, 0.2);
+  animation: card-hover-glow 2s ease-in-out infinite;
+}
+
+/* Tilt effect for cards */
+.card-tilt {
+  transition: transform 0.3s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+/* Testimonial card auto-scroll (OpenClaw style) */
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.auto-scroll {
+  animation: scroll-left 30s linear infinite;
+}
+.auto-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* Parallax hero effect */
+.parallax-hero {
+  transition: transform 0.1s ease-out;
+}
+
+/* Shimmer effect for loading */
+@keyframes shimmer-slide {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.08) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer-slide 2s ease-in-out infinite;
+}
+
+/* Pulse ring for live indicators */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid currentColor;
+  animation: pulse-ring 1.5s ease-out infinite;
+}

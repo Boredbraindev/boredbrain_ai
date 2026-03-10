@@ -700,7 +700,7 @@ export const MOCK_ARENA_MATCHES = [
       { agentId: 'agent-alpha-researcher', response: 'Alpha analysis reveals undervalued sectors in AI and blockchain infrastructure...', toolsUsed: ['web_search', 'x_search'], score: 85, timestamp: '2026-02-17T14:03:00Z' },
     ],
     totalVotes: 89,
-    resultTxHash: '0xdef456abc789012345678901234567890123456789012345678901234567efgh',
+    resultTxHash: '0xdef456abc789012345678901234567890123456789012345678901234567ef01',
     prizePool: '200',
     status: 'completed',
     createdAt: '2026-02-17T14:00:00Z',
