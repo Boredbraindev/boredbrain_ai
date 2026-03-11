@@ -93,20 +93,21 @@ export default function StatsPage() {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
-        const [agentsRes, matchesRes, toolsRes] = await Promise.all([
+
+        // Fetch agents and arena independently — tools API doesn't exist
+        const [agentsRes, matchesRes] = await Promise.allSettled([
           fetch('/api/agents?limit=50', { signal: controller.signal }),
           fetch('/api/arena?limit=20', { signal: controller.signal }),
-          fetch('/api/tools', { signal: controller.signal }),
         ]);
         clearTimeout(timer);
 
-        const agentsData = await agentsRes.json();
-        const matchesData = await matchesRes.json();
-        const toolsData = await toolsRes.json();
+        const agentsData = agentsRes.status === 'fulfilled' && agentsRes.value.ok
+          ? await agentsRes.value.json() : { agents: [] };
+        const matchesData = matchesRes.status === 'fulfilled' && matchesRes.value.ok
+          ? await matchesRes.value.json() : { matches: [] };
 
         const agents = agentsData.agents || [];
         const matches = matchesData.matches || [];
-        const tools = toolsData.tools || [];
 
         const totalVolume = agents.reduce(
           (sum: number, a: any) => sum + parseFloat(a.totalRevenue || '0'),
@@ -160,6 +161,11 @@ export default function StatsPage() {
         setStats(realStats);
       } catch (error) {
         console.error('Failed to fetch stats:', error);
+        // Show empty state rather than error screen
+        setStats({
+          totalAgents: 0, totalApiKeys: 0, totalToolCalls: 0, totalMatches: 0,
+          totalVolume: '0', topTools: [], recentMatches: [], topAgents: [],
+        });
       }
       setLoading(false);
     }

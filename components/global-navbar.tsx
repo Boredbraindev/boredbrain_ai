@@ -236,7 +236,7 @@ export function GlobalNavbar() {
           onClick={() => setMobileMenuOpen(false)}
         >
           <div
-            className="absolute top-[56px] left-0 right-0 bg-background/95 backdrop-blur-xl border-b border-white/[0.08] p-4"
+            className="absolute top-[56px] left-0 right-0 max-h-[calc(100dvh-56px)] overflow-y-auto bg-background/95 backdrop-blur-xl border-b border-white/[0.08] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             {NAV_GROUPS.map((group) => (
