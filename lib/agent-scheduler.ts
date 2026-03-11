@@ -533,9 +533,13 @@ export async function getRebalanceCandidates(): Promise<
       sql`${externalAgent.status} IN ('active', 'verified', 'online')`,
     );
 
+  // Sample a random subset to avoid 190+ sequential wallet queries
+  const shuffled = agents.sort(() => Math.random() - 0.5);
+  const sample = shuffled.slice(0, 20);
+
   const candidates: Array<{ agentId: string; name: string; balance: number }> = [];
 
-  for (const agent of agents) {
+  for (const agent of sample) {
     const wallet = await getAgentWallet(agent.id);
     if (wallet && wallet.balance < 50) {
       candidates.push({

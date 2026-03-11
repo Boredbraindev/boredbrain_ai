@@ -30,14 +30,13 @@ import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 function verifyCron(request: NextRequest): boolean {
   const secret = serverEnv.CRON_SECRET;
 
-  // Dev mode: allow if CRON_SECRET is not configured
-  if (!secret) return true;
+  // Fail-closed: if CRON_SECRET is not set, only allow in development
+  if (!secret) {
+    return process.env.NODE_ENV === 'development';
+  }
 
-  // Vercel cron sends this header automatically
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-
-  // QStash sends Upstash-Signature header
-  if (request.headers.get('upstash-signature')) return true;
+  // Vercel cron sends this header — only trust on Vercel (VERCEL env is set)
+  if (process.env.VERCEL && request.headers.get('x-vercel-cron') === '1') return true;
 
   // Bearer token auth
   const authHeader = request.headers.get('authorization');
@@ -45,10 +44,6 @@ function verifyCron(request: NextRequest): boolean {
     const token = authHeader.replace(/^Bearer\s+/i, '');
     if (token === secret) return true;
   }
-
-  // Query param for manual testing
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
 
   return false;
 }
@@ -250,6 +245,8 @@ export async function GET(request: NextRequest) {
     scenariosRun,
     totalBilled: Number(totalBilled.toFixed(4)),
     rebalanced,
+    predictBetsGenerated,
+    settlementTxHash,
     errors: errors.length > 0 ? errors : undefined,
   });
 }

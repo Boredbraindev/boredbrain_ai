@@ -130,7 +130,7 @@ export default function StatsPage() {
         const topTools = Object.entries(toolUsageCounts)
           .map(([name, count]) => ({
             name,
-            count: Math.floor(count / agents.length),
+            count: agents.length > 0 ? Math.floor(count / agents.length) : 0,
             category: TOOL_CATEGORIES[name] || 'other',
           }))
           .sort((a, b) => b.count - a.count)
