@@ -495,12 +495,22 @@ export default function PredictPage() {
     }
   }, [selectedMarket]);
 
-  // Generate positions
+  // Fetch real positions (no mock — only show when wallet connected and has real bets)
   useEffect(() => {
-    if (markets.length >= 5 && walletAddress) {
-      setMyPositions(generateMockPositions(markets));
+    if (!walletAddress || walletAddress.startsWith('0x_demo_')) {
+      setMyPositions([]);
+      return;
     }
-  }, [markets, walletAddress]);
+    (async () => {
+      try {
+        const res = await fetch(`/api/markets/bet?wallet=${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMyPositions(data.data?.positions || []);
+        }
+      } catch { /* no positions */ }
+    })();
+  }, [walletAddress]);
 
   // Poll live feed
   useEffect(() => {

@@ -41,7 +41,7 @@ function NavDropdown({
           variant="ghost"
           size="sm"
           className={cn(
-            'text-[11px] lg:text-xs xl:text-[13px] font-mono-wide tracking-widest gap-0.5 px-2.5 lg:px-3 xl:px-4',
+            'text-xs lg:text-sm xl:text-sm font-mono-wide tracking-widest gap-0.5 px-3 lg:px-4 xl:px-5',
             isGroupActive
               ? 'text-amber-brand'
               : 'text-muted-foreground/70 hover:text-amber-brand',
@@ -64,7 +64,7 @@ function NavDropdown({
               <Link
                 href={item.href}
                 className={cn(
-                  'text-[11px] lg:text-xs font-mono-wide tracking-widest cursor-pointer',
+                  'text-xs lg:text-sm font-mono-wide tracking-widest cursor-pointer',
                   isActive
                     ? 'text-amber-brand font-semibold'
                     : 'text-muted-foreground hover:text-foreground',
