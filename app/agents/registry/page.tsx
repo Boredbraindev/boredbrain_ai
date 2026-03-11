@@ -513,21 +513,11 @@ export default function AgentRegistryPage() {
         const fetchedAgents: RegisteredAgent[] = agentsData.agents || [];
         const fetchedStats: RegistryStats | null = statsData.stats || null;
 
-        if (fetchedAgents.length > 0) {
-          setAgents(fetchedAgents);
-          setStats(fetchedStats);
-        } else {
-          // Fallback to showcase data when API returns empty
-          const showcase = buildShowcaseAgents();
-          setAgents(showcase);
-          setStats(buildShowcaseStats(showcase));
-        }
+        // Always use real DB data
+        setAgents(fetchedAgents);
+        setStats(fetchedStats);
       } catch (error) {
         console.error('Failed to fetch registry data:', error);
-        // Fallback to showcase data on error
-        const showcase = buildShowcaseAgents();
-        setAgents(showcase);
-        setStats(buildShowcaseStats(showcase));
       } finally {
         setLoading(false);
       }

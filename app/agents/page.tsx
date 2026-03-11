@@ -234,10 +234,9 @@ export default function AgentMarketplacePage() {
         const res = await fetch('/api/agents?limit=50', { signal: controller.signal });
         const data = await res.json();
         const apiAgents = data.agents || [];
-        setAgents(apiAgents.length > 0 ? apiAgents : SHOWCASE_AGENTS);
+        setAgents(apiAgents);
       } catch (error) {
         console.error('Failed to fetch agents:', error);
-        setAgents(SHOWCASE_AGENTS);
       } finally {
         clearTimeout(timer);
         setLoading(false);

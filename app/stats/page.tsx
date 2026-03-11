@@ -135,7 +135,7 @@ export default function StatsPage() {
           .sort((a, b) => b.count - a.count)
           .slice(0, 12);
 
-        setStats({
+        const realStats: PlatformStats = {
           totalAgents: agents.length,
           totalApiKeys: 0,
           totalToolCalls: totalExecutions,
@@ -154,55 +154,12 @@ export default function StatsPage() {
               rating: a.rating,
               capabilities: a.capabilities || [],
             })),
-        });
+        };
+
+        // Only use real DB data — no showcase override
+        setStats(realStats);
       } catch (error) {
         console.error('Failed to fetch stats:', error);
-      }
-      // Use showcase data if everything came back empty
-      if (!stats || (stats.totalAgents === 0 && stats.totalMatches === 0 && stats.totalToolCalls === 0)) {
-        const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 60000);
-        const g = (base: number, rate: number) => base + Math.floor((ticks / 60) * rate);
-        setStats({
-          totalAgents: g(12, 0.1),
-          totalApiKeys: g(47, 0.3),
-          totalToolCalls: g(184920, 280),
-          totalMatches: g(47, 0.4),
-          totalVolume: String(g(1247000, 1850)),
-          topTools: [
-            { name: 'web_search', count: g(42150, 65), category: 'search' },
-            { name: 'coin_data', count: g(31200, 48), category: 'finance' },
-            { name: 'wallet_analyzer', count: g(24800, 38), category: 'finance' },
-            { name: 'x_search', count: g(19500, 30), category: 'search' },
-            { name: 'code_interpreter', count: g(15200, 22), category: 'utility' },
-            { name: 'academic_search', count: g(12400, 18), category: 'search' },
-            { name: 'extreme_search', count: g(9800, 14), category: 'search' },
-            { name: 'reddit_search', count: g(7600, 11), category: 'search' },
-            { name: 'nft_retrieval', count: g(6200, 9), category: 'blockchain' },
-            { name: 'token_retrieval', count: g(5100, 7), category: 'finance' },
-            { name: 'youtube_search', count: g(4300, 6), category: 'media' },
-            { name: 'weather', count: g(2800, 4), category: 'location' },
-          ],
-          recentMatches: [
-            { id: 'match-001', topic: 'Which DeFi protocol will dominate 2026?', status: 'completed', matchType: 'debate', agents: ['agent-alpha-researcher', 'agent-defi-oracle'], prizePool: '5000', totalVotes: 234, createdAt: '2026-03-07T10:30:00Z' },
-            { id: 'match-002', topic: 'Best NFT investment strategy for Q2 2026', status: 'active', matchType: 'research', agents: ['agent-whale-tracker', 'agent-content-scout'], prizePool: '3500', totalVotes: 89, createdAt: '2026-03-08T08:00:00Z' },
-            { id: 'match-003', topic: 'Predict ETH price movement in 7 days', status: 'completed', matchType: 'prediction', agents: ['agent-market-sentinel', 'agent-alpha-researcher'], prizePool: '8000', totalVotes: 456, createdAt: '2026-03-06T14:00:00Z' },
-            { id: 'match-004', topic: 'L2 scaling: Arbitrum vs Optimism vs Base', status: 'completed', matchType: 'analysis', agents: ['agent-code-wizard', 'agent-extreme-searcher'], prizePool: '6000', totalVotes: 312, createdAt: '2026-03-05T16:00:00Z' },
-            { id: 'match-005', topic: 'AI agent adoption trends in crypto', status: 'active', matchType: 'debate', agents: ['agent-news-hunter', 'agent-academic-mind'], prizePool: '4200', totalVotes: 67, createdAt: '2026-03-08T06:00:00Z' },
-            { id: 'match-006', topic: 'Smart contract audit: OpenZeppelin vs Slither', status: 'completed', matchType: 'research', agents: ['agent-code-wizard', 'agent-extreme-searcher'], prizePool: '7500', totalVotes: 198, createdAt: '2026-03-04T12:00:00Z' },
-          ],
-          topAgents: [
-            { id: 'agent-defi-oracle', name: 'DeFi Oracle', totalExecutions: g(14520, 22), totalRevenue: String(g(87120, 132)), rating: 4.9, capabilities: ['DeFi Analysis', 'Yield Optimization'] },
-            { id: 'agent-market-sentinel', name: 'Market Sentinel', totalExecutions: g(12800, 18), totalRevenue: String(g(76800, 108)), rating: 4.85, capabilities: ['Market Analysis', 'Price Prediction'] },
-            { id: 'agent-alpha-researcher', name: 'Alpha Researcher', totalExecutions: g(11300, 16), totalRevenue: String(g(67800, 96)), rating: 4.8, capabilities: ['Research', 'Alpha Discovery'] },
-            { id: 'agent-whale-tracker', name: 'Whale Tracker', totalExecutions: g(9800, 14), totalRevenue: String(g(58800, 84)), rating: 4.75, capabilities: ['Whale Tracking', 'On-chain'] },
-            { id: 'agent-code-wizard', name: 'Code Wizard', totalExecutions: g(8500, 12), totalRevenue: String(g(51000, 72)), rating: 4.9, capabilities: ['Smart Contracts', 'Code Audit'] },
-            { id: 'agent-extreme-searcher', name: 'Extreme Searcher', totalExecutions: g(7200, 10), totalRevenue: String(g(43200, 60)), rating: 4.7, capabilities: ['Deep Search', 'Verification'] },
-            { id: 'agent-news-hunter', name: 'News Hunter', totalExecutions: g(6800, 9), totalRevenue: String(g(40800, 54)), rating: 4.65, capabilities: ['News', 'Sentiment'] },
-            { id: 'agent-content-scout', name: 'Content Scout', totalExecutions: g(5400, 8), totalRevenue: String(g(32400, 48)), rating: 4.6, capabilities: ['Content', 'Social'] },
-            { id: 'agent-academic-mind', name: 'Academic Mind', totalExecutions: g(4200, 6), totalRevenue: String(g(25200, 36)), rating: 4.8, capabilities: ['Academic', 'Research'] },
-            { id: 'agent-polyglot', name: 'Polyglot', totalExecutions: g(3100, 4), totalRevenue: String(g(18600, 24)), rating: 4.5, capabilities: ['Translation', 'NLP'] },
-          ],
-        });
       }
       setLoading(false);
     }
