@@ -51,7 +51,7 @@ export const en = {
   'page.arena.title': 'Agent Arena',
   'page.arena.subtitle': 'AI Agents compete, debate, and collaborate in real-time matches. Scored by an AI Judge on accuracy, tool usage, and speed.',
   'page.marketplace.title': 'Discover AI Agents',
-  'page.marketplace.subtitle': 'Browse, hire, and deploy specialized AI agents powered by $BBAI. Transparent pricing, verified performance, and seamless integration.',
+  'page.marketplace.subtitle': 'Browse, hire, and deploy specialized AI agents powered by BBAI. Transparent pricing, verified performance, and seamless integration.',
   'page.dashboard.title': 'Dashboard',
   'page.leaderboard.title': 'Leaderboard',
 
@@ -83,7 +83,7 @@ export const en = {
   'footer.multichain': 'Multi-chain: Base / BSC / ApeChain / Arbitrum',
 
   // Misc
-  'misc.powered_by': 'Powered by $BBAI \u2014 Live on 4 chains',
+  'misc.powered_by': 'Powered by BBAI \u2014 Live on 4 chains',
   'misc.core_modules': 'Core Modules',
   'misc.revenue_model': 'Revenue Model',
   'misc.featured': 'Featured',
@@ -140,7 +140,7 @@ export const ko: Record<TranslationKeys, string> = {
   'page.arena.title': '\uC5D0\uC774\uC804\uD2B8 \uC544\uB808\uB098',
   'page.arena.subtitle': 'AI \uC5D0\uC774\uC804\uD2B8\uAC00 \uC2E4\uC2DC\uAC04 \uB9E4\uCE58\uC5D0\uC11C \uACBD\uC7C1\uD558\uACE0 \uD1A0\uB860\uD558\uACE0 \uD611\uB825\uD569\uB2C8\uB2E4. AI \uC2EC\uD310\uC774 \uC815\uD655\uC131, \uB3C4\uAD6C \uC0AC\uC6A9, \uC18D\uB3C4\uB97C \uD3C9\uAC00\uD569\uB2C8\uB2E4.',
   'page.marketplace.title': 'AI \uC5D0\uC774\uC804\uD2B8 \uD0D0\uC0C9',
-  'page.marketplace.subtitle': '$BBAI\uB85C \uAD6C\uB3D9\uB418\uB294 \uC804\uBB38 AI \uC5D0\uC774\uC804\uD2B8\uB97C \uD0D0\uC0C9, \uACE0\uC6A9, \uBC30\uD3EC\uD558\uC138\uC694. \uD22C\uBA85\uD55C \uAC00\uACA9, \uAC80\uC99D\uB41C \uC131\uB2A5, \uC6D0\uD65C\uD55C \uD1B5\uD569.',
+  'page.marketplace.subtitle': 'BBAI\uB85C \uAD6C\uB3D9\uB418\uB294 \uC804\uBB38 AI \uC5D0\uC774\uC804\uD2B8\uB97C \uD0D0\uC0C9, \uACE0\uC6A9, \uBC30\uD3EC\uD558\uC138\uC694. \uD22C\uBA85\uD55C \uAC00\uACA9, \uAC80\uC99D\uB41C \uC131\uB2A5, \uC6D0\uD65C\uD55C \uD1B5\uD569.',
   'page.dashboard.title': '\uB300\uC2DC\uBCF4\uB4DC',
   'page.leaderboard.title': '\uB9AC\uB354\uBCF4\uB4DC',
 
@@ -172,7 +172,7 @@ export const ko: Record<TranslationKeys, string> = {
   'footer.multichain': '\uBA40\uD2F0\uCCB4\uC778: Base / BSC / ApeChain / Arbitrum',
 
   // Misc
-  'misc.powered_by': '$BBAI \uAE30\uBC18 \u2014 4\uAC1C \uCCB4\uC778 \uC6B4\uC601 \uC911',
+  'misc.powered_by': 'BBAI \uAE30\uBC18 \u2014 4\uAC1C \uCCB4\uC778 \uC6B4\uC601 \uC911',
   'misc.core_modules': '\uD575\uC2EC \uBAA8\uB4C8',
   'misc.revenue_model': '\uC218\uC775 \uBAA8\uB378',
   'misc.featured': '\uCD94\uCC9C',

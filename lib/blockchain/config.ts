@@ -4,20 +4,20 @@
  * HYBRID MODE:
  * - Betting: off-chain points (PostgreSQL)
  * - Settlement: on-chain via PredictionSettlement contract (BSC Testnet)
- * - TGE: full on-chain migration (BSC Mainnet + BBAI Token)
+ * - Future: full on-chain migration (BSC Mainnet)
  *
  * Chains: Base (8453), Base Sepolia (84532), BSC (56), BSC Testnet (97)
  *
- * PRE-TGE STATUS (as of 2026-03):
+ * CURRENT STATUS (as of 2026-03):
  * ─────────────────────────────────────────────────────────────────────
  * All smart contracts are pending deployment. The platform currently
  * operates in SIMULATION MODE where on-chain interactions are mocked.
  * Contract addresses will be populated via environment variables once
  * deployed. Until then, `isSimulationMode()` returns true and all
- * token/settlement operations fall back to off-chain PostgreSQL logic.
+ * settlement operations fall back to off-chain PostgreSQL logic.
  *
  * Required environment variables for production on-chain mode:
- *   BBAI_TOKEN_ADDRESS          – ERC-20 BBAI token on Base
+ *   BBAI_TOKEN_ADDRESS          – BBAI contract on Base (future)
  *   BBAI_PLATFORM_WALLET        – Platform fee recipient wallet
  *   SETTLEMENT_CONTRACT_BSC     – PredictionSettlement on BSC mainnet
  *   BASE_RPC_URL                – (optional) Alchemy/Infura Base RPC
@@ -35,8 +35,8 @@
 // ---------------------------------------------------------------------------
 
 export const DEPLOYMENT_STATUS = {
-  network: 'pre-tge',
-  bbaiToken: { status: 'pending', chain: 'base', note: 'Pending TGE - Token Generation Event' },
+  network: 'points-mode',
+  bbaiToken: { status: 'pending', chain: 'base', note: 'BBAI Points — internal system' },
   agentRegistry: { status: 'pending', chain: 'base', note: 'ERC-721 agent NFT registry' },
   predictionSettlement: { status: 'testnet-ready', chain: 'bsc-testnet', note: 'Deployable via hardhat' },
   paymentRouter: { status: 'pending', chain: 'base', note: '85/15 split router' },
@@ -52,7 +52,7 @@ export interface ChainConfig {
   name: string;
   rpcUrl: string;
   blockExplorerUrl: string;
-  bbaiTokenAddress: string | null; // null = simulation mode (pre-TGE)
+  bbaiTokenAddress: string | null; // null = simulation mode (points-only)
   platformFeeRecipient: string;
   isTestnet: boolean;
   avgBlockTimeMs: number;
@@ -108,9 +108,9 @@ export const BASE_MAINNET: ChainConfig = {
     'https://mainnet.base.org',
   ),
   blockExplorerUrl: 'https://basescan.org',
-  // Pre-TGE: no token contract deployed yet
+  // No on-chain contract deployed yet (points-only mode)
   bbaiTokenAddress: envOrDefault('BBAI_TOKEN_ADDRESS', '') || null,
-  // Pre-TGE: set BBAI_PLATFORM_WALLET once multisig is created
+  // Set BBAI_PLATFORM_WALLET once multisig is created
   platformFeeRecipient: envOrDefault(
     'BBAI_PLATFORM_WALLET',
     '0x0000000000000000000000000000000000000000',
@@ -146,7 +146,7 @@ export const BSC_MAINNET: SettlementChainConfig = {
   // Falls back to public BSC RPC; set BSC_RPC_URL for production endpoint
   rpcUrl: envOrDefault('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
   blockExplorerUrl: 'https://bscscan.com',
-  // Post-TGE: set SETTLEMENT_CONTRACT_BSC after mainnet deployment
+  // Future: set SETTLEMENT_CONTRACT_BSC after mainnet deployment
   settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC', '') || null,
   isTestnet: false,
   avgBlockTimeMs: 3000,
@@ -170,13 +170,13 @@ const SETTLEMENT_CHAIN_MAP: Record<SettlementChainId, SettlementChainConfig> = {
 
 /**
  * Get settlement chain config.
- * Defaults to BSC Testnet (pre-TGE).
+ * Defaults to BSC Testnet.
  */
 export function getSettlementChainConfig(chainId?: SettlementChainId): SettlementChainConfig {
   if (chainId && SETTLEMENT_CHAIN_MAP[chainId]) {
     return SETTLEMENT_CHAIN_MAP[chainId];
   }
-  return BSC_TESTNET; // default to testnet until TGE
+  return BSC_TESTNET; // default to testnet
 }
 
 /**
@@ -227,13 +227,13 @@ export function isOnChainEnabled(chainId?: SupportedChainId): boolean {
  * Returns true when the platform is running in simulation mode.
  *
  * Simulation mode is active when:
- *   - No BBAI token contract is deployed (pre-TGE)
+ *   - No BBAI contract is deployed
  *   - No settlement contract is configured
  *   - Platform fee recipient is the zero address
  *
- * In simulation mode, all token transfers, staking, and settlement
+ * In simulation mode, all transfers, staking, and settlement
  * operations are handled off-chain via PostgreSQL mock balances.
- * This is the expected state until TGE and contract deployment.
+ * This is the expected state while operating in points-only mode.
  */
 export function isSimulationMode(): boolean {
   const chain = getChainConfig();

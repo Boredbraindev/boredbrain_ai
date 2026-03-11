@@ -2,7 +2,7 @@
  * Payment Pipeline Orchestrator
  *
  * Processes BBAI Points transactions between agents and platform.
- * Internal points system (85/15 split) — on-chain settlement deferred to TGE.
+ * Internal points system (85/15 split).
  * Uses internal reference IDs for audit trail. On-chain settlement via PredictionSettlement contract on BSC.
  *
  * Revenue streams:
@@ -13,7 +13,7 @@
  * - Agent staking (100% locked)
  *
  * Persistence: Drizzle ORM + PostgreSQL (payment_transaction table).
- * Note: All transactions are internal points. On-chain migration at TGE.
+ * Note: All transactions are internal BBAI points.
  */
 
 import { db } from '@/lib/db';

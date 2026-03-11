@@ -1,5 +1,5 @@
 /**
- * Blockchain Payment Service for BBAI Token
+ * Blockchain Payment Service for BBAI (Legacy/Future)
  *
  * Handles on-chain interactions with the BBAI ERC-20 contract on Base.
  * Uses raw JSON-RPC calls via fetch() -- no ethers.js dependency.

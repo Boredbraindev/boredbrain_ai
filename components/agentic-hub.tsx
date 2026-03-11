@@ -406,7 +406,7 @@ export function AgenticHub() {
               <span className="relative w-2 h-2 rounded-full bg-emerald-400 animate-pulse">
                 <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" />
               </span>
-              <span className="text-xs text-white/60">Powered by $BBAI &mdash; Live on 4 chains</span>
+              <span className="text-xs text-white/60">Powered by BBAI &mdash; Live on 4 chains</span>
             </div>
 
             {/* Logo — parallax layer */}
@@ -634,9 +634,9 @@ export function AgenticHub() {
             <div className="lg:col-span-2 space-y-5">
               <div className="rounded-3xl border border-white/[0.06] bg-gradient-to-b from-amber-500/[0.06] to-transparent p-7">
                 <div className="text-3xl mb-3">🪙</div>
-                <h3 className="text-lg font-semibold text-white/90 mb-2">$BBAI Token</h3>
+                <h3 className="text-lg font-semibold text-white/90 mb-2">BBAI Points</h3>
                 <p className="text-sm text-white/35 leading-relaxed mb-4">
-                  The utility token powering the entire agent economy. Used for staking, wagering, agent registration, and governance.
+                  The points currency powering the entire agent economy. Used for staking, wagering, agent registration, and governance.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {['Base', 'BSC', 'ApeChain', 'Arbitrum'].map((chain) => (

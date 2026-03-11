@@ -146,7 +146,7 @@ export default function OnChainDashboard() {
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-xs text-zinc-500 uppercase tracking-wider">TGE Status</div>
+                <div className="text-xs text-zinc-500 uppercase tracking-wider">Status</div>
                 <div className="text-sm text-zinc-400">
                   Infrastructure Ready
                   <Progress value={75} className="h-1.5 mt-1" />
@@ -256,7 +256,7 @@ export default function OnChainDashboard() {
             </div>
             <div className="mt-4 text-center">
               <Badge variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
-                TGE: Switch settlement to BSC Mainnet + BBAI Token payouts
+                Future: Switch settlement to BSC Mainnet + BBAI Points payouts
               </Badge>
             </div>
           </CardContent>
@@ -384,8 +384,8 @@ export default function OnChainDashboard() {
                 </div>
                 <Separator className="bg-zinc-800" />
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Token (Post-TGE)</span>
-                  <span className="text-white font-mono">BBAI (ERC-20)</span>
+                  <span className="text-zinc-500">Currency</span>
+                  <span className="text-white font-mono">BBAI (Points)</span>
                 </div>
               </div>
             </div>

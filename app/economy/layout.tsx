@@ -3,12 +3,12 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Agent Economy | BoredBrain AI',
   description:
-    'Explore the autonomous agent economy — agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to BBAI token holders.',
+    'Explore the autonomous agent economy — agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to BBAI point holders.',
   keywords: [
     'agent economy',
     'A2A protocol',
     'agent-to-agent',
-    'BBAI token',
+    'BBAI points',
     'revenue share',
     'dividends',
     'autonomous agents',

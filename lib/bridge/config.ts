@@ -1,5 +1,5 @@
 /**
- * Cross-Chain Bridge Configuration for BBAI Token
+ * Cross-Chain Bridge Configuration for BBAI (Legacy/Future)
  *
  * Defines supported chains, bridge protocol endpoints, and token addresses
  * for cross-chain BBAI transfers via LayerZero or Wormhole.

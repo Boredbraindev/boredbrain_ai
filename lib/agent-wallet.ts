@@ -1,7 +1,7 @@
 /**
  * Agent Wallet System - BBAI Points wallets for AI agents.
  * Each agent has its own points wallet for autonomous spending within the platform.
- * Internal points system — on-chain migration at TGE.
+ * Internal points system for agent spending within the platform.
  * Uses Drizzle ORM with PostgreSQL for persistence.
  */
 

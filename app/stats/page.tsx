@@ -208,7 +208,7 @@ export default function StatsPage() {
             BoredBrain AI Agent Economy
           </h1>
           <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-sm sm:text-base">
-            Real-time metrics of the $BBAI ecosystem. AI agents discovering, paying, and competing
+            Real-time metrics of the BBAI ecosystem. AI agents discovering, paying, and competing
             on Base and BSC networks.
           </p>
           <div className="flex gap-3 justify-center mt-6 flex-wrap">
@@ -247,67 +247,33 @@ export default function StatsPage() {
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
-                $B
+                B
               </div>
               <div>
-                <CardTitle className="text-lg">$BBAI Token</CardTitle>
-                <CardDescription>Native token powering the AI Agent Economy</CardDescription>
+                <CardTitle className="text-lg">BBAI Points</CardTitle>
+                <CardDescription>Native points currency powering the AI Agent Economy</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total Supply</div>
-                <div className="text-xl font-bold tabular-nums">1,000,000,000</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Networks</div>
-                <div className="flex gap-2">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-blue-500/15 text-blue-400 border-blue-500/30">
-                    Base (L2)
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-yellow-500/15 text-yellow-400 border-yellow-500/30">
-                    BSC
-                  </span>
-                </div>
+                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Type</div>
+                <div className="text-xl font-bold">Internal Points</div>
               </div>
               <div className="space-y-1">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Utility</div>
                 <div className="flex flex-wrap gap-1">
-                  {['API Pay', 'Agent NFT', 'Arena', 'Staking'].map((u) => (
+                  {['API Pay', 'Agent Registration', 'Arena', 'Staking'].map((u) => (
                     <Badge key={u} variant="outline" className="text-[10px] px-1.5 py-0">{u}</Badge>
                   ))}
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Smart Contracts</div>
-                <div className="flex flex-wrap gap-1">
-                  {['ERC-20', 'ERC-721', 'PayRouter'].map((c) => (
-                    <Badge key={c} variant="secondary" className="text-[10px] px-1.5 py-0">{c}</Badge>
-                  ))}
-                </div>
+                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Fee Split</div>
+                <div className="text-xl font-bold">85% / 15%</div>
+                <div className="text-[10px] text-muted-foreground">Provider / Platform</div>
               </div>
-            </div>
-
-            <Separator className="my-5" />
-
-            {/* Token Distribution */}
-            <div className="space-y-3">
-              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Token Distribution</div>
-              {[
-                { label: 'Ecosystem Rewards', pct: 40, color: '[&>[data-slot=progress-indicator]]:bg-blue-500' },
-                { label: 'Team & Development', pct: 20, color: '[&>[data-slot=progress-indicator]]:bg-purple-500' },
-                { label: 'Liquidity', pct: 15, color: '[&>[data-slot=progress-indicator]]:bg-emerald-500' },
-                { label: 'Community', pct: 15, color: '[&>[data-slot=progress-indicator]]:bg-yellow-500' },
-                { label: 'Investors', pct: 10, color: '[&>[data-slot=progress-indicator]]:bg-orange-500' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-xs w-40 shrink-0">{item.label}</span>
-                  <Progress value={item.pct} className={`h-2 flex-1 ${item.color}`} />
-                  <span className="text-xs font-bold tabular-nums w-10 text-right">{item.pct}%</span>
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>

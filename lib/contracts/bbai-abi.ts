@@ -1,11 +1,11 @@
 /**
- * BBAI Token ABI - ERC-20 + Custom Staking & Payment Functions
+ * BBAI ABI - Custom Staking & Payment Functions (Legacy/Future)
  *
  * Standard ERC-20 interface plus custom extensions for the BoredBrain AI
  * platform: tool fee payments with automatic 85/15 split, and staking
  * for agent registration.
  *
- * Contract: BBAI Token on Base (L2)
+ * Contract: BBAI on Base (L2) — Legacy/Future
  */
 
 export const BBAI_TOKEN_ABI = [

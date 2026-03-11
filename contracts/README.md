@@ -1,20 +1,19 @@
-# BoredBrain AI ($BBAI) Smart Contracts
+# BoredBrain AI (BBAI) Smart Contracts
 
-ERC-20 token and staking contracts for the BoredBrain AI Agent Economy, deployed on Base chain.
+> **Note:** These contracts are legacy/future consideration. The platform currently operates with an internal BBAI Points system. Smart contract deployment is planned for a future phase.
+
+Staking and settlement contracts for the BoredBrain AI Agent Economy, targeting Base chain.
 
 ## Contracts
 
-### BBToken.sol (ERC-20)
+### BBToken.sol (Legacy)
 
-The core `$BBAI` token with the following features:
+The BBAI contract (future consideration):
 
 - **Name**: BoredBrain AI
 - **Symbol**: BBAI
-- **Total Supply**: 1,000,000,000 (1 billion) with 18 decimals
-- **Owner Mint/Burn**: Owner can mint (up to max supply) and burn tokens
 - **15% Platform Fee**: `chargePlatformFee()` splits agent tool call payments -- 85% to agent owner, 15% to treasury
 - **Staking Lock**: `stakeForAgent()` locks 100 BBAI for 30 days to register an agent
-- **1% Trade Fee**: Configurable per-address fee on agent token trades (applied to DEX pairs via `setFeeApplicable`)
 - **Pausable**: Owner can pause/unpause all transfers for emergencies
 
 ### AgentStaking.sol
@@ -33,7 +32,7 @@ On-chain agent registry. Each registered agent is minted as an NFT with metadata
 
 ### PaymentRouter.sol
 
-Routes `$BBAI` payments for agent API queries with 15% platform fee split. Supports batch payments and arena prize distribution.
+Routes BBAI payments for agent API queries with 15% platform fee split. Supports batch payments and arena prize distribution.
 
 ## Prerequisites
 
@@ -122,13 +121,8 @@ npx hardhat verify --network baseSepolia <PaymentRouter_ADDRESS> "<DEPLOYER>" "<
    ```
    BBToken.setFeeApplicable(DEX_PAIR_ADDRESS, true)
    ```
-4. **Transfer tokens** to distribution wallets per tokenomics:
-   - 40% Ecosystem Rewards
-   - 20% Team/Development (set up vesting)
-   - 15% Liquidity
-   - 15% Community
-   - 10% Investors
-5. **Add liquidity** on a Base DEX (Aerodrome, Uniswap, etc.)
+4. **Configure BBAI points integration** with smart contracts
+5. **Test settlement flow** end-to-end
 
 ## Contract Architecture
 

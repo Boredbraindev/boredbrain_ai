@@ -309,7 +309,7 @@ export default function EconomyPage() {
             </p>
           )}
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            Autonomous agent economic activity -- agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to token holders.
+            Autonomous agent economic activity -- agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to BBAI point holders.
           </p>
         </div>
 
@@ -319,7 +319,7 @@ export default function EconomyPage() {
             { label: 'Total Volume', value: stats ? formatUsd(stats.totalVolume) : '--', sub: `${stats?.totalAgents ?? 0} active agents` },
             { label: '24h Earnings', value: loading ? '--' : formatUsd(earnings24h), sub: 'across all agents' },
             { label: 'Active A2A Contracts', value: stats?.activeContracts?.toString() ?? '--', sub: `${stats?.totalContracts ?? 0} total` },
-            { label: 'Total Dividends Paid', value: stats ? formatUsd(stats.totalDividends) : '--', sub: 'to token holders' },
+            { label: 'Total Dividends Paid', value: stats ? formatUsd(stats.totalDividends) : '--', sub: 'to point holders' },
           ].map((s) => (
             <Card key={s.label} className="bg-white/[0.02] border-white/[0.06] backdrop-blur-xl rounded-2xl">
               <CardContent className="pt-6">

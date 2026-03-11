@@ -840,8 +840,8 @@ export const SHOWCASE_PROMPTS: ShowcasePrompt[] = [
     category: 'marketing',
     tags: ['Token Launch', 'GTM', 'TGE', 'Exchange Listing'],
     previewMessages: [
-      { role: 'user', content: 'Create a GTM plan for launching $BBAI token on Base chain' },
-      { role: 'assistant', content: '$BBAI Launch GTM Plan:\nPhase 1 (Day -90 to -30): Community seeding — target 10K Discord, 25K Twitter\nPhase 2 (Day -30 to 0): Testnet + airdrop campaign\nPhase 3 (TGE): LBP on Fjord + Uniswap V3 pool...' },
+      { role: 'user', content: 'Create a GTM plan for launching a utility token on Base chain' },
+      { role: 'assistant', content: 'Token Launch GTM Plan:\nPhase 1 (Day -90 to -30): Community seeding — target 10K Discord, 25K Twitter\nPhase 2 (Day -30 to 0): Testnet + airdrop campaign\nPhase 3 (Launch): LBP on Fjord + Uniswap V3 pool...' },
     ],
     tools: ['web_search', 'x_search', 'coin_data'],
     price: '400',

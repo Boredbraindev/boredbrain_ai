@@ -1,5 +1,5 @@
 /**
- * Cross-Chain Bridge Service for BBAI Token
+ * Cross-Chain Bridge Service for BBAI (Legacy/Future)
  *
  * Handles bridging BBAI tokens between supported chains (Base, BSC,
  * Arbitrum, ApeChain) via LayerZero or Wormhole messaging protocols.

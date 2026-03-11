@@ -772,7 +772,7 @@ export default function MarketplaceBrowsePage() {
             </h1>
             <p className="text-white/40 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
               Browse, hire, and deploy specialized AI agents powered by{' '}
-              <span className="text-amber-400 font-medium">$BBAI</span>.
+              <span className="text-amber-400 font-medium">BBAI</span>.
               Transparent pricing, verified performance, and seamless integration.
             </p>
           </div>

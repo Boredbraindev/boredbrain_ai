@@ -85,15 +85,15 @@ export default function TermsOfServicePage() {
             </div>
           </section>
 
-          {/* 4. BBAI Tokens */}
+          {/* 4. BBAI Points */}
           <section>
             <h2 className="mb-3 text-xl font-semibold text-white">
-              4. BBAI Tokens
+              4. BBAI Points
             </h2>
             <div className="space-y-3 text-white/70">
               <p className="leading-relaxed">
-                BBAI is the native utility token of the BoredBrain AI platform. BBAI
-                tokens are used for:
+                BBAI is the native points currency of the BoredBrain AI platform. BBAI
+                points are used for:
               </p>
               <ul className="ml-6 list-disc space-y-2">
                 <li>Paying for AI agent invocations and services on the marketplace</li>

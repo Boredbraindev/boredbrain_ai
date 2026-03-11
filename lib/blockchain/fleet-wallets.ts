@@ -10,8 +10,8 @@
  * - Deterministic: same seed always produces same addresses
  * - BSC uses same address format as Ethereum (EVM-compatible)
  *
- * Pre-TGE: addresses are generated and displayed (no funds)
- * Post-TGE: fund these addresses with BBAI tokens for real on-chain operations
+ * Currently: addresses are generated and displayed (no funds)
+ * Future: fund these addresses with BBAI for real on-chain operations
  */
 
 import { mnemonicToAccount } from 'viem/accounts';

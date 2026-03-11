@@ -81,7 +81,7 @@ export async function GET() {
     // -----------------------------------------------------------------------
     authentication: {
       methods: ['wallet-signature', 'api-key', 'a2a-protocol'],
-      tokenStandard: 'ERC-20',
+      tokenStandard: 'BBAI-Points',
       schemes: ['bearer'],
       credentials: {
         type: 'apiKey',

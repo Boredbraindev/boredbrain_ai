@@ -638,7 +638,7 @@ function ChatInterfaceComponent({
                             <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/20" />
                             <span>BASE + BSC</span>
                             <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/20" />
-                            <span>$BBAI</span>
+                            <span>BBAI</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="inline-flex items-center gap-1 text-[9px] font-mono-wide text-emerald-400/60 tracking-widest">
