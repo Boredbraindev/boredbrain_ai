@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, json, varchar, integer, uuid, real } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, json, jsonb, varchar, integer, uuid, real } from 'drizzle-orm/pg-core';
 import { generateId } from 'ai';
 import { InferSelectModel } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
@@ -724,6 +724,41 @@ export const daoVote = pgTable('dao_vote', {
 });
 
 // ============================================
+// BBAI Points (BP) System
+// ============================================
+
+// User points balance & level
+export const userPoints = pgTable('user_points', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  walletAddress: text('wallet_address').notNull().unique(),
+  totalBp: integer('total_bp').notNull().default(0),
+  level: integer('level').notNull().default(1),
+  streakDays: integer('streak_days').notNull().default(0),
+  lastLoginDate: text('last_login_date'), // YYYY-MM-DD to track daily login
+  season: integer('season').notNull().default(1),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Point transaction log
+export const pointTransaction = pgTable('point_transaction', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  walletAddress: text('wallet_address').notNull(),
+  amount: integer('amount').notNull(),
+  reason: text('reason').notNull(), // 'prediction_bet', 'arena_watch', 'agent_invoke', 'daily_login', 'streak_bonus', 'agent_register'
+  referenceId: text('reference_id'), // related bet/agent/match ID
+  season: integer('season').notNull().default(1),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// User badges
+export const userBadge = pgTable('user_badge', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  walletAddress: text('wallet_address').notNull(),
+  badgeId: text('badge_id').notNull(), // 'first_blood', 'agent_whisperer', 'arena_champion', 'diamond_hands', 'fleet_commander'
+  earnedAt: timestamp('earned_at').defaultNow(),
+});
+
+// ============================================
 // Type exports
 // ============================================
 
@@ -768,3 +803,79 @@ export type SkillInstallation = InferSelectModel<typeof skillInstallation>;
 export type UserReward = InferSelectModel<typeof userReward>;
 export type DaoProposal = InferSelectModel<typeof daoProposal>;
 export type DaoVote = InferSelectModel<typeof daoVote>;
+export type UserPoints = InferSelectModel<typeof userPoints>;
+export type PointTransaction = InferSelectModel<typeof pointTransaction>;
+export type UserBadge = InferSelectModel<typeof userBadge>;
+
+// ============================================
+// P2P Betting Marketplace
+// ============================================
+
+// Markets — each market is a question that can be bet on
+export const bettingMarket = pgTable('betting_market', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(), // "BTC above $70k by Friday?"
+  description: text('description'),
+  category: text('category').notNull(), // 'crypto_price', 'agent_performance', 'ecosystem', 'defi', 'nft', 'custom'
+  outcomes: text('outcomes').array().notNull(), // ['Yes', 'No'] or ['Team A', 'Team B', 'Draw']
+  resolvedOutcome: text('resolved_outcome'), // null until resolved
+  status: text('status').notNull().default('open'), // open, locked, resolved, cancelled
+  creatorAddress: text('creator_address').notNull(),
+  creatorType: text('creator_type').notNull().default('user'), // 'user' | 'agent' | 'platform'
+  totalVolume: integer('total_volume').notNull().default(0),
+  totalOrders: integer('total_orders').notNull().default(0),
+  resolvesAt: timestamp('resolves_at'), // when the market auto-resolves
+  resolvedAt: timestamp('resolved_at'),
+  tags: text('tags').array(),
+  metadata: jsonb('metadata'), // extra data (price targets, agent IDs, etc.)
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Orders — limit orders in the order book
+export const bettingOrder = pgTable('betting_order', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  marketId: uuid('market_id').notNull().references(() => bettingMarket.id),
+  userAddress: text('user_address').notNull(),
+  userType: text('user_type').notNull().default('user'), // 'user' | 'agent'
+  side: text('side').notNull(), // 'YES' | 'NO' (or outcome name)
+  price: integer('price').notNull(), // 1-99 (cents, like Polymarket) — probability in %
+  amount: integer('amount').notNull(), // number of shares (each share pays 100 if correct)
+  filled: integer('filled').notNull().default(0), // shares filled
+  status: text('status').notNull().default('open'), // open, partial, filled, cancelled
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Trades — matched orders
+export const bettingTrade = pgTable('betting_trade', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  marketId: uuid('market_id').notNull().references(() => bettingMarket.id),
+  buyOrderId: uuid('buy_order_id').notNull().references(() => bettingOrder.id),
+  sellOrderId: uuid('sell_order_id').notNull().references(() => bettingOrder.id),
+  buyerAddress: text('buyer_address').notNull(),
+  sellerAddress: text('seller_address').notNull(),
+  outcome: text('outcome').notNull(), // which outcome was traded
+  price: integer('price').notNull(), // executed price
+  shares: integer('shares').notNull(), // number of shares traded
+  bbaiAmount: integer('bbai_amount').notNull(), // total BBAI exchanged
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Positions — user's net position per market per outcome
+export const bettingPosition = pgTable('betting_position', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  marketId: uuid('market_id').notNull().references(() => bettingMarket.id),
+  userAddress: text('user_address').notNull(),
+  outcome: text('outcome').notNull(),
+  shares: integer('shares').notNull().default(0), // net shares held
+  avgPrice: integer('avg_price').notNull().default(0), // average entry price
+  realizedPnl: integer('realized_pnl').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export type BettingMarket = InferSelectModel<typeof bettingMarket>;
+export type BettingOrder = InferSelectModel<typeof bettingOrder>;
+export type BettingTrade = InferSelectModel<typeof bettingTrade>;
+export type BettingPosition = InferSelectModel<typeof bettingPosition>;

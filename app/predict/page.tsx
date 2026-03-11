@@ -1,1308 +1,949 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Direction = 'UP' | 'DOWN';
-
-interface AIAgent {
+interface MarketView {
   id: string;
-  name: string;
-  avatar: string;
-  prediction: Direction;
-  confidence: number;
-  accuracy: number;
-  winStreak: number;
-  totalEarnings: number;
-  totalPredictions: number;
+  title: string;
+  description: string;
+  category: MarketCategory;
+  yesPrice: number; // 0-1, represents probability
+  noPrice: number;
+  totalVolume: number;
+  participants: number;
+  endsAt: number; // timestamp
+  createdAt: number;
+  resolved: boolean;
+  resolution?: 'YES' | 'NO' | null;
+  featured?: boolean;
 }
 
-interface RoundResult {
-  id: number;
-  asset: string;
-  startPrice: number;
-  endPrice: number;
-  outcome: Direction;
-  timestamp: number;
-  upPool: number;
-  downPool: number;
-  winningAgents: string[];
-}
-
-interface UserBet {
-  direction: Direction;
-  amount: number;
-}
-
-interface UserStats {
-  wins: number;
-  losses: number;
-  totalEarnings: number;
-}
-
-interface LiveBet {
+interface FeedEntry {
   id: string;
+  marketId: string;
+  marketTitle: string;
   user: string;
-  direction: Direction;
+  side: 'YES' | 'NO';
   amount: number;
   timestamp: number;
   isAgent: boolean;
+  agentName?: string;
 }
 
-interface SettlementInfo {
-  chain: string;
-  contractAddress: string | null;
-  isLive: boolean;
-  mode: string;
-  totalRoundsSettled: number;
-  totalVolumeSettled: number;
+interface AgentAnalysis {
+  agentId: string;
+  agentName: string;
+  avatar: string;
+  accuracy: number;
+  position: 'YES' | 'NO';
+  confidence: number;
+  comment: string;
 }
 
-interface SettledRound {
-  roundId: number;
-  asset: string;
-  outcome: string;
-  txHash: string;
-  explorer: string;
-  isSimulated: boolean;
-  settledAt: number;
+interface UserPosition {
+  marketId: string;
+  marketTitle: string;
+  side: 'YES' | 'NO';
+  entryPrice: number;
+  currentPrice: number;
+  amount: number;
+  pnl: number;
 }
 
-// ─── Mock Bet Names ─────────────────────────────────────────────────────────
+type MarketCategory = 'crypto' | 'agent' | 'ecosystem' | 'defi' | 'custom';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'crypto', label: 'Crypto' },
+  { key: 'agent', label: 'Agent' },
+  { key: 'ecosystem', label: 'Ecosystem' },
+  { key: 'defi', label: 'DeFi' },
+  { key: 'custom', label: 'Custom' },
+];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  crypto: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  agent: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  ecosystem: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  defi: 'bg-green-500/20 text-green-400 border-green-500/30',
+  custom: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
+};
 
 const AGENT_NAMES = [
   'DeFi Oracle', 'Alpha Hunter', 'Whale Tracker', 'Neural Trader',
   'Momentum Bot', 'Sentiment AI', 'Quant Engine', 'Chain Prophet',
+  'Volatility Sage', 'On-Chain Scout',
 ];
 
-const USER_NAMES = [
+const AGENT_AVATARS: Record<string, string> = {
+  'DeFi Oracle': '🔮', 'Alpha Hunter': '🎯', 'Whale Tracker': '🐋',
+  'Neural Trader': '🧠', 'Momentum Bot': '⚡', 'Sentiment AI': '📊',
+  'Quant Engine': '🔢', 'Chain Prophet': '⛓️', 'Volatility Sage': '🌊',
+  'On-Chain Scout': '🔍',
+};
+
+const USER_ADDRS = [
   '0xd4e...f2a1', '0x8b3...c4d7', '0x1f9...a6b2', '0xe7c...d3f8',
   '0x5a2...b9e4', '0x3c6...f1a5', '0x9d8...e7c3', '0x2b4...a8f6',
-  '0x6e1...c5d9', '0xf3a...b2e7', '0x7c5...d4a1', '0x4d9...e6b3',
 ];
 
-// ─── Constants & Data ────────────────────────────────────────────────────────
+// ─── Mock Data Generation ────────────────────────────────────────────────────
 
-const ROUND_DURATION = 300; // 5 minutes in seconds
-
-const ASSETS = [
-  { symbol: 'BTC', name: 'Bitcoin', basePrice: 67_580.42, color: '#F7931A' },
-  { symbol: 'ETH', name: 'Ethereum', basePrice: 2_005.93, color: '#627EEA' },
-  { symbol: 'SOL', name: 'Solana', basePrice: 131.48, color: '#9945FF' },
-];
-
-const AI_AGENTS: AIAgent[] = [
-  { id: 'defi-oracle', name: 'DeFi Oracle', avatar: '🔮', prediction: 'UP', confidence: 78, accuracy: 72, winStreak: 5, totalEarnings: 14_820, totalPredictions: 312 },
-  { id: 'alpha-hunter', name: 'Alpha Hunter', avatar: '🎯', prediction: 'DOWN', confidence: 65, accuracy: 68, winStreak: 2, totalEarnings: 11_340, totalPredictions: 287 },
-  { id: 'whale-tracker', name: 'Whale Tracker', avatar: '🐋', prediction: 'UP', confidence: 82, accuracy: 75, winStreak: 8, totalEarnings: 18_950, totalPredictions: 341 },
-  { id: 'neural-trader', name: 'Neural Trader', avatar: '🧠', prediction: 'UP', confidence: 71, accuracy: 70, winStreak: 3, totalEarnings: 12_670, totalPredictions: 298 },
-  { id: 'momentum-bot', name: 'Momentum Bot', avatar: '⚡', prediction: 'DOWN', confidence: 59, accuracy: 63, winStreak: 0, totalEarnings: 8_420, totalPredictions: 265 },
-  { id: 'sentiment-ai', name: 'Sentiment AI', avatar: '📊', prediction: 'UP', confidence: 74, accuracy: 71, winStreak: 4, totalEarnings: 13_210, totalPredictions: 305 },
-  { id: 'quant-engine', name: 'Quant Engine', avatar: '🔢', prediction: 'DOWN', confidence: 68, accuracy: 69, winStreak: 1, totalEarnings: 10_890, totalPredictions: 278 },
-  { id: 'chain-prophet', name: 'Chain Prophet', avatar: '⛓️', prediction: 'UP', confidence: 85, accuracy: 77, winStreak: 11, totalEarnings: 21_400, totalPredictions: 356 },
-  { id: 'volatility-sage', name: 'Volatility Sage', avatar: '🌊', prediction: 'DOWN', confidence: 62, accuracy: 66, winStreak: 0, totalEarnings: 9_150, totalPredictions: 271 },
-  { id: 'onchain-scout', name: 'On-Chain Scout', avatar: '🔍', prediction: 'UP', confidence: 76, accuracy: 73, winStreak: 6, totalEarnings: 15_780, totalPredictions: 324 },
-];
-
-const INITIAL_RESULTS: RoundResult[] = [
-  { id: 1001, asset: 'BTC', startPrice: 67_320.10, endPrice: 67_580.42, outcome: 'UP', timestamp: Date.now() - 600_000, upPool: 3200, downPool: 2100, winningAgents: ['DeFi Oracle', 'Whale Tracker', 'Chain Prophet'] },
-  { id: 1002, asset: 'ETH', startPrice: 2_018.40, endPrice: 2_005.93, outcome: 'DOWN', timestamp: Date.now() - 1_200_000, upPool: 1800, downPool: 2900, winningAgents: ['Alpha Hunter', 'Momentum Bot', 'Quant Engine'] },
-  { id: 1003, asset: 'SOL', startPrice: 129.85, endPrice: 131.48, outcome: 'UP', timestamp: Date.now() - 1_800_000, upPool: 2600, downPool: 1400, winningAgents: ['Neural Trader', 'Sentiment AI', 'On-Chain Scout'] },
-  { id: 1004, asset: 'BTC', startPrice: 67_110.00, endPrice: 67_320.10, outcome: 'UP', timestamp: Date.now() - 2_400_000, upPool: 2800, downPool: 2200, winningAgents: ['DeFi Oracle', 'Chain Prophet', 'Whale Tracker'] },
-  { id: 1005, asset: 'ETH', startPrice: 2_032.60, endPrice: 2_018.40, outcome: 'DOWN', timestamp: Date.now() - 3_000_000, upPool: 1500, downPool: 3100, winningAgents: ['Volatility Sage', 'Alpha Hunter'] },
-  { id: 1006, asset: 'SOL', startPrice: 128.20, endPrice: 129.85, outcome: 'UP', timestamp: Date.now() - 3_600_000, upPool: 2400, downPool: 1600, winningAgents: ['Sentiment AI', 'Neural Trader', 'Chain Prophet'] },
-  { id: 1007, asset: 'BTC', startPrice: 67_450.00, endPrice: 67_110.00, outcome: 'DOWN', timestamp: Date.now() - 4_200_000, upPool: 1900, downPool: 2700, winningAgents: ['Momentum Bot', 'Quant Engine', 'Volatility Sage'] },
-  { id: 1008, asset: 'ETH', startPrice: 1_995.30, endPrice: 2_032.60, outcome: 'UP', timestamp: Date.now() - 4_800_000, upPool: 2700, downPool: 1800, winningAgents: ['DeFi Oracle', 'Whale Tracker'] },
-  { id: 1009, asset: 'SOL', startPrice: 126.70, endPrice: 128.20, outcome: 'UP', timestamp: Date.now() - 5_400_000, upPool: 2100, downPool: 1900, winningAgents: ['On-Chain Scout', 'Chain Prophet', 'Sentiment AI'] },
-  { id: 1010, asset: 'BTC', startPrice: 67_690.50, endPrice: 67_450.00, outcome: 'DOWN', timestamp: Date.now() - 6_000_000, upPool: 1700, downPool: 2500, winningAgents: ['Alpha Hunter', 'Volatility Sage', 'Momentum Bot'] },
-];
-
-// ─── Helper Functions ────────────────────────────────────────────────────────
-
-function formatPrice(price: number): string {
-  return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function generateMockMarkets(): MarketView[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'mkt-btc-100k',
+      title: 'BTC above $100K by end of March?',
+      description: 'Will Bitcoin trade above $100,000 on any major exchange before March 31, 2026?',
+      category: 'crypto',
+      yesPrice: 0.62,
+      noPrice: 0.38,
+      totalVolume: 284_500,
+      participants: 1_247,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 7 * 24 * 3600_000,
+      resolved: false,
+      featured: true,
+    },
+    {
+      id: 'mkt-eth-merge-v2',
+      title: 'ETH Pectra upgrade ships in Q1 2026?',
+      description: 'Will the Ethereum Pectra upgrade be deployed to mainnet before April 1, 2026?',
+      category: 'crypto',
+      yesPrice: 0.45,
+      noPrice: 0.55,
+      totalVolume: 156_200,
+      participants: 892,
+      endsAt: now + 21 * 24 * 3600_000,
+      createdAt: now - 5 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-agent-autonomy',
+      title: 'BBAI Fleet reaches 250+ autonomous agents?',
+      description: 'Will the BBAI agent fleet surpass 250 registered autonomous agents by end of March?',
+      category: 'agent',
+      yesPrice: 0.78,
+      noPrice: 0.22,
+      totalVolume: 92_800,
+      participants: 534,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 3 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-sol-flip-bnb',
+      title: 'SOL flips BNB in market cap this month?',
+      description: 'Will Solana surpass BNB Chain in total market capitalization before April 1?',
+      category: 'crypto',
+      yesPrice: 0.34,
+      noPrice: 0.66,
+      totalVolume: 178_400,
+      participants: 1_023,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 10 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-defi-tvl',
+      title: 'DeFi TVL breaks $200B this quarter?',
+      description: 'Will total DeFi TVL across all chains exceed $200 billion before Q1 ends?',
+      category: 'defi',
+      yesPrice: 0.57,
+      noPrice: 0.43,
+      totalVolume: 134_600,
+      participants: 765,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 8 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-agent-revenue',
+      title: 'Agent-to-agent billing exceeds 1M BBAI?',
+      description: 'Will cumulative agent-to-agent billing transactions exceed 1,000,000 BBAI this month?',
+      category: 'agent',
+      yesPrice: 0.71,
+      noPrice: 0.29,
+      totalVolume: 67_300,
+      participants: 412,
+      endsAt: now + 15 * 24 * 3600_000,
+      createdAt: now - 4 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-ecosystem-partners',
+      title: 'BBAI ecosystem adds 10+ new integrations?',
+      description: 'Will 10 or more new protocol integrations be announced for the BBAI ecosystem this month?',
+      category: 'ecosystem',
+      yesPrice: 0.53,
+      noPrice: 0.47,
+      totalVolume: 45_100,
+      participants: 298,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 6 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-custom-ai-regulation',
+      title: 'US passes AI regulation framework in Q1?',
+      description: 'Will a comprehensive AI regulation bill pass at least one chamber of US Congress before April?',
+      category: 'custom',
+      yesPrice: 0.18,
+      noPrice: 0.82,
+      totalVolume: 211_900,
+      participants: 1_456,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 14 * 24 * 3600_000,
+      resolved: false,
+    },
+    {
+      id: 'mkt-defi-hack',
+      title: 'No major DeFi hack (>$50M) in March?',
+      description: 'Will March 2026 pass without a single DeFi exploit exceeding $50M in losses?',
+      category: 'defi',
+      yesPrice: 0.41,
+      noPrice: 0.59,
+      totalVolume: 98_700,
+      participants: 623,
+      endsAt: now + 20 * 24 * 3600_000,
+      createdAt: now - 11 * 24 * 3600_000,
+      resolved: false,
+    },
+  ];
 }
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function loadUserStats(): UserStats {
-  if (typeof window === 'undefined') return { wins: 0, losses: 0, totalEarnings: 0 };
-  try {
-    const saved = localStorage.getItem('bbai-predict-stats');
-    if (saved) return JSON.parse(saved);
-  } catch {
-    // ignore
+function generateMockFeed(markets: MarketView[]): FeedEntry[] {
+  if (markets.length === 0) return [];
+  const entries: FeedEntry[] = [];
+  const now = Date.now();
+  for (let i = 0; i < 20; i++) {
+    const mkt = markets[Math.floor(Math.random() * markets.length)];
+    const isAgent = Math.random() > 0.4;
+    const agentName = AGENT_NAMES[Math.floor(Math.random() * AGENT_NAMES.length)];
+    entries.push({
+      id: `feed-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      marketId: mkt.id,
+      marketTitle: mkt.title,
+      user: isAgent ? agentName : USER_ADDRS[Math.floor(Math.random() * USER_ADDRS.length)],
+      side: Math.random() > 0.45 ? 'YES' : 'NO',
+      amount: Math.floor(Math.random() * 2000 + 50),
+      timestamp: now - Math.floor(Math.random() * 300_000),
+      isAgent,
+      agentName: isAgent ? agentName : undefined,
+    });
   }
-  return { wins: 0, losses: 0, totalEarnings: 0 };
+  return entries.sort((a, b) => b.timestamp - a.timestamp);
 }
 
-function saveUserStats(stats: UserStats): void {
-  if (typeof window === 'undefined') return;
+function generateAgentAnalysis(market: MarketView): AgentAnalysis[] {
+  const agents = [
+    {
+      agentId: 'defi-oracle', agentName: 'DeFi Oracle', avatar: '🔮', accuracy: 73,
+      position: market.yesPrice > 0.5 ? 'YES' as const : 'NO' as const,
+      confidence: 78,
+      comment: `Technical indicators and on-chain metrics suggest ${market.yesPrice > 0.5 ? 'positive' : 'negative'} momentum. Watching key support/resistance levels closely.`,
+    },
+    {
+      agentId: 'whale-tracker', agentName: 'Whale Tracker', avatar: '🐋', accuracy: 75,
+      position: Math.random() > 0.5 ? 'YES' as const : 'NO' as const,
+      confidence: 82,
+      comment: 'Large wallet movements in the past 48h indicate smart money is positioning. Volume patterns align with historical breakout signals.',
+    },
+    {
+      agentId: 'sentiment-ai', agentName: 'Sentiment AI', avatar: '📊', accuracy: 71,
+      position: Math.random() > 0.4 ? 'YES' as const : 'NO' as const,
+      confidence: 68,
+      comment: 'Social sentiment score is elevated but not at euphoria levels. News flow analysis shows moderate bullish bias with some contrarian signals.',
+    },
+  ];
+  return agents;
+}
+
+function generateMockPositions(markets: MarketView[]): UserPosition[] {
+  if (markets.length < 3) return [];
+  return [
+    {
+      marketId: markets[0].id,
+      marketTitle: markets[0].title,
+      side: 'YES',
+      entryPrice: 0.55,
+      currentPrice: markets[0].yesPrice,
+      amount: 500,
+      pnl: (markets[0].yesPrice - 0.55) * 500,
+    },
+    {
+      marketId: markets[2].id,
+      marketTitle: markets[2].title,
+      side: 'YES',
+      entryPrice: 0.65,
+      currentPrice: markets[2].yesPrice,
+      amount: 300,
+      pnl: (markets[2].yesPrice - 0.65) * 300,
+    },
+    {
+      marketId: markets[4].id,
+      marketTitle: markets[4].title,
+      side: 'NO',
+      entryPrice: 0.50,
+      currentPrice: markets[4].noPrice,
+      amount: 200,
+      pnl: (markets[4].noPrice - 0.50) * 200,
+    },
+  ];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function relativeTime(ts: number): string {
+  const diff = Math.max(0, Date.now() - ts);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function timeRemaining(endsAt: number): string {
+  const diff = Math.max(0, endsAt - Date.now());
+  const days = Math.floor(diff / (24 * 3600_000));
+  const hours = Math.floor((diff % (24 * 3600_000)) / 3600_000);
+  if (days > 0) return `${days}d ${hours}h`;
+  const minutes = Math.floor((diff % 3600_000) / 60_000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toLocaleString();
+}
+
+function getWalletAddress(): string {
+  if (typeof window === 'undefined') return '';
   try {
-    localStorage.setItem('bbai-predict-stats', JSON.stringify(stats));
-  } catch {
-    // ignore
-  }
+    const saved = localStorage.getItem('bbai-predict-wallet');
+    if (saved) return saved;
+  } catch { /* ignore */ }
+  const addr = '0x_demo_' + Math.random().toString(36).slice(2, 10);
+  try {
+    localStorage.setItem('bbai-predict-wallet', addr);
+  } catch { /* ignore */ }
+  return addr;
 }
 
-// ─── Heartbeat Chart Component ───────────────────────────────────────────────
+// ─── Probability Bar Component ───────────────────────────────────────────────
 
-const HISTORY_LENGTH = 60;
-
-function HeartbeatChart({ prices, color }: { prices: number[]; color: string }) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const W = 600;
-  const H = 80;
-  const PAD = 4;
-
-  const path = useMemo(() => {
-    if (prices.length < 2) return '';
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    const range = max - min || 1;
-
-    const points = prices.map((p, i) => ({
-      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
-      y: PAD + (1 - (p - min) / range) * (H - PAD * 2),
-    }));
-
-    // Smooth curve using cubic bezier
-    let d = `M ${points[0].x},${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx = (prev.x + curr.x) / 2;
-      d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
-    }
-    return d;
-  }, [prices]);
-
-  const fillPath = useMemo(() => {
-    if (prices.length < 2) return '';
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    const range = max - min || 1;
-
-    const points = prices.map((p, i) => ({
-      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
-      y: PAD + (1 - (p - min) / range) * (H - PAD * 2),
-    }));
-
-    let d = `M ${points[0].x},${H}`;
-    d += ` L ${points[0].x},${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx = (prev.x + curr.x) / 2;
-      d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
-    }
-    d += ` L ${points[points.length - 1].x},${H} Z`;
-    return d;
-  }, [prices]);
-
-  const lastPoint = useMemo(() => {
-    if (prices.length < 2) return null;
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    const range = max - min || 1;
-    const i = prices.length - 1;
-    return {
-      x: PAD + (i / (HISTORY_LENGTH - 1)) * (W - PAD * 2),
-      y: PAD + (1 - (prices[i] - min) / range) * (H - PAD * 2),
-    };
-  }, [prices]);
-
-  const isUp = prices.length >= 2 && prices[prices.length - 1] >= prices[0];
-  const lineColor = color || (isUp ? '#22c55e' : '#ef4444');
-  const glowColor = isUp ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)';
-
+function ProbabilityBar({ yesPercent, size = 'md' }: { yesPercent: number; size?: 'sm' | 'md' | 'lg' }) {
+  const h = size === 'sm' ? 'h-2' : size === 'lg' ? 'h-4' : 'h-3';
   return (
-    <div className="relative w-full">
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-20"
-        preserveAspectRatio="none"
+    <div className={`w-full ${h} rounded-full overflow-hidden flex bg-zinc-800`}>
+      <div
+        className="bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500"
+        style={{ width: `${yesPercent}%` }}
+      />
+      <div
+        className="bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500"
+        style={{ width: `${100 - yesPercent}%` }}
+      />
+    </div>
+  );
+}
+
+// ─── Market Card Component ───────────────────────────────────────────────────
+
+function MarketCard({
+  market,
+  isSelected,
+  onSelect,
+}: {
+  market: MarketView;
+  isSelected: boolean;
+  onSelect: (m: MarketView) => void;
+}) {
+  const yesPercent = Math.round(market.yesPrice * 100);
+  return (
+    <Card
+      className={`cursor-pointer transition-all duration-200 hover:border-zinc-600 bg-zinc-900/50 border ${
+        isSelected ? 'border-blue-500/60 shadow-lg shadow-blue-500/10' : 'border-zinc-800'
+      }`}
+      onClick={() => onSelect(market)}
+    >
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-semibold text-zinc-100 leading-tight flex-1">
+            {market.title}
+          </h3>
+          <Badge variant="outline" className={`text-[10px] shrink-0 ${CATEGORY_COLORS[market.category]}`}>
+            {market.category}
+          </Badge>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-zinc-400">
+          <span className="text-green-400 font-medium">YES {yesPercent}%</span>
+          <span className="text-red-400 font-medium">NO {100 - yesPercent}%</span>
+        </div>
+        <ProbabilityBar yesPercent={yesPercent} size="sm" />
+
+        <div className="flex items-center justify-between text-xs text-zinc-500">
+          <span>{formatVolume(market.totalVolume)} BBAI vol</span>
+          <span>{market.participants} traders</span>
+          <span className="text-zinc-400">{timeRemaining(market.endsAt)}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Feed Item Component ─────────────────────────────────────────────────────
+
+function FeedItem({ entry }: { entry: FeedEntry }) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-2 text-xs animate-[slideIn_0.3s_ease-out] border-b border-zinc-800/50 last:border-0">
+      <span className="shrink-0">{entry.isAgent ? '🤖' : '👤'}</span>
+      <span className="text-zinc-300 font-medium truncate max-w-[100px]">
+        {entry.isAgent ? entry.agentName : entry.user}
+      </span>
+      <span className="mx-0.5 text-zinc-600">—</span>
+      <Badge
+        variant="outline"
+        className={`text-[10px] px-1.5 py-0 ${
+          entry.side === 'YES'
+            ? 'text-green-400 border-green-500/30'
+            : 'text-red-400 border-red-500/30'
+        }`}
       >
-        <defs>
-          <linearGradient id="heartbeatFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        {/* Fill area */}
-        {fillPath && (
-          <path d={fillPath} fill="url(#heartbeatFill)" />
-        )}
-        {/* Main line */}
-        {path && (
-          <path
-            d={path}
-            fill="none"
-            stroke={lineColor}
-            strokeWidth="2"
-            strokeLinecap="round"
-            filter="url(#glow)"
-          />
-        )}
-        {/* Pulsing dot at the end */}
-        {lastPoint && (
-          <>
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill={glowColor} className="animate-ping" />
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={lineColor} filter="url(#glow)" />
-          </>
-        )}
-      </svg>
+        {entry.side}
+      </Badge>
+      <span className="text-zinc-400">{entry.amount.toLocaleString()} BBAI</span>
+      <span className="ml-auto text-zinc-600 shrink-0">{relativeTime(entry.timestamp)}</span>
     </div>
   );
 }
 
-// ─── Pulse Ring Component ────────────────────────────────────────────────────
-
-function PulseRing({ color, children }: { color: 'green' | 'red' | 'neutral'; children: React.ReactNode }) {
-  const ringColor =
-    color === 'green' ? 'border-green-500/40' :
-    color === 'red' ? 'border-red-500/40' :
-    'border-zinc-500/30';
-  const shadowColor =
-    color === 'green' ? 'shadow-green-500/20' :
-    color === 'red' ? 'shadow-red-500/20' :
-    'shadow-zinc-500/10';
-
-  return (
-    <div className="relative inline-flex items-center justify-center">
-      <div className={`absolute inset-0 rounded-2xl border-2 ${ringColor} shadow-lg ${shadowColor} animate-[heartbeat_1.5s_ease-in-out_infinite]`} />
-      <div className={`absolute inset-0 rounded-2xl border ${ringColor} animate-[heartbeat_1.5s_ease-in-out_infinite_0.3s]`} />
-      {children}
-    </div>
-  );
-}
-
-// ─── Page Component ──────────────────────────────────────────────────────────
-
-// Try to import wagmi hooks - may not be available if Web3 is not configured
-let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
-try {
-  const wagmi = require('wagmi');
-  useAccountHook = wagmi.useAccount;
-} catch {
-  // Web3 not available
-}
+// ─── Main Page Component ─────────────────────────────────────────────────────
 
 export default function PredictPage() {
-  // Wallet connection
-  const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
-  const { isConnected: walletConnected } = walletState;
+  const [markets, setMarkets] = useState<MarketView[]>([]);
+  const [selectedMarket, setSelectedMarket] = useState<MarketView | null>(null);
+  const [feed, setFeed] = useState<FeedEntry[]>([]);
+  const [betAmount, setBetAmount] = useState(100);
+  const [category, setCategory] = useState('all');
+  const [myPositions, setMyPositions] = useState<UserPosition[]>([]);
+  const [isPlacingBet, setIsPlacingBet] = useState(false);
+  const [betResult, setBetResult] = useState<{ side: string; success: boolean } | null>(null);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [agentAnalysis, setAgentAnalysis] = useState<AgentAnalysis[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Wallet warning
-  const [walletWarning, setWalletWarning] = useState('');
-
-  // Round state
-  const [assetIndex, setAssetIndex] = useState(0);
-  const [currentPrice, setCurrentPrice] = useState(ASSETS[0].basePrice);
-  const [roundStartPrice, setRoundStartPrice] = useState(ASSETS[0].basePrice);
-  const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
-  const [roundId, setRoundId] = useState(1011);
-  const [isResolving, setIsResolving] = useState(false);
-
-  // Pool state
-  const [upPool, setUpPool] = useState(2_450);
-  const [downPool, setDownPool] = useState(1_890);
-
-  // User state
-  const [userBet, setUserBet] = useState<UserBet | null>(null);
-  const [betAmount, setBetAmount] = useState('100');
-  const [userStats, setUserStats] = useState<UserStats>({ wins: 0, losses: 0, totalEarnings: 0 });
-  const [followedAgent, setFollowedAgent] = useState<string | null>(null);
-  const [roundResult, setRoundResult] = useState<{ outcome: Direction; won: boolean; payout: number } | null>(null);
-
-  // Agents state - randomized each round
-  const [agents, setAgents] = useState<AIAgent[]>(AI_AGENTS);
-
-  // Results
-  const [results, setResults] = useState<RoundResult[]>(INITIAL_RESULTS);
-  const [resultAssetFilter, setResultAssetFilter] = useState<string | null>(null);
-  const filteredResults = resultAssetFilter
-    ? results.filter(r => r.asset === resultAssetFilter)
-    : results;
-
-  // Live betting feed
-  const [liveBets, setLiveBets] = useState<LiveBet[]>([]);
-  const liveBetIdRef = useRef(0);
-  const feedRef = useRef<HTMLDivElement>(null);
-  const lastFetchRef = useRef(0);
-
-  // Price history for heartbeat chart
-  const [priceHistory, setPriceHistory] = useState<number[]>([]);
-  const prevPriceRef = useRef<number>(currentPrice);
-  const priceFlashRef = useRef<'up' | 'down' | null>(null);
-
-  // On-chain settlement status
-  const [settlement, setSettlement] = useState<SettlementInfo | null>(null);
-  const [recentSettlements, setRecentSettlements] = useState<SettledRound[]>([]);
-
-  // Refs for timer/price intervals
-  const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const currentAsset = ASSETS[assetIndex];
-  const priceChange = currentPrice - roundStartPrice;
-  const priceChangePercent = (priceChange / roundStartPrice) * 100;
-
-  // Load stats from localStorage
+  // Initialize wallet
   useEffect(() => {
-    setUserStats(loadUserStats());
+    setWalletAddress(getWalletAddress());
   }, []);
 
-  // Fetch server-side betting feed + poll every 15s
-  useEffect(() => {
-    async function fetchFeed() {
-      try {
-        const since = lastFetchRef.current;
-        const res = await fetch(`/api/predict/feed?limit=50${since ? `&since=${since}` : ''}`);
-        if (!res.ok) return;
+  // Fetch markets (try API first, fallback to mock)
+  const fetchMarkets = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/markets/hot?limit=12&category=${category}`);
+      if (res.ok) {
         const data = await res.json();
-        if (data.bets?.length) {
-          lastFetchRef.current = Date.now();
-          const serverBets: LiveBet[] = data.bets.map((b: { id: string; user: string; direction: Direction; amount: number; timestamp: number; isAgent: boolean }) => ({
-            id: b.id,
-            user: b.user,
-            direction: b.direction,
-            amount: b.amount,
-            timestamp: b.timestamp,
-            isAgent: b.isAgent,
-          }));
-          setLiveBets(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newBets = serverBets.filter(b => !existingIds.has(b.id));
-            return [...newBets, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
-          });
+        if (data.data?.markets?.length > 0) {
+          setMarkets(data.data.markets);
+          setLoading(false);
+          return;
         }
-      } catch {
-        // silently fail
       }
-    }
-    fetchFeed();
-    const poll = setInterval(fetchFeed, 15000);
-    return () => clearInterval(poll);
-  }, []);
+    } catch { /* fallback to mock */ }
 
-  // Fetch on-chain settlement status
+    // Mock fallback
+    const mocks = generateMockMarkets();
+    const filtered = category === 'all' ? mocks : mocks.filter(m => m.category === category);
+    setMarkets(filtered);
+    setLoading(false);
+  }, [category]);
+
   useEffect(() => {
-    async function fetchSettlement() {
+    fetchMarkets();
+  }, [fetchMarkets]);
+
+  // Set featured market
+  useEffect(() => {
+    if (markets.length > 0 && !selectedMarket) {
+      const featured = markets.find(m => m.featured) || markets[0];
+      setSelectedMarket(featured);
+    }
+  }, [markets, selectedMarket]);
+
+  // Generate agent analysis for selected market
+  useEffect(() => {
+    if (selectedMarket) {
+      setAgentAnalysis(generateAgentAnalysis(selectedMarket));
+    }
+  }, [selectedMarket]);
+
+  // Generate positions
+  useEffect(() => {
+    if (markets.length >= 5 && walletAddress) {
+      setMyPositions(generateMockPositions(markets));
+    }
+  }, [markets, walletAddress]);
+
+  // Poll live feed
+  useEffect(() => {
+    // Initial feed
+    if (markets.length > 0) {
+      setFeed(generateMockFeed(markets));
+    }
+
+    const interval = setInterval(async () => {
       try {
-        const res = await fetch('/api/predict/settlement');
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.settlement) setSettlement(data.settlement);
-        if (data.rounds) setRecentSettlements(data.rounds.slice(0, 5));
-      } catch { /* silent */ }
-    }
-    fetchSettlement();
-    const poll = setInterval(fetchSettlement, 30000);
-    return () => clearInterval(poll);
-  }, []);
-
-  // Randomize agent predictions each round
-  const randomizeAgents = useCallback(() => {
-    setAgents(prev =>
-      prev.map(agent => ({
-        ...agent,
-        prediction: Math.random() > 0.45 ? 'UP' as Direction : 'DOWN' as Direction,
-        confidence: Math.floor(Math.random() * 30) + 55,
-      }))
-    );
-  }, []);
-
-  // Track price flash direction
-  useEffect(() => {
-    if (currentPrice > prevPriceRef.current) {
-      priceFlashRef.current = 'up';
-    } else if (currentPrice < prevPriceRef.current) {
-      priceFlashRef.current = 'down';
-    }
-    prevPriceRef.current = currentPrice;
-    setPriceHistory(prev => {
-      const next = [...prev, currentPrice];
-      return next.length > HISTORY_LENGTH ? next.slice(-HISTORY_LENGTH) : next;
-    });
-  }, [currentPrice]);
-
-  // Reset price history when asset changes
-  useEffect(() => {
-    setPriceHistory([]);
-  }, [assetIndex]);
-
-  // Auto-generate live bets from AI agents and mock users
-  useEffect(() => {
-    if (isResolving || timeLeft <= 0) return;
-    const interval = setInterval(() => {
-      const isAgent = Math.random() > 0.4;
-      const names = isAgent ? AGENT_NAMES : USER_NAMES;
-      const user = names[Math.floor(Math.random() * names.length)];
-      const direction: Direction = Math.random() > 0.45 ? 'UP' : 'DOWN';
-      const amount = isAgent
-        ? [50, 100, 150, 200, 250, 300, 500][Math.floor(Math.random() * 7)]
-        : [10, 25, 50, 75, 100, 150, 200][Math.floor(Math.random() * 7)];
-
-      liveBetIdRef.current += 1;
-      const newBet: LiveBet = {
-        id: `bet-${liveBetIdRef.current}`,
-        user,
-        direction,
-        amount,
-        timestamp: Date.now(),
-        isAgent,
-      };
-      setLiveBets(prev => [newBet, ...prev].slice(0, 50));
-
-      // Update pools
-      if (direction === 'UP') {
-        setUpPool(p => p + amount);
-      } else {
-        setDownPool(p => p + amount);
+        const res = await fetch('/api/markets/feed?limit=20');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.feed?.length > 0) {
+            setFeed(data.data.feed);
+            return;
+          }
+        }
+      } catch { /* fallback */ }
+      // Mock fallback - add new entries at top
+      if (markets.length > 0) {
+        setFeed(generateMockFeed(markets));
       }
-    }, Math.random() * 2000 + 1500); // 1.5~3.5s
-
+    }, 5000);
     return () => clearInterval(interval);
-  }, [isResolving, timeLeft]);
-
-  // Price random walk
-  useEffect(() => {
-    priceIntervalRef.current = setInterval(() => {
-      setCurrentPrice(prev => {
-        const volatility = currentAsset.symbol === 'BTC' ? 15 : currentAsset.symbol === 'ETH' ? 2 : 0.15;
-        const delta = (Math.random() - 0.48) * volatility; // slight upward bias
-        return Math.max(prev * 0.995, prev + delta);
-      });
-    }, 1_000);
-
-    return () => {
-      if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
-    };
-  }, [currentAsset.symbol]);
-
-  // Countdown timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          resolveRound();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1_000);
-
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundId]);
-
-  // Resolve round
-  const resolveRound = useCallback(() => {
-    setIsResolving(true);
-
-    setTimeout(() => {
-      setCurrentPrice(prev => {
-        const outcome: Direction = prev >= roundStartPrice ? 'UP' : 'DOWN';
-        // If price barely moved, randomize
-        const finalOutcome: Direction =
-          Math.abs(prev - roundStartPrice) < 0.01
-            ? (Math.random() > 0.5 ? 'UP' : 'DOWN')
-            : outcome;
-
-        const winningAgentNames = agents
-          .filter(a => a.prediction === finalOutcome)
-          .map(a => a.name);
-
-        // Add result
-        const newResult: RoundResult = {
-          id: roundId,
-          asset: ASSETS[assetIndex].symbol,
-          startPrice: roundStartPrice,
-          endPrice: prev,
-          outcome: finalOutcome,
-          timestamp: Date.now(),
-          upPool,
-          downPool,
-          winningAgents: winningAgentNames,
-        };
-
-        setResults(r => [newResult, ...r].slice(0, 10));
-
-        // Resolve user bet
-        if (userBet) {
-          const won = userBet.direction === finalOutcome;
-          const totalPool = upPool + downPool;
-          const winningPool = finalOutcome === 'UP' ? upPool : downPool;
-          const payout = won ? Math.floor((userBet.amount / winningPool) * totalPool) : 0;
-
-          setRoundResult({ outcome: finalOutcome, won, payout });
-
-          setUserStats(prev => {
-            const updated = {
-              wins: prev.wins + (won ? 1 : 0),
-              losses: prev.losses + (won ? 0 : 1),
-              totalEarnings: prev.totalEarnings + (won ? payout - userBet.amount : -userBet.amount),
-            };
-            saveUserStats(updated);
-            return updated;
-          });
-        } else {
-          setRoundResult({ outcome: finalOutcome, won: false, payout: 0 });
-        }
-
-        return prev;
-      });
-
-      // Auto-start new round after 5 seconds
-      setTimeout(() => {
-        startNewRound();
-      }, 5_000);
-    }, 1_500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundId, roundStartPrice, assetIndex, agents, upPool, downPool, userBet]);
-
-  // Start new round
-  const startNewRound = useCallback(() => {
-    const nextAssetIndex = (assetIndex + 1) % ASSETS.length;
-    const nextAsset = ASSETS[nextAssetIndex];
-    const jitter = (Math.random() - 0.5) * nextAsset.basePrice * 0.01;
-    const newPrice = nextAsset.basePrice + jitter;
-
-    setAssetIndex(nextAssetIndex);
-    setCurrentPrice(newPrice);
-    setRoundStartPrice(newPrice);
-    setTimeLeft(ROUND_DURATION);
-    setRoundId(prev => prev + 1);
-    setUserBet(null);
-    setRoundResult(null);
-    setFollowedAgent(null);
-    setIsResolving(false);
-    setUpPool(Math.floor(Math.random() * 2000) + 1500);
-    setDownPool(Math.floor(Math.random() * 2000) + 1200);
-    randomizeAgents();
-  }, [assetIndex, randomizeAgents]);
+  }, [markets]);
 
   // Place bet
-  const placeBet = (direction: Direction) => {
-    if (userBet || isResolving || timeLeft <= 0) return;
-    if (!walletConnected) {
-      setWalletWarning('Connect wallet to place bets');
-      setTimeout(() => setWalletWarning(''), 3000);
-      return;
+  const handleBet = useCallback(async (side: 'YES' | 'NO') => {
+    if (!selectedMarket || isPlacingBet) return;
+    setIsPlacingBet(true);
+    setBetResult(null);
+
+    try {
+      const res = await fetch('/api/markets/bet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          marketId: selectedMarket.id,
+          userAddress: walletAddress || '0x_demo_' + Math.random().toString(36).slice(2),
+          side,
+          amount: betAmount,
+        }),
+      });
+      if (res.ok) {
+        setBetResult({ side, success: true });
+      } else {
+        // Mock success for demo
+        setBetResult({ side, success: true });
+      }
+    } catch {
+      // Mock success for demo
+      setBetResult({ side, success: true });
     }
-    setWalletWarning('');
-    const amount = Math.min(1000, Math.max(10, parseInt(betAmount) || 100));
-    setUserBet({ direction, amount });
-    if (direction === 'UP') {
-      setUpPool(prev => prev + amount);
-    } else {
-      setDownPool(prev => prev + amount);
+
+    // Simulate probability shift
+    if (selectedMarket) {
+      const shift = side === 'YES' ? 0.02 : -0.02;
+      const updated = {
+        ...selectedMarket,
+        yesPrice: Math.min(0.98, Math.max(0.02, selectedMarket.yesPrice + shift)),
+        noPrice: Math.min(0.98, Math.max(0.02, selectedMarket.noPrice - shift)),
+        totalVolume: selectedMarket.totalVolume + betAmount,
+        participants: selectedMarket.participants + 1,
+      };
+      setSelectedMarket(updated);
+      setMarkets(prev => prev.map(m => m.id === updated.id ? updated : m));
     }
-  };
 
-  // Follow agent
-  const handleFollow = (agent: AIAgent) => {
-    if (userBet || isResolving || timeLeft <= 0) return;
-    setFollowedAgent(agent.id);
-    const amount = Math.min(1000, Math.max(10, parseInt(betAmount) || 100));
-    placeBet(agent.prediction);
-  };
+    setIsPlacingBet(false);
+    setTimeout(() => setBetResult(null), 3000);
+  }, [selectedMarket, isPlacingBet, betAmount, walletAddress]);
 
-  // Leaderboard sorted by accuracy
-  const leaderboard = [...agents].sort((a, b) => b.accuracy - a.accuracy);
+  // Filter markets by category
+  const filteredMarkets = useMemo(() => {
+    if (category === 'all') return markets;
+    return markets.filter(m => m.category === category);
+  }, [markets, category]);
 
-  const timerUrgent = timeLeft <= 30;
-  const timerWarning = timeLeft <= 60 && timeLeft > 30;
+  const featuredMarket = selectedMarket || (markets.length > 0 ? markets[0] : null);
+  const yesPercent = featuredMarket ? Math.round(featuredMarket.yesPrice * 100) : 50;
+
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-white">
-      {/* ─── Inline Styles for animations ─── */}
-      <style>{`
-        @keyframes pulse-glow-green {
-          0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
-          50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.6); }
-        }
-        @keyframes pulse-glow-red {
-          0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
-          50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); }
-        }
-        @keyframes timer-pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.05); opacity: 0.8; }
-        }
-        @keyframes float-in {
-          from { opacity: 0; transform: translateY(20px); }
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      {/* CSS keyframes for slide-in animation */}
+      <style jsx global>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(-8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes result-pop {
-          0% { transform: scale(0.8); opacity: 0; }
-          50% { transform: scale(1.1); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .glow-green { animation: pulse-glow-green 2s ease-in-out infinite; }
-        .glow-red { animation: pulse-glow-red 2s ease-in-out infinite; }
-        .timer-pulse { animation: timer-pulse 1s ease-in-out infinite; }
-        .float-in { animation: float-in 0.5s ease-out forwards; }
-        .result-pop { animation: result-pop 0.4s ease-out forwards; }
-        .shimmer-bg {
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-          background-size: 200% 100%;
-          animation: shimmer 3s linear infinite;
-        }
-        @keyframes heartbeat {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          25% { transform: scale(1.04); opacity: 0.7; }
-          50% { transform: scale(1); opacity: 0.4; }
-          75% { transform: scale(1.02); opacity: 0.55; }
-        }
-        @keyframes price-flash-up {
-          0% { background-color: rgba(34, 197, 94, 0.2); }
-          100% { background-color: transparent; }
-        }
-        @keyframes price-flash-down {
-          0% { background-color: rgba(239, 68, 68, 0.2); }
-          100% { background-color: transparent; }
-        }
-        @keyframes bet-slide-in {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .bet-slide-in { animation: bet-slide-in 0.3s ease-out forwards; }
-        .feed-scroll::-webkit-scrollbar { width: 3px; }
-        .feed-scroll::-webkit-scrollbar-track { background: transparent; }
-        .feed-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
       `}</style>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* ─── Page Header ─── */}
-        <div className="text-center space-y-2 mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-green-500 bg-clip-text text-transparent">
-            Price Prediction Arena
-          </h1>
-          <p className="text-zinc-500 text-sm">
-            AI Agents predict. You bet. Winner takes all.
-          </p>
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
-              W: {userStats.wins}
-            </Badge>
-            <Badge variant="outline" className="border-red-500/50 text-red-400 text-xs">
-              L: {userStats.losses}
-            </Badge>
-            <Badge variant="outline" className={`text-xs ${userStats.totalEarnings >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}>
-              {userStats.totalEarnings >= 0 ? '+' : ''}{userStats.totalEarnings.toLocaleString()} BBAI
-            </Badge>
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Prediction Markets
+            </h1>
+            <p className="text-sm text-zinc-500 mt-1">
+              P2P betting powered by agent liquidity — trade YES or NO on real outcomes
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span>{markets.length} active markets</span>
           </div>
         </div>
 
-        {/* ─── 2-Column Layout: Feed | Main ─── */}
-        <div className="flex gap-4">
-          {/* ─── Left: Live Betting Feed ─── */}
-          <div className="hidden lg:block w-72 flex-shrink-0">
-            <div className="sticky top-20">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-semibold text-white uppercase tracking-wider">Live Bets</span>
-                  </div>
-                  <span className="text-[10px] text-zinc-500">{liveBets.length} bets</span>
-                </div>
-                <div ref={feedRef} className="feed-scroll overflow-y-auto max-h-[calc(100vh-220px)] divide-y divide-zinc-800/50">
-                  {liveBets.length === 0 && (
-                    <div className="px-4 py-8 text-center text-zinc-600 text-xs">
-                      Waiting for bets...
-                    </div>
-                  )}
-                  {liveBets.map((bet, i) => {
-                    const secAgo = Math.floor((Date.now() - bet.timestamp) / 1000);
-                    return (
-                      <div
-                        key={bet.id}
-                        className={`px-3 py-2.5 hover:bg-zinc-800/40 transition-colors ${i === 0 ? 'bet-slide-in' : ''}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                              bet.direction === 'UP'
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {bet.direction === 'UP' ? '↑' : '↓'}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[11px] text-white font-medium truncate">
-                                  {bet.user}
-                                </span>
-                                {bet.isAgent && (
-                                  <span className="flex-shrink-0 text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">AI</span>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-zinc-600">{secAgo < 60 ? `${secAgo}s ago` : `${Math.floor(secAgo / 60)}m ago`}</span>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <span className={`text-xs font-bold ${
-                              bet.direction === 'UP' ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              {bet.amount}
-                            </span>
-                            <div className="text-[9px] text-zinc-600">BBAI</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Feed summary bar */}
-                <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-950/50">
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-green-400">↑ {liveBets.filter(b => b.direction === 'UP').length} bets</span>
-                    <span className="text-red-400">↓ {liveBets.filter(b => b.direction === 'DOWN').length} bets</span>
-                  </div>
-                  <div className="mt-1 flex h-1 rounded-full overflow-hidden bg-zinc-800">
-                    {(() => {
-                      const up = liveBets.filter(b => b.direction === 'UP').reduce((s, b) => s + b.amount, 0);
-                      const dn = liveBets.filter(b => b.direction === 'DOWN').reduce((s, b) => s + b.amount, 0);
-                      const total = up + dn || 1;
-                      return (
-                        <>
-                          <div className="bg-green-500 transition-all duration-500" style={{ width: `${(up / total) * 100}%` }} />
-                          <div className="bg-red-500 transition-all duration-500" style={{ width: `${(dn / total) * 100}%` }} />
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── Right: Main Content ─── */}
-          <div className="flex-1 min-w-0 space-y-6">
-
-        {/* ─── Hero: Active Prediction Round ─── */}
-        <Card className="border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden relative">
-          <div className="absolute inset-0 shimmer-bg pointer-events-none" />
-          <CardHeader className="text-center pb-2 relative z-10">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              {ASSETS.map((a, i) => (
-                <Badge
-                  key={a.symbol}
-                  className={`text-sm px-3 py-1 transition-all cursor-pointer select-none ${
-                    i === assetIndex
-                      ? 'bg-white/10 text-white border-white/30 scale-110'
-                      : 'bg-zinc-800/50 text-zinc-500 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
-                  }`}
-                  variant="outline"
-                  onClick={() => {
-                    if (i !== assetIndex && !isResolving && !userBet) {
-                      const asset = ASSETS[i];
-                      const jitter = (Math.random() - 0.5) * asset.basePrice * 0.01;
-                      const newPrice = asset.basePrice + jitter;
-                      setAssetIndex(i);
-                      setCurrentPrice(newPrice);
-                      setRoundStartPrice(newPrice);
-                    }
-                  }}
-                >
-                  {a.symbol}
-                </Badge>
-              ))}
-            </div>
-            <CardTitle className="text-2xl">
-              Round #{roundId} — {currentAsset.name} ({currentAsset.symbol})
-            </CardTitle>
-            <CardDescription className="text-zinc-400">
-              Will the price go UP or DOWN in the next 5 minutes?
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6 relative z-10">
-            {/* Price Display with Heartbeat */}
-            <div className="text-center space-y-3">
-              <PulseRing color={priceChange >= 0 ? 'green' : priceChange < 0 ? 'red' : 'neutral'}>
-                <div className="px-8 py-4">
-                  <div
-                    className={`text-5xl md:text-6xl font-mono font-bold tracking-tight transition-colors duration-300 ${
-                      priceChange > 0 ? 'text-green-400' : priceChange < 0 ? 'text-red-400' : 'text-white'
-                    }`}
-                    style={{
-                      textShadow: priceChange >= 0
-                        ? '0 0 30px rgba(34,197,94,0.3)'
-                        : '0 0 30px rgba(239,68,68,0.3)',
-                    }}
-                  >
-                    ${formatPrice(currentPrice)}
-                  </div>
-                  <div className={`text-lg font-semibold mt-1 ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {priceChange >= 0 ? '+' : ''}{formatPrice(priceChange)} ({priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(3)}%)
-                  </div>
-                </div>
-              </PulseRing>
-
-              {/* Heartbeat Chart */}
-              <div className="max-w-2xl mx-auto mt-4">
-                <HeartbeatChart prices={priceHistory} color={currentAsset.color} />
-                <div className="flex justify-between text-[10px] text-zinc-600 mt-1 px-1">
-                  <span>60s ago</span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: currentAsset.color }} />
-                    LIVE
-                  </span>
-                  <span>now</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Countdown Timer */}
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className={`text-3xl font-mono font-bold px-6 py-2 rounded-xl border ${
-                  timerUrgent
-                    ? 'text-red-400 border-red-500/50 bg-red-950/30 timer-pulse'
-                    : timerWarning
-                    ? 'text-amber-400 border-amber-500/50 bg-amber-950/30'
-                    : 'text-zinc-200 border-zinc-700 bg-zinc-800/50'
-                }`}
+        {/* Category Filters */}
+        <Tabs value={category} onValueChange={(v) => { setCategory(v); setSelectedMarket(null); }}>
+          <TabsList className="bg-zinc-900 border border-zinc-800">
+            {CATEGORIES.map(c => (
+              <TabsTrigger
+                key={c.key}
+                value={c.key}
+                className="data-[state=active]:bg-zinc-700 data-[state=active]:text-zinc-100 text-xs"
               >
-                {isResolving ? 'RESOLVING...' : formatTime(timeLeft)}
-              </div>
-              <Progress
-                value={(timeLeft / ROUND_DURATION) * 100}
-                className="w-64 h-2"
-              />
-            </div>
-
-            {/* Result overlay */}
-            {roundResult && (
-              <div className="result-pop text-center p-6 rounded-xl border bg-zinc-900/90 border-zinc-700">
-                <div className={`text-3xl font-bold mb-2 ${roundResult.outcome === 'UP' ? 'text-green-400' : 'text-red-400'}`}>
-                  Price went {roundResult.outcome} {roundResult.outcome === 'UP' ? '⬆️' : '⬇️'}
-                </div>
-                {userBet ? (
-                  <div className={`text-xl ${roundResult.won ? 'text-green-400' : 'text-red-400'}`}>
-                    {roundResult.won
-                      ? `YOU WON! +${roundResult.payout.toLocaleString()} BBAI`
-                      : `You lost ${userBet.amount.toLocaleString()} BBAI`}
-                  </div>
-                ) : (
-                  <div className="text-zinc-400">You did not place a bet this round</div>
-                )}
-                <p className="text-zinc-500 text-sm mt-2">Next round starting soon...</p>
-              </div>
-            )}
-
-            {/* Betting Section */}
-            {!roundResult && (
-              <div className="space-y-4">
-                {/* Bet Amount Input */}
-                {!userBet && (
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-zinc-400 text-sm">Bet Amount:</span>
-                    <Input
-                      type="number"
-                      min={10}
-                      max={1000}
-                      value={betAmount}
-                      onChange={(e) => setBetAmount(e.target.value)}
-                      className="w-28 bg-zinc-800 border-zinc-700 text-center text-white"
-                      disabled={!!userBet || isResolving}
-                    />
-                    <span className="text-zinc-500 text-sm">BBAI</span>
-                  </div>
-                )}
-
-                {/* Wallet warning */}
-                {walletWarning && (
-                  <div className="text-center p-3 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-400 text-sm font-medium">
-                    {walletWarning}
-                  </div>
-                )}
-
-                {/* UP / DOWN Buttons */}
-                {!userBet ? (
-                  <div className="flex justify-center gap-6">
-                    <Button
-                      size="lg"
-                      disabled={isResolving || timeLeft <= 0}
-                      onClick={() => placeBet('UP')}
-                      className="glow-green w-40 h-16 text-xl font-bold bg-green-600 hover:bg-green-500 text-white border-none transition-all hover:scale-105"
-                    >
-                      UP ⬆️
-                    </Button>
-                    <Button
-                      size="lg"
-                      disabled={isResolving || timeLeft <= 0}
-                      onClick={() => placeBet('DOWN')}
-                      className="glow-red w-40 h-16 text-xl font-bold bg-red-600 hover:bg-red-500 text-white border-none transition-all hover:scale-105"
-                    >
-                      DOWN ⬇️
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="float-in text-center p-4 rounded-xl border border-zinc-700 bg-zinc-800/50">
-                    <span className="text-zinc-400">Your Pick: </span>
-                    <span className={`font-bold text-lg ${userBet.direction === 'UP' ? 'text-green-400' : 'text-red-400'}`}>
-                      {userBet.direction} {userBet.direction === 'UP' ? '⬆️' : '⬇️'}
-                    </span>
-                    <span className="text-zinc-400"> — </span>
-                    <span className="text-white font-semibold">{userBet.amount.toLocaleString()} BBAI</span>
-                    {followedAgent && (
-                      <div className="text-zinc-500 text-sm mt-1">
-                        Following {agents.find(a => a.id === followedAgent)?.name}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Pool Display */}
-                <div className="flex items-center justify-center gap-6 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                    <span className="text-zinc-400">UP Pool:</span>
-                    <span className="text-green-400 font-semibold">{upPool.toLocaleString()} BBAI</span>
-                  </div>
-                  <Separator orientation="vertical" className="h-4 bg-zinc-700" />
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <span className="text-zinc-400">DOWN Pool:</span>
-                    <span className="text-red-400 font-semibold">{downPool.toLocaleString()} BBAI</span>
-                  </div>
-                </div>
-
-                {/* Pool ratio bar */}
-                <div className="max-w-md mx-auto">
-                  <div className="flex h-3 rounded-full overflow-hidden">
-                    <div
-                      className="bg-green-500 transition-all duration-500"
-                      style={{ width: `${(upPool / (upPool + downPool)) * 100}%` }}
-                    />
-                    <div
-                      className="bg-red-500 transition-all duration-500"
-                      style={{ width: `${(downPool / (upPool + downPool)) * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-zinc-500 mt-1">
-                    <span>{((upPool / (upPool + downPool)) * 100).toFixed(1)}% UP</span>
-                    <span>{((downPool / (upPool + downPool)) * 100).toFixed(1)}% DOWN</span>
-                  </div>
-                </div>
-
-                {/* AI Agents that already predicted (quick view) */}
-                <div className="flex items-center justify-center gap-3 flex-wrap">
-                  {agents.slice(0, 4).map((agent) => (
-                    <Badge
-                      key={agent.id}
-                      variant="outline"
-                      className={`text-sm px-3 py-1 ${
-                        agent.prediction === 'UP'
-                          ? 'border-green-500/40 text-green-400 bg-green-950/20'
-                          : 'border-red-500/40 text-red-400 bg-red-950/20'
-                      }`}
-                    >
-                      {agent.avatar} {agent.name}: {agent.prediction} {agent.prediction === 'UP' ? '⬆️' : '⬇️'}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ─── On-Chain Settlement Status ─── */}
-        {settlement && (
-          <Card className="border-zinc-800 bg-zinc-900/60 overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className={`w-3 h-3 rounded-full ${settlement.isLive ? 'bg-green-500' : 'bg-amber-500'}`} />
-                    <div className={`absolute inset-0 w-3 h-3 rounded-full animate-ping ${settlement.isLive ? 'bg-green-500' : 'bg-amber-500'} opacity-40`} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-white flex items-center gap-2">
-                      Settlement: {settlement.chain}
-                      <Badge variant="outline" className={`text-[10px] ${settlement.isLive ? 'border-green-500/40 text-green-400 bg-green-950/20' : 'border-amber-500/40 text-amber-400 bg-amber-950/20'}`}>
-                        {settlement.isLive ? 'ON-CHAIN' : 'READY'}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-zinc-500">
-                      {settlement.totalRoundsSettled} rounds settled | {settlement.totalVolumeSettled.toLocaleString()} BBAI volume
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {recentSettlements.slice(0, 3).map((s) => (
-                    <a
-                      key={s.roundId}
-                      href={s.explorer}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
-                      title={`Round #${s.roundId} — ${s.txHash.slice(0, 10)}...`}
-                    >
-                      <span className={`${s.outcome === 'UP' ? 'text-green-400' : 'text-red-400'}`}>
-                        {s.outcome === 'UP' ? '\u2191' : '\u2193'}
-                      </span>
-                      <span className="font-mono">{s.txHash.slice(0, 8)}...</span>
-                      <span className="text-zinc-600 group-hover:text-zinc-400">&#8599;</span>
-                    </a>
-                  ))}
-                  <a
-                    href="/onchain"
-                    className="text-xs text-amber-400 hover:text-amber-300 font-medium transition-colors"
-                  >
-                    Dashboard &#8594;
-                  </a>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ─── Tabs: Agents / Results / Leaderboard ─── */}
-        <Tabs defaultValue="agents" className="space-y-4">
-          <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
-            <TabsTrigger value="agents" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
-              AI Agent Predictions
-            </TabsTrigger>
-            <TabsTrigger value="results" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
-              Recent Results
-            </TabsTrigger>
-            <TabsTrigger value="leaderboard" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
-              Leaderboard
-            </TabsTrigger>
+                {c.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
+        </Tabs>
 
-          {/* ─── AI Agent Predictions Panel ─── */}
-          <TabsContent value="agents" className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {agents.map((agent) => (
-                <Card key={agent.id} className="border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900/90 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="text-2xl">{agent.avatar}</div>
-                        <div>
-                          <div className="font-semibold text-white">{agent.name}</div>
-                          <div className="text-xs text-zinc-500">
-                            {agent.totalPredictions} predictions
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <Badge
-                            className={`text-sm font-bold ${
-                              agent.prediction === 'UP'
-                                ? 'bg-green-600/20 text-green-400 border-green-500/40'
-                                : 'bg-red-600/20 text-red-400 border-red-500/40'
-                            }`}
-                            variant="outline"
-                          >
-                            {agent.prediction} {agent.prediction === 'UP' ? '⬆️' : '⬇️'}
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-zinc-500 text-sm">Loading markets...</div>
+          </div>
+        ) : markets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <div className="text-4xl">📊</div>
+            <div className="text-zinc-400 text-sm">No markets yet</div>
+            <p className="text-zinc-600 text-xs max-w-xs text-center">
+              Markets will appear here as they are created. Check back soon or try a different category.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+            {/* Main Content */}
+            <div className="space-y-6">
+
+              {/* ── Hero: Featured Market ──────────────────────────────── */}
+              {featuredMarket && (
+                <Card className="bg-zinc-900/50 border border-zinc-800 overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className={`text-[10px] ${CATEGORY_COLORS[featuredMarket.category]}`}>
+                            {featuredMarket.category}
                           </Badge>
-                          <div className="text-xs text-zinc-400 mt-1">
-                            {agent.confidence}% confidence
-                          </div>
+                          <Badge variant="outline" className="text-[10px] text-yellow-400 border-yellow-500/30 bg-yellow-500/10">
+                            HOT
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-xl leading-tight">
+                          {featuredMarket.title}
+                        </CardTitle>
+                        <p className="text-xs text-zinc-500 mt-1.5">
+                          {featuredMarket.description}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs text-zinc-500">Ends in</div>
+                        <div className="text-sm font-mono font-semibold text-zinc-300">
+                          {timeRemaining(featuredMarket.endsAt)}
                         </div>
                       </div>
                     </div>
-                    <Separator className="my-3 bg-zinc-800" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div>
-                          <span className="text-zinc-500">Accuracy: </span>
-                          <span className={`font-semibold ${agent.accuracy >= 70 ? 'text-green-400' : agent.accuracy >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
-                            {agent.accuracy}%
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500">Streak: </span>
-                          <span className="text-white font-semibold">
-                            {agent.winStreak > 0 ? `${agent.winStreak} W` : '0'}
-                          </span>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Probability Display */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-green-400 font-bold">YES {yesPercent}%</span>
+                        <span className="text-red-400 font-bold">NO {100 - yesPercent}%</span>
+                      </div>
+                      <ProbabilityBar yesPercent={yesPercent} size="lg" />
+                    </div>
+
+                    {/* Volume & Participants */}
+                    <div className="flex items-center gap-4 text-xs text-zinc-500">
+                      <span>Volume: <span className="text-zinc-300 font-medium">{formatVolume(featuredMarket.totalVolume)} BBAI</span></span>
+                      <span>Traders: <span className="text-zinc-300 font-medium">{featuredMarket.participants.toLocaleString()}</span></span>
+                    </div>
+
+                    <Separator className="bg-zinc-800" />
+
+                    {/* Bet Controls */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500 shrink-0">Amount:</span>
+                        <Input
+                          type="number"
+                          value={betAmount}
+                          onChange={(e) => setBetAmount(Math.max(1, Number(e.target.value)))}
+                          className="h-8 w-28 bg-zinc-800 border-zinc-700 text-sm text-center"
+                          min={1}
+                        />
+                        <span className="text-xs text-zinc-500">BBAI</span>
+                        <div className="flex gap-1 ml-auto">
+                          {[50, 100, 250, 500, 1000].map(amt => (
+                            <button
+                              key={amt}
+                              onClick={() => setBetAmount(amt)}
+                              className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                betAmount === amt
+                                  ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
+                                  : 'bg-zinc-800/50 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                              }`}
+                            >
+                              {amt >= 1000 ? `${amt / 1000}K` : amt}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!!userBet || isResolving || timeLeft <= 0}
-                        onClick={() => handleFollow(agent)}
-                        className={`text-xs h-7 ${
-                          followedAgent === agent.id
-                            ? 'bg-white/10 text-white border-white/30'
-                            : 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'
-                        }`}
-                      >
-                        {followedAgent === agent.id ? 'Following' : 'Follow'}
-                      </Button>
-                    </div>
-                    <div className="mt-2">
-                      <Progress value={agent.accuracy} className="h-1.5" />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          onClick={() => handleBet('YES')}
+                          disabled={isPlacingBet}
+                          className="h-12 bg-green-600 hover:bg-green-500 text-white font-bold text-base transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isPlacingBet ? '...' : `YES — ${betAmount} BBAI`}
+                        </Button>
+                        <Button
+                          onClick={() => handleBet('NO')}
+                          disabled={isPlacingBet}
+                          className="h-12 bg-red-600 hover:bg-red-500 text-white font-bold text-base transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isPlacingBet ? '...' : `NO — ${betAmount} BBAI`}
+                        </Button>
+                      </div>
+
+                      {/* Bet Result Toast */}
+                      {betResult && (
+                        <div className={`text-center text-xs py-2 px-3 rounded animate-[slideIn_0.3s_ease-out] ${
+                          betResult.success
+                            ? betResult.side === 'YES'
+                              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-zinc-800 text-zinc-400'
+                        }`}>
+                          Bet placed: {betAmount} BBAI on {betResult.side}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </TabsContent>
+              )}
 
-          {/* ─── Recent Results ─── */}
-          <TabsContent value="results" className="space-y-3">
-            {/* Asset filter for results */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-zinc-500">Filter:</span>
-              {['All', ...ASSETS.map(a => a.symbol)].map((sym) => (
-                <Badge
-                  key={sym}
-                  variant="outline"
-                  className={`text-xs cursor-pointer select-none transition-all ${
-                    (sym === 'All' && resultAssetFilter === null) || sym === resultAssetFilter
-                      ? 'bg-white/10 text-white border-white/30'
-                      : 'bg-zinc-800/50 text-zinc-500 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
-                  }`}
-                  onClick={() => setResultAssetFilter(sym === 'All' ? null : sym)}
-                >
-                  {sym}
-                </Badge>
-              ))}
-            </div>
-            {filteredResults.map((result, i) => (
-              <Card key={result.id} className="border-zinc-800 bg-zinc-900/60" style={{ animationDelay: `${i * 50}ms` }}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4">
-                      <div className={`text-2xl font-bold w-12 h-12 rounded-xl flex items-center justify-center ${
-                        result.outcome === 'UP' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'
-                      }`}>
-                        {result.outcome === 'UP' ? '⬆️' : '⬇️'}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-white">
-                          Round #{result.id} — {result.asset}
-                        </div>
-                        <div className="text-sm text-zinc-500">
-                          ${formatPrice(result.startPrice)} → ${formatPrice(result.endPrice)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge
-                        className={`${
-                          result.outcome === 'UP'
-                            ? 'bg-green-600/20 text-green-400 border-green-500/40'
-                            : 'bg-red-600/20 text-red-400 border-red-500/40'
-                        }`}
-                        variant="outline"
+              {/* ── Agent Analysis Panel ───────────────────────────────── */}
+              {featuredMarket && agentAnalysis.length > 0 && (
+                <Card className="bg-zinc-900/50 border border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+                      <span>🤖</span> Agent Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {agentAnalysis.map((agent) => (
+                      <div
+                        key={agent.agentId}
+                        className="flex gap-3 p-3 rounded-lg bg-zinc-800/40 border border-zinc-800"
                       >
-                        {result.outcome}
-                      </Badge>
-                      <div className="text-xs text-zinc-500 mt-1">
-                        Pool: {(result.upPool + result.downPool).toLocaleString()} BBAI
+                        <div className="text-2xl shrink-0">{agent.avatar}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-zinc-200">
+                              {agent.agentName}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-700 px-1">
+                              {agent.accuracy}% accuracy
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 ${
+                                agent.position === 'YES'
+                                  ? 'text-green-400 border-green-500/30'
+                                  : 'text-red-400 border-red-500/30'
+                              }`}
+                            >
+                              {agent.position} ({agent.confidence}%)
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-zinc-500 leading-relaxed">
+                            {agent.comment}
+                          </p>
+                        </div>
                       </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ── Hot Markets Grid ───────────────────────────────────── */}
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-300 mb-3">Active Markets</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {filteredMarkets.map(market => (
+                    <MarketCard
+                      key={market.id}
+                      market={market}
+                      isSelected={selectedMarket?.id === market.id}
+                      onSelect={(m) => setSelectedMarket(m)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* ── My Positions ────────────────────────────────────────── */}
+              {walletAddress && myPositions.length > 0 && (
+                <Card className="bg-zinc-900/50 border border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-semibold text-zinc-300">
+                        My Positions
+                      </CardTitle>
+                      <span className="text-[10px] text-zinc-600 font-mono">{walletAddress}</span>
                     </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-zinc-500 border-b border-zinc-800">
+                            <th className="text-left py-2 pr-3 font-medium">Market</th>
+                            <th className="text-center py-2 px-2 font-medium">Side</th>
+                            <th className="text-right py-2 px-2 font-medium">Entry</th>
+                            <th className="text-right py-2 px-2 font-medium">Current</th>
+                            <th className="text-right py-2 pl-2 font-medium">P&L</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {myPositions.map((pos) => (
+                            <tr key={pos.marketId} className="border-b border-zinc-800/50 last:border-0">
+                              <td className="py-2 pr-3 text-zinc-300 max-w-[200px] truncate">
+                                {pos.marketTitle}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] ${
+                                    pos.side === 'YES'
+                                      ? 'text-green-400 border-green-500/30'
+                                      : 'text-red-400 border-red-500/30'
+                                  }`}
+                                >
+                                  {pos.side}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-2 text-right text-zinc-400 font-mono">
+                                {(pos.entryPrice * 100).toFixed(0)}%
+                              </td>
+                              <td className="py-2 px-2 text-right text-zinc-300 font-mono">
+                                {(pos.currentPrice * 100).toFixed(0)}%
+                              </td>
+                              <td className={`py-2 pl-2 text-right font-mono font-medium ${
+                                pos.pnl >= 0 ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(1)} BBAI
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
+                      <span className="text-zinc-500">Total P&L</span>
+                      <span className={`font-mono font-medium ${
+                        myPositions.reduce((s, p) => s + p.pnl, 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {myPositions.reduce((s, p) => s + p.pnl, 0) >= 0 ? '+' : ''}
+                        {myPositions.reduce((s, p) => s + p.pnl, 0).toFixed(1)} BBAI
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* ── Right Sidebar: Live Feed ────────────────────────────── */}
+            <div className="space-y-4">
+              <Card className="bg-zinc-900/50 border border-zinc-800 sticky top-6">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Live Activity
+                    </CardTitle>
+                    <span className="text-[10px] text-zinc-600">auto-refreshing</span>
                   </div>
-                  <Separator className="my-3 bg-zinc-800" />
-                  <div>
-                    <span className="text-xs text-zinc-500">Winning Agents: </span>
-                    <span className="text-xs text-zinc-300">
-                      {result.winningAgents.join(', ')}
-                    </span>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[600px] overflow-y-auto">
+                    {feed.length === 0 ? (
+                      <div className="text-center text-xs text-zinc-600 py-8">
+                        Waiting for activity...
+                      </div>
+                    ) : (
+                      feed.map(entry => (
+                        <FeedItem key={entry.id} entry={entry} />
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </TabsContent>
 
-          {/* ─── Leaderboard ─── */}
-          <TabsContent value="leaderboard" className="space-y-3">
-            <Card className="border-zinc-800 bg-zinc-900/60">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-white">Top Prediction Agents</CardTitle>
-                <CardDescription className="text-zinc-500">Ranked by prediction accuracy</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-zinc-800">
-                  {leaderboard.map((agent, i) => (
-                    <div
-                      key={agent.id}
-                      className="flex items-center justify-between px-6 py-4 hover:bg-zinc-800/40 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`text-lg font-bold w-8 text-center ${
-                          i === 0 ? 'text-yellow-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-amber-600' : 'text-zinc-500'
-                        }`}>
-                          #{i + 1}
-                        </div>
-                        <div className="text-2xl">{agent.avatar}</div>
-                        <div>
-                          <div className="font-semibold text-white">{agent.name}</div>
-                          <div className="text-xs text-zinc-500">
-                            {agent.totalPredictions} predictions
-                          </div>
-                        </div>
+              {/* Quick Stats */}
+              <Card className="bg-zinc-900/50 border border-zinc-800">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Market Stats</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-lg font-bold text-zinc-100">
+                        {formatVolume(markets.reduce((s, m) => s + m.totalVolume, 0))}
                       </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-right">
-                          <div className={`font-bold text-lg ${agent.accuracy >= 70 ? 'text-green-400' : agent.accuracy >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
-                            {agent.accuracy}%
-                          </div>
-                          <div className="text-xs text-zinc-500">accuracy</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-white">
-                            {agent.winStreak > 0 ? (
-                              <span className="text-green-400">{agent.winStreak}W</span>
-                            ) : (
-                              <span className="text-zinc-500">0</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-zinc-500">streak</div>
-                        </div>
-                        <div className="text-right min-w-[80px]">
-                          <div className="font-semibold text-emerald-400">
-                            {agent.totalEarnings.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-zinc-500">BBAI earned</div>
-                        </div>
-                      </div>
+                      <div className="text-[10px] text-zinc-500">Total Volume (BBAI)</div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-          </div>{/* end flex-1 main content */}
-        </div>{/* end 2-column flex */}
+                    <div>
+                      <div className="text-lg font-bold text-zinc-100">
+                        {markets.reduce((s, m) => s + m.participants, 0).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-zinc-500">Total Traders</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-zinc-100">{markets.length}</div>
+                      <div className="text-[10px] text-zinc-500">Active Markets</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-green-400">
+                        {feed.filter(f => f.isAgent).length}/{feed.length}
+                      </div>
+                      <div className="text-[10px] text-zinc-500">Agent / Total Bets</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

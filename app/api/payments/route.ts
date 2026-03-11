@@ -5,6 +5,7 @@ import {
   type PaymentType,
   type ChainId,
 } from '@/lib/payment-pipeline';
+import { apiError } from '@/lib/api-utils';
 
 /**
  * GET /api/payments - Get payment history with optional filters.
@@ -16,31 +17,36 @@ import {
  *   ?limit=50        - max results (default 50)
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const agentId = searchParams.get('agentId') || undefined;
-  const typeFilter = searchParams.get('type') as PaymentType | null;
-  const chainFilter = searchParams.get('chain') as ChainId | null;
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
+  try {
+    const { searchParams } = new URL(request.url);
+    const agentId = searchParams.get('agentId') || undefined;
+    const typeFilter = searchParams.get('type') as PaymentType | null;
+    const chainFilter = searchParams.get('chain') as ChainId | null;
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
 
-  let transactions = await getPaymentHistory(agentId);
+    let transactions = await getPaymentHistory(agentId);
 
-  if (typeFilter) {
-    transactions = transactions.filter((tx) => tx.type === typeFilter);
+    if (typeFilter) {
+      transactions = transactions.filter((tx) => tx.type === typeFilter);
+    }
+
+    if (chainFilter) {
+      transactions = transactions.filter((tx) => tx.chain === chainFilter);
+    }
+
+    const totalBeforeLimit = transactions.length;
+    transactions = transactions.slice(0, limit);
+
+    const stats = await getPaymentStats();
+
+    return NextResponse.json({
+      transactions,
+      total: totalBeforeLimit,
+      returned: transactions.length,
+      stats,
+    });
+  } catch (error) {
+    console.error('[payments] GET error:', error);
+    return apiError('Failed to fetch payment history', 500);
   }
-
-  if (chainFilter) {
-    transactions = transactions.filter((tx) => tx.chain === chainFilter);
-  }
-
-  const totalBeforeLimit = transactions.length;
-  transactions = transactions.slice(0, limit);
-
-  const stats = await getPaymentStats();
-
-  return NextResponse.json({
-    transactions,
-    total: totalBeforeLimit,
-    returned: transactions.length,
-    stats,
-  });
 }

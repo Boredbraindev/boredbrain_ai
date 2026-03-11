@@ -7,7 +7,7 @@
 
 import { db } from '@/lib/db';
 import { agentWallet, walletTransaction } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, gte, sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,27 +206,41 @@ export async function deductBalance(
   const todayTxRows = await db
     .select()
     .from(walletTransaction)
-    .where(eq(walletTransaction.agentId, agentId));
+    .where(
+      and(
+        eq(walletTransaction.agentId, agentId),
+        eq(walletTransaction.type, 'debit'),
+        gte(walletTransaction.timestamp, todayStart),
+      ),
+    );
 
-  const todaySpent = todayTxRows
-    .filter(
-      (row) =>
-        row.type === 'debit' && row.timestamp >= todayStart,
-    )
-    .reduce((sum, row) => sum + row.amount, 0);
+  const todaySpent = todayTxRows.reduce((sum, row) => sum + row.amount, 0);
 
   if (todaySpent + amount > wallet.dailyLimit) {
     return { success: false, txId: '', remaining: wallet.balance };
   }
 
-  // Execute the deduction
+  // Execute the deduction with optimistic concurrency guard.
+  // The WHERE balance >= amount prevents double-spend if a concurrent
+  // request already lowered the balance between our SELECT and UPDATE.
   const newBalance = wallet.balance - amount;
   const newTotalSpent = wallet.totalSpent + amount;
 
-  await db
+  const updated = await db
     .update(agentWallet)
     .set({ balance: newBalance, totalSpent: newTotalSpent })
-    .where(eq(agentWallet.agentId, agentId));
+    .where(
+      and(
+        eq(agentWallet.agentId, agentId),
+        gte(agentWallet.balance, amount),
+      ),
+    )
+    .returning();
+
+  if (updated.length === 0) {
+    // Concurrent deduction already lowered the balance — insufficient funds
+    return { success: false, txId: '', remaining: wallet.balance };
+  }
 
   // Record the transaction
   const [txRow] = await db
@@ -236,14 +250,14 @@ export async function deductBalance(
       amount,
       type: 'debit',
       reason,
-      balanceAfter: newBalance,
+      balanceAfter: updated[0].balance,
     })
     .returning();
 
   return {
     success: true,
     txId: txRow.id,
-    remaining: newBalance,
+    remaining: updated[0].balance,
   };
 }
 

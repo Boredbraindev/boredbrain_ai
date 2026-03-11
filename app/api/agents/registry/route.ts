@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllRegisteredAgents } from '@/lib/agent-registry';
+import { apiError } from '@/lib/api-utils';
 
 /**
  * GET /api/agents/registry - Browse all registered agents with filters
@@ -11,45 +12,50 @@ import { getAllRegisteredAgents } from '@/lib/agent-registry';
  *   ?sort=rating|calls|earned - sort order (default: rating)
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  try {
+    const { searchParams } = new URL(request.url);
 
-  const status = searchParams.get('status') || undefined;
-  const specialization = searchParams.get('specialization') || undefined;
-  const minRatingParam = searchParams.get('minRating');
-  const sort = searchParams.get('sort') || 'rating';
+    const status = searchParams.get('status') || undefined;
+    const specialization = searchParams.get('specialization') || undefined;
+    const minRatingParam = searchParams.get('minRating');
+    const sort = searchParams.get('sort') || 'rating';
 
-  const minRating = minRatingParam ? parseFloat(minRatingParam) : undefined;
+    const minRating = minRatingParam ? parseFloat(minRatingParam) : undefined;
 
-  let agents = await getAllRegisteredAgents({
-    status,
-    specialization,
-    minRating,
-  });
+    let agents = await getAllRegisteredAgents({
+      status,
+      specialization,
+      minRating,
+    });
 
-  // Sort
-  switch (sort) {
-    case 'calls':
-      agents = agents.sort((a, b) => b.totalCalls - a.totalCalls);
-      break;
-    case 'earned':
-      agents = agents.sort((a, b) => b.totalEarned - a.totalEarned);
-      break;
-    case 'staked':
-      agents = agents.sort((a, b) => b.stakingAmount - a.stakingAmount);
-      break;
-    case 'newest':
-      agents = agents.sort(
-        (a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
-      );
-      break;
-    case 'rating':
-    default:
-      agents = agents.sort((a, b) => b.rating - a.rating);
-      break;
+    // Sort
+    switch (sort) {
+      case 'calls':
+        agents = agents.sort((a, b) => b.totalCalls - a.totalCalls);
+        break;
+      case 'earned':
+        agents = agents.sort((a, b) => b.totalEarned - a.totalEarned);
+        break;
+      case 'staked':
+        agents = agents.sort((a, b) => b.stakingAmount - a.stakingAmount);
+        break;
+      case 'newest':
+        agents = agents.sort(
+          (a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
+        );
+        break;
+      case 'rating':
+      default:
+        agents = agents.sort((a, b) => b.rating - a.rating);
+        break;
+    }
+
+    return NextResponse.json({
+      agents,
+      total: agents.length,
+    });
+  } catch (error) {
+    console.error('[registry] GET error:', error);
+    return apiError('Failed to fetch agent registry', 500);
   }
-
-  return NextResponse.json({
-    agents,
-    total: agents.length,
-  });
 }
