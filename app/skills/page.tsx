@@ -263,7 +263,7 @@ export default function SkillMarketplacePage() {
                 return (
                   <div
                     key={skill.id}
-                    className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-4 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group"
+                    className="flex flex-col h-full bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-4 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group"
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between">
@@ -312,7 +312,7 @@ export default function SkillMarketplacePage() {
 
                     {/* Install Button */}
                     <button
-                      className={`w-full py-2 rounded-xl text-xs font-medium transition-all ${
+                      className={`mt-auto w-full py-2 rounded-xl text-xs font-medium transition-all ${
                         isInstalled
                           ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 cursor-default'
                           : 'bg-amber-500 hover:bg-amber-600 text-black'

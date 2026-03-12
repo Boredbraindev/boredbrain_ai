@@ -28,7 +28,7 @@ export default function CreateMatchPage() {
   useEffect(() => {
     async function fetchAgents() {
       try {
-        const res = await fetch('/api/agents?limit=50');
+        const res = await fetch('/api/agents');
         const data = await res.json();
         setAgents(data.agents || []);
       } catch (error) {

@@ -12,6 +12,7 @@
 
 import { serverEnv } from '@/env/server';
 import { executeCoinData, executeCoinOhlc } from '@/lib/tools/coin-data-executor';
+import { executeWebCrawl } from '@/lib/tools/web-crawl-executor';
 import { executeWebSearch } from '@/lib/tools/web-search-executor';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,23 @@ const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     },
     execute: (args) =>
       executeWebSearch(args as { query: string; maxResults?: number; topic?: string }),
+  },
+
+  web_crawl: {
+    name: 'web_crawl',
+    description:
+      'Crawl a web page and extract its content as markdown using Cloudflare Browser Rendering. Useful for reading full articles, documentation, or any web page.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description: 'The URL of the web page to crawl',
+        },
+      },
+      required: ['url'],
+    },
+    execute: (args) => executeWebCrawl(args as { url: string }),
   },
 
   x_search: {

@@ -22,6 +22,13 @@ const publicRoutes = [
   '/predict',
   '/rewards',
   '/success',
+  '/topics',
+  '/referrals',
+  '/economy',
+  '/openclaw',
+  '/fleet',
+  '/onchain',
+  '/docs',
 ];
 
 /** Check if a pathname matches one of the route prefixes */

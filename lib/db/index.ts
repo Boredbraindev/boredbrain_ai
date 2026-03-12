@@ -21,25 +21,23 @@ async function createDb() {
     const { drizzle } = await import('drizzle-orm/neon-http');
     const { neon } = await import('@neondatabase/serverless');
 
-    let cacheConfig: any = undefined;
-
-    // Only use Upstash cache if credentials are available
-    if (serverEnv.UPSTASH_REDIS_REST_URL && serverEnv.UPSTASH_REDIS_REST_TOKEN) {
-      try {
-        const { upstashCache } = await import('drizzle-orm/cache/upstash');
-        cacheConfig = upstashCache({
-          url: serverEnv.UPSTASH_REDIS_REST_URL,
-          token: serverEnv.UPSTASH_REDIS_REST_TOKEN,
-          global: true,
-          config: { ex: 600 },
-        } as const);
-      } catch {
-        // Upstash cache not available
-      }
-    }
+    // Upstash Redis cache — disabled to avoid hitting free-tier request limits.
+    // Re-enable when on a paid Upstash plan by uncommenting below.
+    // let cacheConfig: any = undefined;
+    // if (serverEnv.UPSTASH_REDIS_REST_URL && serverEnv.UPSTASH_REDIS_REST_TOKEN) {
+    //   try {
+    //     const { upstashCache } = await import('drizzle-orm/cache/upstash');
+    //     cacheConfig = upstashCache({
+    //       url: serverEnv.UPSTASH_REDIS_REST_URL,
+    //       token: serverEnv.UPSTASH_REDIS_REST_TOKEN,
+    //       global: true,
+    //       config: { ex: 600 },
+    //     } as const);
+    //   } catch { /* Upstash cache not available */ }
+    // }
 
     const sql = neon(dbUrl);
-    const maindb = drizzle(sql, { schema, ...(cacheConfig ? { cache: cacheConfig } : {}) });
+    const maindb = drizzle(sql, { schema });
 
     const replicaUrls = [serverEnv.READ_DB_1, serverEnv.READ_DB_2].filter(
       (url): url is string => Boolean(url && url.trim()),
@@ -47,7 +45,7 @@ async function createDb() {
 
     const replicas = replicaUrls
       .filter((url) => url !== dbUrl)
-      .map((url) => drizzle(neon(url), { schema, ...(cacheConfig ? { cache: cacheConfig } : {}) }));
+      .map((url) => drizzle(neon(url), { schema }));
 
     if (replicas.length > 0) {
       const { withReplicas } = await import('drizzle-orm/pg-core');

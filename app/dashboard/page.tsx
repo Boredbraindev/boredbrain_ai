@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -80,8 +81,10 @@ function DashboardSkeleton() {
 /* -------------------------------------------------------------------------- */
 
 export default function DashboardPage() {
+  const { address, isConnected } = useAccount();
   const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [myAgents, setMyAgents] = useState<AgentInfo[]>([]);
+  const [platformAgents, setPlatformAgents] = useState<AgentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyResult, setNewKeyResult] = useState<{ key: string } | null>(null);
@@ -90,25 +93,40 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
 
   async function fetchData() {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
-      const [keysRes, agentsRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch('/api/keys', { signal: controller.signal }),
-        fetch('/api/agents?limit=50', { signal: controller.signal }),
-      ]);
+        fetch('/api/agents', { signal: controller.signal }),
+      ];
+      // Fetch user-specific agents if wallet connected
+      if (address) {
+        fetches.push(
+          fetch(`/api/agents?owner=${address}`, { signal: controller.signal })
+        );
+      }
+      const results = await Promise.all(fetches);
       clearTimeout(timer);
-      const keysData = await keysRes.json();
-      const agentsData = await agentsRes.json();
+      const keysData = await results[0].json();
+      const platformData = await results[1].json();
       setApiKeys(keysData.keys || []);
-      setAgents(agentsData.agents || []);
+      setPlatformAgents(platformData.agents || []);
+      if (results[2]) {
+        const myData = await results[2].json();
+        setMyAgents(myData.agents || []);
+      } else {
+        setMyAgents([]);
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
       setApiKeys([]);
-      setAgents([]);
+      setPlatformAgents([]);
+      setMyAgents([]);
     } finally {
       setLoading(false);
     }
@@ -156,89 +174,116 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedKey(false), 2000);
   }
 
+  // User-specific stats
   const activeKeys = apiKeys.filter((k) => k.status === 'active').length;
   const totalQueries = apiKeys.reduce((sum, k) => sum + (k.totalQueries || 0), 0);
   const totalSpent = apiKeys.reduce((sum, k) => sum + parseFloat(k.totalSpent || '0'), 0);
-  const totalRevenue = agents.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
-  const totalAgentExecs = agents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
+  const myRevenue = myAgents.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
+  const myExecs = myAgents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
 
-  const kpiCards = [
+  // Platform-wide stats
+  const platformRevenue = platformAgents.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
+  const platformExecs = platformAgents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
+
+  const keyIcon = (
+    <svg className="w-4 h-4 text-blue-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+    </svg>
+  );
+  const agentIcon = (
+    <svg className="w-4 h-4 text-purple-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+    </svg>
+  );
+  const revenueIcon = (
+    <svg className="w-4 h-4 text-green-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+    </svg>
+  );
+  const execIcon = (
+    <svg className="w-4 h-4 text-emerald-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
+    </svg>
+  );
+
+  const myStatsCards = [
     {
-      label: 'Active Keys',
+      label: 'My Agents',
+      value: myAgents.length,
+      sub: `${myExecs.toLocaleString()} executions`,
+      gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
+      border: 'border-purple-500/20',
+      text: 'text-purple-400',
+      icon: agentIcon,
+    },
+    {
+      label: 'My Revenue',
+      value: myRevenue.toFixed(0),
+      sub: 'BBAI earned',
+      gradient: 'from-green-500/15 via-green-500/5 to-transparent',
+      border: 'border-green-500/20',
+      text: 'text-green-400',
+      icon: revenueIcon,
+    },
+    {
+      label: 'My API Keys',
       value: activeKeys,
       sub: `of ${apiKeys.length} total`,
       gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
       border: 'border-blue-500/20',
       text: 'text-blue-400',
-      icon: (
-        <svg className="w-4 h-4 text-blue-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-        </svg>
-      ),
+      icon: keyIcon,
     },
     {
-      label: 'Total Queries',
+      label: 'My Queries',
       value: totalQueries.toLocaleString(),
+      sub: `${totalSpent.toFixed(0)} BBAI spent`,
+      gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
+      border: 'border-amber-500/20',
+      text: 'text-amber-400',
+      icon: execIcon,
+    },
+  ];
+
+  const platformStatsCards = [
+    {
+      label: 'Total Agents',
+      value: platformAgents.length,
+      sub: 'across the platform',
+      gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
+      border: 'border-purple-500/20',
+      text: 'text-purple-400',
+      icon: agentIcon,
+    },
+    {
+      label: 'Platform Revenue',
+      value: platformRevenue.toFixed(0),
+      sub: 'BBAI total earned',
+      gradient: 'from-green-500/15 via-green-500/5 to-transparent',
+      border: 'border-green-500/20',
+      text: 'text-green-400',
+      icon: revenueIcon,
+    },
+    {
+      label: 'Platform Executions',
+      value: platformExecs.toLocaleString(),
       sub: 'all-time',
       gradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
       border: 'border-emerald-500/20',
       text: 'text-emerald-400',
-      icon: (
-        <svg className="w-4 h-4 text-emerald-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Total Spent',
-      value: totalSpent.toFixed(0),
-      sub: 'BBAI',
-      gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
-      border: 'border-amber-500/20',
-      text: 'text-amber-400',
-      icon: (
-        <svg className="w-4 h-4 text-amber-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Agent Revenue',
-      value: totalRevenue.toFixed(0),
-      sub: 'BBAI earned',
-      gradient: 'from-green-500/15 via-green-500/5 to-transparent',
-      border: 'border-green-500/20',
-      text: 'text-green-400',
-      icon: (
-        <svg className="w-4 h-4 text-green-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-        </svg>
-      ),
-    },
-    {
-      label: 'My Agents',
-      value: agents.length,
-      sub: `${totalAgentExecs.toLocaleString()} executions`,
-      gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
-      border: 'border-purple-500/20',
-      text: 'text-purple-400',
-      icon: (
-        <svg className="w-4 h-4 text-purple-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-        </svg>
-      ),
+      icon: execIcon,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#09090b] relative z-1">
+    <div className="min-h-screen bg-[#09090b] relative z-1 overflow-x-hidden">
       {/* Ambient glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-amber-500/[0.04] rounded-full blur-[120px]" />
       </div>
 
-      {/* Demo Mode Banner — only shown when no real data */}
-      {apiKeys.length === 0 && agents.length === 0 && !loading && (
+      {/* Demo Mode Banner — only shown when no wallet connected */}
+      {!isConnected && !loading && (
         <div className="relative border-b border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.04] to-amber-500/[0.08]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -264,7 +309,7 @@ export default function DashboardPage() {
                 Manage API keys, monitor usage, and track your agent earnings across the BoredBrain network.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/payments">
                 <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:text-white hover:bg-white/[0.05] hover:border-white/[0.12]">
                   Payments
@@ -295,26 +340,68 @@ export default function DashboardPage() {
           <DashboardSkeleton />
         ) : (
           <div className="space-y-8 animate-in fade-in duration-500">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {kpiCards.map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`group relative rounded-xl border ${stat.border} bg-gradient-to-br ${stat.gradient} p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">{stat.label}</span>
-                    {stat.icon}
-                  </div>
-                  <div className={`text-2xl sm:text-3xl font-bold tabular-nums ${stat.text}`}>{stat.value}</div>
-                  <div className="text-[11px] text-zinc-600 mt-1">{stat.sub}</div>
+            {/* MY STATS Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">My Stats</h2>
+                {!isConnected && (
+                  <span className="text-[10px] text-amber-400/70 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">Connect wallet to view</span>
+                )}
+              </div>
+              {isConnected ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {myStatsCards.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className={`group relative rounded-xl border ${stat.border} bg-gradient-to-br ${stat.gradient} p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">{stat.label}</span>
+                        {stat.icon}
+                      </div>
+                      <div className={`text-2xl sm:text-3xl font-bold tabular-nums ${stat.text}`}>{stat.value}</div>
+                      <div className="text-[11px] text-zinc-600 mt-1">{stat.sub}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] flex flex-col items-center justify-center py-10">
+                  <div className="h-10 w-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                    </svg>
+                  </div>
+                  <p className="text-zinc-400 text-sm font-medium">Connect your wallet to see your stats</p>
+                  <p className="text-zinc-600 text-xs mt-1">Your agents, revenue, and API key usage will appear here.</p>
+                </div>
+              )}
+            </div>
+
+            {/* PLATFORM STATS Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Platform Stats</h2>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {platformStatsCards.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className={`group relative rounded-xl border ${stat.border} bg-gradient-to-br ${stat.gradient} p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">{stat.label}</span>
+                      {stat.icon}
+                    </div>
+                    <div className={`text-2xl sm:text-3xl font-bold tabular-nums ${stat.text}`}>{stat.value}</div>
+                    <div className="text-[11px] text-zinc-600 mt-1">{stat.sub}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="keys" className="space-y-6">
-              <TabsList className="h-11 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1">
+              <TabsList className="h-auto sm:h-11 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-full flex flex-wrap sm:flex-nowrap sm:w-auto overflow-x-auto">
                 <TabsTrigger value="keys" className="rounded-lg px-5 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:shadow-none text-zinc-500">
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
@@ -446,7 +533,7 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden backdrop-blur-sm">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden backdrop-blur-sm overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-white/[0.06] hover:bg-transparent">
@@ -518,7 +605,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
 
-                {agents.length === 0 ? (
+                {myAgents.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] flex flex-col items-center justify-center py-20">
                     <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
                       <svg className="w-7 h-7 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -535,8 +622,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="grid gap-3">
-                    {agents.map((a) => {
-                      const maxExec = Math.max(...agents.map((x) => x.totalExecutions || 1));
+                    {myAgents.map((a) => {
+                      const maxExec = Math.max(...myAgents.map((x) => x.totalExecutions || 1));
                       const revenueNum = parseFloat(a.totalRevenue || '0');
                       return (
                         <Link key={a.id} href={`/agents/${a.id}`}>

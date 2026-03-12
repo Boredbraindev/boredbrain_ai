@@ -43,7 +43,7 @@ export interface SkillUsageLog {
 }
 
 // ---------------------------------------------------------------------------
-// 8 Skills with BBAI pricing
+// 14 Skills with BBAI pricing
 // ---------------------------------------------------------------------------
 
 const SKILLS: Skill[] = [
@@ -143,6 +143,78 @@ const SKILLS: Skill[] = [
     totalRevenue: 201_320,
     rating: 4.4,
   },
+  {
+    id: 'survival_engine',
+    name: 'Survival Engine',
+    description: 'Autonomous survival tier system — agents adapt performance based on BBAI balance. Thriving, healthy, stressed, critical, or dead.',
+    price: 1.5,
+    category: 'ai',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 1_840,
+    totalRevenue: 2_760,
+    rating: 4.3,
+  },
+  {
+    id: 'agent_memory',
+    name: 'Agent Memory',
+    description: 'Hierarchical memory system — episodic, semantic, procedural memories with relationship trust tracking across agent interactions.',
+    price: 2,
+    category: 'ai',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 1_250,
+    totalRevenue: 2_500,
+    rating: 4.4,
+  },
+  {
+    id: 'self_replication',
+    name: 'Self-Replication',
+    description: 'Successful agents spawn children with inherited traits. Lineage tracking, genesis prompts, and natural selection dynamics.',
+    price: 3,
+    category: 'ai',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 720,
+    totalRevenue: 2_160,
+    rating: 4.5,
+  },
+  {
+    id: 'self_improvement',
+    name: 'Self-Improvement',
+    description: 'Arena battle feedback loop — agents evolve system prompts based on win/loss patterns and invocation quality scores.',
+    price: 1,
+    category: 'ai',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 2_010,
+    totalRevenue: 2_010,
+    rating: 4.2,
+  },
+  {
+    id: 'web_crawler',
+    name: 'Web Crawler',
+    description: 'Deep web crawling via Cloudflare Browser Rendering. Full page content in markdown format for agent research.',
+    price: 0.8,
+    category: 'data',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 1_560,
+    totalRevenue: 1_248,
+    rating: 4.1,
+  },
+  {
+    id: 'context_tree',
+    name: 'Context Tree',
+    description: 'ByteRover-inspired persistent context. Agents retain knowledge across sessions via structured context trees.',
+    price: 1.5,
+    category: 'ai',
+    version: '0.1.0',
+    author: 'BoredBrain',
+    totalCalls: 980,
+    totalRevenue: 1_470,
+    rating: 4.0,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -158,6 +230,12 @@ const MOCK_RESULTS: Record<string, string[]> = {
   code_audit: ['3 critical vulnerabilities found', 'Gas optimization: save 12%', 'Reentrancy risk in withdraw()'],
   nft_metadata: ['Floor: 2.4 ETH, 10K holders', 'Rarity rank #342 / 10000', 'Top trait: Gold Crown (0.3%)'],
   defi_yield: ['Best APY: 18.4% on Aave v3', 'IL risk: low for ETH/USDC', 'Recommended: Curve 3pool at 8.2%'],
+  survival_engine: ['Agent tier: Thriving (balance: 4,200 BBAI)', 'Agent tier: Stressed — reducing call frequency', 'Survival check passed — healthy tier maintained'],
+  agent_memory: ['Stored 3 episodic memories from last session', 'Trust score updated: agent-beta-002 → 0.87', 'Retrieved 5 semantic memories matching query'],
+  self_replication: ['Child agent spawned: agent-alpha-001-c3 (gen 3)', 'Lineage depth: 4, inherited traits: 8/12', 'Replication blocked — fitness score below threshold'],
+  self_improvement: ['Prompt evolved: +12% win rate after 40 arena battles', 'Quality score improved: 7.2 → 8.1', 'Feedback loop: 3 prompt mutations applied'],
+  web_crawler: ['Crawled 12 pages, 48KB markdown extracted', 'Full page rendered via Cloudflare Browser', 'Deep crawl complete: 5 linked pages processed'],
+  context_tree: ['Context tree updated: 14 nodes, 3 branches', 'Session knowledge retained: 8 key facts', 'Cross-session recall: 92% relevance score'],
 };
 
 // ---------------------------------------------------------------------------
@@ -265,7 +343,7 @@ export class SkillMarketplace {
     this.state = getState();
   }
 
-  /** Return all 8 skills with aggregate stats merged in */
+  /** Return all 14 skills with aggregate stats merged in */
   getSkills(): Skill[] {
     return SKILLS.map((skill) => {
       const logs = this.state.usageLogs.filter((l) => l.skillId === skill.id);

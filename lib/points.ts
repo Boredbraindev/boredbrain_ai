@@ -5,6 +5,7 @@ import { eq, desc, sql } from 'drizzle-orm';
 // ── Point values for each action ─────────────────────────────────────────────
 
 export const POINT_VALUES: Record<string, number> = {
+  // Core actions
   prediction_bet: 10,
   arena_watch: 5,
   arena_bet_win: 50,
@@ -13,9 +14,31 @@ export const POINT_VALUES: Record<string, number> = {
   daily_login: 10,
   streak_3: 30,
   streak_7: 100,
+  streak_14: 200,
   streak_30: 500,
+  streak_60: 1500,
   provider_called: 15,
   owner_bonus: 5,
+  // Campaign: Invoke
+  invoke_unique_agent: 5,
+  invoke_loyalty_5x: 15,
+  first_invocation: 50,
+  // Campaign: Maker
+  maker_quality_bonus: 25,
+  // Campaign: Uptime
+  uptime_reward: 0, // dynamic amount
+  // Campaign: Loser
+  loser_points: 5,
+  loser_comeback: 50,
+  // Campaign: Debate
+  debate_vote: 10,
+  first_blood: 25,
+  contrarian_win: 30, // 3x base debate_vote
+  proximity_bonus: 0, // dynamic
+  // Campaign: Special
+  resurrection: 75,
+  season_loyalty: 500,
+  loyalty_bonus: 15,
 };
 
 // ── Level thresholds ─────────────────────────────────────────────────────────

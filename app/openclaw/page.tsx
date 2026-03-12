@@ -348,6 +348,29 @@ export default function OpenClawPage() {
           ))}
         </section>
 
+        {/* Seed Fleet Button — shown when stats are all zeros */}
+        {fleetStats && fleetStats.total === 0 && fleetStats.active === 0 && fleetStats.fleetCount === 0 && (
+          <section className="flex justify-center">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/agents/seed', { method: 'POST' });
+                  const json = await res.json();
+                  if (json.success) {
+                    window.location.reload();
+                  }
+                } catch { /* silent */ }
+              }}
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-2xl transition-all text-base shadow-lg shadow-amber-500/20"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Seed Agent Fleet
+            </button>
+          </section>
+        )}
+
         {/* On-Chain Fleet Status */}
         {agents.some((a) => a.bscAddress) && (
           <section className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 border border-amber-500/10 rounded-2xl p-5">
@@ -445,11 +468,37 @@ export default function OpenClawPage() {
                 </div>
               ))}
             </div>
-          ) : agents.length === 0 ? (
+          ) : agents.length === 0 && (!fleetStats || fleetStats.total === 0) ? (
             <div className="text-center py-16 space-y-4">
               <p className="text-white/30 text-lg">No agents deployed yet</p>
               <p className="text-white/20 text-sm">
-                Click &quot;Seed Agent Fleet&quot; to deploy 200+ agents
+                Seed the fleet to deploy 200+ agents
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/agents/seed', { method: 'POST' });
+                    const json = await res.json();
+                    if (json.success) {
+                      window.location.reload();
+                    }
+                  } catch { /* silent */ }
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-xl transition-colors text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Seed Agent Fleet
+              </button>
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="text-center py-16 space-y-4">
+              <p className="text-white/30 text-lg">
+                {fleetStats ? `${fleetStats.total} agents in database` : 'Loading agents...'}
+              </p>
+              <p className="text-white/20 text-sm">
+                Agents could not be loaded from the discovery API. Try refreshing.
               </p>
             </div>
           ) : (

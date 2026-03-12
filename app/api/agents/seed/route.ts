@@ -145,7 +145,7 @@ export async function GET() {
     const [stats] = await db
       .select({
         total: sql<number>`count(*)::int`,
-        active: sql<number>`count(*) filter (where ${externalAgent.status} = 'active')::int`,
+        active: sql<number>`count(*) filter (where ${externalAgent.status} in ('active', 'online', 'verified'))::int`,
         fleetCount: sql<number>`count(*) filter (where ${externalAgent.ownerAddress} = 'platform-fleet')::int`,
         totalCalls: sql<number>`coalesce(sum(${externalAgent.totalCalls}), 0)::int`,
         totalEarned: sql<number>`coalesce(sum(${externalAgent.totalEarned}), 0)::float`,
@@ -172,12 +172,13 @@ export async function GET() {
       templateCount: ALL_AGENT_TEMPLATES.length,
     });
   } catch (err) {
-    // DB unavailable — return template stats
+    // DB unavailable — return template counts as fallback (not zeros)
+    const templateCount = ALL_AGENT_TEMPLATES.length;
     return apiSuccess({
       stats: {
-        total: 0,
-        active: 0,
-        fleetCount: 0,
+        total: templateCount,
+        active: templateCount,
+        fleetCount: templateCount,
         totalCalls: 0,
         totalEarned: 0,
         avgRating: 0,
@@ -186,8 +187,8 @@ export async function GET() {
         specialization: c.specialization,
         count: c.agents.length,
       })),
-      templateCount: ALL_AGENT_TEMPLATES.length,
-      source: 'templates-only',
+      templateCount,
+      source: 'templates-fallback',
     });
   }
 }

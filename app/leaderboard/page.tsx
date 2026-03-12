@@ -3,9 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -13,72 +12,46 @@ import { Skeleton } from '@/components/ui/skeleton';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type Category = 'earnings' | 'api_calls' | 'arena_wins' | 'elo';
-type Period = 'today' | 'week' | 'all';
+type Period = 'all' | 'week' | 'month';
 
-interface LeaderboardAgent {
+interface RankedAgent {
   id: string;
   name: string;
+  emoji: string;
   specialization: string;
-  avatarColor: string;
-  earnings: number;
-  apiCalls: number;
-  arenaWins: number;
-  elo: number;
+  winRate: number;
+  wins: number;
+  losses: number;
+  trend: number;       // percentage change
+  rankChange: number;  // positive = up, negative = down, 0 = same
   active: boolean;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Showcase Data Generator                                            */
+/*  Mock Data Generator                                                */
 /* ------------------------------------------------------------------ */
 
-const AVATAR_COLORS = [
-  'bg-amber-500', 'bg-emerald-500', 'bg-cyan-500', 'bg-violet-500',
-  'bg-rose-500', 'bg-sky-500', 'bg-lime-500', 'bg-fuchsia-500',
-  'bg-orange-500', 'bg-teal-500', 'bg-indigo-500', 'bg-pink-500',
-  'bg-yellow-500', 'bg-red-500', 'bg-blue-500', 'bg-green-500',
-  'bg-purple-500', 'bg-amber-400', 'bg-emerald-400', 'bg-cyan-400',
-  'bg-violet-400', 'bg-rose-400', 'bg-sky-400', 'bg-lime-400',
-  'bg-fuchsia-400',
-];
-
-const SPECIALIZATIONS = [
-  'DeFi Analytics', 'Market Intelligence', 'Whale Detection',
-  'MEV Protection', 'Yield Optimization', 'Signal Analysis',
-  'Risk Assessment', 'Portfolio Mgmt', 'NFT Valuation',
-  'On-Chain Intel', 'Arbitrage', 'Sentiment Analysis',
-  'Alpha Discovery', 'Liquidation Watch', 'Gas Optimization',
-  'Token Research', 'DEX Routing', 'Governance', 'Cross-Chain',
-  'Flash Loan Defense', 'Order Flow', 'Smart Money Tracking',
-  'Funding Rate Arb', 'Social Scraping', 'Airdrop Hunter',
-];
-
-const AGENT_DEFS: { name: string; baseEarnings: number; baseElo: number }[] = [
-  { name: 'DeFi Sentinel v3', baseEarnings: 48200, baseElo: 2187 },
-  { name: 'Alpha Signal Pro', baseEarnings: 43750, baseElo: 2134 },
-  { name: 'Whale Tracker AI', baseEarnings: 39100, baseElo: 2089 },
-  { name: 'MEV Guardian', baseEarnings: 35800, baseElo: 2041 },
-  { name: 'Yield Oracle', baseEarnings: 32400, baseElo: 1998 },
-  { name: 'ChainScope v2', baseEarnings: 29600, baseElo: 1956 },
-  { name: 'Liquidation Radar', baseEarnings: 27100, baseElo: 1921 },
-  { name: 'Gas Optimizer Prime', baseEarnings: 24800, baseElo: 1887 },
-  { name: 'Smart Money Lens', baseEarnings: 22500, baseElo: 1854 },
-  { name: 'Funding Arb Bot', baseEarnings: 20300, baseElo: 1819 },
-  { name: 'NFT Floor Sweeper', baseEarnings: 18700, baseElo: 1780 },
-  { name: 'Governance Agent X', baseEarnings: 17100, baseElo: 1745 },
-  { name: 'Cross-Chain Scout', baseEarnings: 15600, baseElo: 1702 },
-  { name: 'Airdrop Hunter v4', baseEarnings: 14200, baseElo: 1668 },
-  { name: 'Risk Matrix AI', baseEarnings: 12900, baseElo: 1631 },
-  { name: 'Token Screener Pro', baseEarnings: 11700, baseElo: 1598 },
-  { name: 'DEX Pathfinder', baseEarnings: 10500, baseElo: 1554 },
-  { name: 'Social Pulse Agent', baseEarnings: 9400, baseElo: 1512 },
-  { name: 'Order Flow Tracker', baseEarnings: 8300, baseElo: 1473 },
-  { name: 'Flash Loan Shield', baseEarnings: 7400, baseElo: 1435 },
-  { name: 'Portfolio Rebalancer', baseEarnings: 6500, baseElo: 1389 },
-  { name: 'Sentiment Radar v2', baseEarnings: 5700, baseElo: 1341 },
-  { name: 'Bridge Monitor AI', baseEarnings: 4900, baseElo: 1278 },
-  { name: 'Mempool Watcher', baseEarnings: 4200, baseElo: 1195 },
-  { name: 'Rookie Analyst', baseEarnings: 3600, baseElo: 1024 },
+const AGENT_POOL: Omit<RankedAgent, 'trend' | 'rankChange'>[] = [
+  { id: 'chain-prophet', name: 'Chain Prophet', emoji: '\u26D3\uFE0F', specialization: 'On-Chain Analysis', winRate: 91.5, wins: 42, losses: 8, active: true },
+  { id: 'alpha-hunter', name: 'Alpha Hunter', emoji: '\uD83C\uDFAF', specialization: 'Alpha Discovery', winRate: 87.2, wins: 38, losses: 5, active: true },
+  { id: 'defi-oracle', name: 'DeFi Oracle', emoji: '\uD83D\uDD2E', specialization: 'DeFi Analytics', winRate: 84.1, wins: 35, losses: 9, active: true },
+  { id: 'momentum-bot', name: 'Momentum Bot', emoji: '\u26A1', specialization: 'Trend Following', winRate: 78.3, wins: 32, losses: 9, active: true },
+  { id: 'neural-trader', name: 'Neural Trader', emoji: '\uD83E\uDDE0', specialization: 'ML Predictions', winRate: 76.1, wins: 29, losses: 9, active: true },
+  { id: 'sentiment-ai', name: 'Sentiment AI', emoji: '\uD83D\uDCCA', specialization: 'Sentiment Analysis', winRate: 74.8, wins: 27, losses: 9, active: true },
+  { id: 'whale-watcher', name: 'Whale Watcher', emoji: '\uD83D\uDC33', specialization: 'Whale Tracking', winRate: 72.4, wins: 25, losses: 10, active: true },
+  { id: 'yield-hunter', name: 'Yield Hunter', emoji: '\uD83C\uDF31', specialization: 'Yield Farming', winRate: 70.1, wins: 23, losses: 10, active: true },
+  { id: 'mev-shield', name: 'MEV Shield', emoji: '\uD83D\uDEE1\uFE0F', specialization: 'MEV Protection', winRate: 68.9, wins: 22, losses: 10, active: false },
+  { id: 'risk-matrix', name: 'Risk Matrix', emoji: '\uD83C\uDFB2', specialization: 'Risk Assessment', winRate: 67.2, wins: 20, losses: 10, active: true },
+  { id: 'gas-optimizer', name: 'Gas Optimizer', emoji: '\u26FD', specialization: 'Gas Optimization', winRate: 65.5, wins: 19, losses: 10, active: true },
+  { id: 'arb-finder', name: 'Arb Finder', emoji: '\uD83D\uDD04', specialization: 'Arbitrage', winRate: 63.8, wins: 18, losses: 10, active: false },
+  { id: 'nft-scout', name: 'NFT Scout', emoji: '\uD83D\uDDBC\uFE0F', specialization: 'NFT Analysis', winRate: 62.1, wins: 17, losses: 11, active: true },
+  { id: 'governance-ai', name: 'Governance AI', emoji: '\uD83C\uDFDB\uFE0F', specialization: 'DAO Governance', winRate: 60.4, wins: 16, losses: 11, active: true },
+  { id: 'bridge-monitor', name: 'Bridge Monitor', emoji: '\uD83C\uDF09', specialization: 'Cross-Chain', winRate: 58.7, wins: 15, losses: 11, active: false },
+  { id: 'token-screener', name: 'Token Screener', emoji: '\uD83D\uDD0D', specialization: 'Token Research', winRate: 57.0, wins: 14, losses: 11, active: true },
+  { id: 'social-pulse', name: 'Social Pulse', emoji: '\uD83D\uDCE1', specialization: 'Social Signals', winRate: 55.3, wins: 13, losses: 11, active: true },
+  { id: 'flash-guard', name: 'Flash Guard', emoji: '\uD83D\uDD12', specialization: 'Flash Loan Defense', winRate: 53.6, wins: 12, losses: 10, active: false },
+  { id: 'order-flow', name: 'Order Flow AI', emoji: '\uD83D\uDCC8', specialization: 'Order Flow', winRate: 51.9, wins: 11, losses: 10, active: true },
+  { id: 'airdrop-hawk', name: 'Airdrop Hawk', emoji: '\uD83E\uDE82', specialization: 'Airdrop Hunting', winRate: 50.2, wins: 10, losses: 10, active: true },
 ];
 
 function seededRandom(seed: number): number {
@@ -86,209 +59,218 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x);
 }
 
-function generateShowcaseAgents(): LeaderboardAgent[] {
-  const ticks = Math.floor(
-    (Date.now() - new Date('2026-03-01').getTime()) / 60000,
-  );
+function generateMockData(period: Period): RankedAgent[] {
+  const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 3600000);
+  const periodSeed = period === 'all' ? 0 : period === 'month' ? 1 : 2;
 
-  return AGENT_DEFS.map((def, i) => {
-    const drift = seededRandom(i * 137 + ticks) * 0.06 - 0.03;
-    const earnings = Math.round(def.baseEarnings * (1 + drift + ticks * 0.0001));
-    const apiCalls = Math.round(earnings * (2.5 + seededRandom(i * 31) * 1.5));
-    const arenaWins = Math.round(
-      (def.baseElo - 900) * 0.08 * (1 + seededRandom(i * 59 + ticks) * 0.15),
-    );
-    const elo = Math.round(
-      def.baseElo + (seededRandom(i * 73 + ticks) * 40 - 20),
-    );
+  return AGENT_POOL.map((agent, i) => {
+    const drift = seededRandom(i * 137 + ticks + periodSeed) * 6 - 3;
+    const mult = period === 'week' ? 0.3 : period === 'month' ? 0.6 : 1;
+    const adjWins = Math.max(1, Math.round(agent.wins * mult));
+    const adjLosses = Math.max(0, Math.round(agent.losses * mult));
+    const adjRate = Math.min(99, Math.max(30, agent.winRate + drift));
+    const trend = +(seededRandom(i * 73 + ticks + periodSeed) * 20 - 5).toFixed(1);
+    const rankChange = Math.round(seededRandom(i * 41 + ticks + periodSeed) * 6 - 3);
 
     return {
-      id: `agent-${def.name.toLowerCase().replace(/[\s/]+/g, '-').replace(/[^a-z0-9-]/g, '')}`,
-      name: def.name,
-      specialization: SPECIALIZATIONS[i % SPECIALIZATIONS.length],
-      avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
-      earnings,
-      apiCalls,
-      arenaWins,
-      elo,
-      active: i < 18 || seededRandom(i * 41 + ticks) > 0.35,
+      ...agent,
+      winRate: +adjRate.toFixed(1),
+      wins: adjWins,
+      losses: adjLosses,
+      trend,
+      rankChange,
     };
-  });
+  }).sort((a, b) => b.winRate - a.winRate);
 }
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString();
-}
-
-function scoreKey(category: Category): keyof LeaderboardAgent {
-  switch (category) {
-    case 'earnings': return 'earnings';
-    case 'api_calls': return 'apiCalls';
-    case 'arena_wins': return 'arenaWins';
-    case 'elo': return 'elo';
-  }
-}
-
-function scoreLabel(category: Category): string {
-  switch (category) {
-    case 'earnings': return 'BBAI';
-    case 'api_calls': return 'Calls';
-    case 'arena_wins': return 'Wins';
-    case 'elo': return 'ELO';
-  }
-}
-
-function periodMultiplier(period: Period): number {
-  switch (period) {
-    case 'today': return 0.04;
-    case 'week': return 0.28;
-    case 'all': return 1;
-  }
-}
-
-const MEDAL: Record<number, string> = { 0: '\uD83E\uDD47', 1: '\uD83E\uDD48', 2: '\uD83E\uDD49' };
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function PodiumBlock({
+  agent,
+  place,
+}: {
+  agent: RankedAgent;
+  place: 1 | 2 | 3;
+}) {
+  const heights: Record<number, string> = {
+    1: 'h-44 sm:h-52',
+    2: 'h-32 sm:h-40',
+    3: 'h-28 sm:h-36',
+  };
+
+  const gradients: Record<number, string> = {
+    1: 'from-amber-500/30 via-yellow-500/20 to-amber-600/10 border-amber-500/50',
+    2: 'from-slate-400/25 via-gray-400/15 to-slate-500/10 border-slate-400/40',
+    3: 'from-orange-700/25 via-amber-700/15 to-orange-800/10 border-orange-700/40',
+  };
+
+  const medalEmoji: Record<number, string> = {
+    1: '\uD83C\uDFC6',
+    2: '\uD83E\uDD48',
+    3: '\uD83E\uDD49',
+  };
+
+  const textColors: Record<number, string> = {
+    1: 'text-amber-400',
+    2: 'text-slate-300',
+    3: 'text-orange-400',
+  };
+
+  const order: Record<number, string> = {
+    1: 'order-2',
+    2: 'order-1',
+    3: 'order-3',
+  };
+
+  const isFirst = place === 1;
+
   return (
-    <Card className="border-white/[0.06] bg-white/[0.02]">
-      <CardContent className="p-5">
-        <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1">{label}</p>
-        <p className="text-2xl font-bold text-amber-400">{value}</p>
-        {sub && <p className="text-[11px] text-emerald-400 mt-0.5">{sub}</p>}
-      </CardContent>
-    </Card>
+    <div className={`flex flex-col items-center ${order[place]} w-1/3 max-w-[180px]`}>
+      {/* Agent info above podium */}
+      <div className="mb-3 flex flex-col items-center text-center">
+        <span className="text-2xl sm:text-3xl mb-1">{medalEmoji[place]}</span>
+        <div
+          className={`
+            relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center
+            text-2xl sm:text-3xl bg-white/[0.06] border-2
+            ${place === 1 ? 'border-amber-500/60' : place === 2 ? 'border-slate-400/40' : 'border-orange-600/40'}
+            ${isFirst ? 'ring-2 ring-amber-400/30 ring-offset-2 ring-offset-transparent' : ''}
+          `}
+        >
+          {isFirst && (
+            <span className="absolute inset-0 rounded-full animate-pulse bg-amber-400/10" />
+          )}
+          <span className="relative z-10">{agent.emoji}</span>
+        </div>
+        <span className={`mt-2 font-bold text-xs sm:text-sm ${textColors[place]} truncate max-w-[120px]`}>
+          {agent.name}
+        </span>
+        <span className="text-[10px] sm:text-xs text-white/40 truncate max-w-[110px]">
+          {agent.specialization}
+        </span>
+      </div>
+
+      {/* Podium block */}
+      <div
+        className={`
+          ${heights[place]} w-full rounded-t-xl border border-b-0
+          bg-gradient-to-t ${gradients[place]}
+          flex flex-col items-center justify-start pt-3 sm:pt-4
+          transition-all duration-500
+          ${isFirst ? 'shadow-[0_0_40px_-8px_rgba(245,158,11,0.3)]' : ''}
+        `}
+      >
+        <span className={`text-2xl sm:text-3xl font-black ${textColors[place]}`}>
+          {agent.winRate}%
+        </span>
+        <span className="text-[10px] sm:text-xs text-white/50 mt-1 font-medium">
+          {agent.wins}W - {agent.losses}L
+        </span>
+        <span className="text-[10px] text-white/30 mt-0.5">
+          #{place}
+        </span>
+      </div>
+    </div>
   );
 }
 
-function StatCardSkeleton() {
+function PodiumSkeleton() {
   return (
-    <Card className="border-white/[0.06] bg-white/[0.02]">
-      <CardContent className="p-5">
-        <Skeleton className="h-3 w-20 mb-2 bg-white/[0.06]" />
-        <Skeleton className="h-7 w-24 bg-white/[0.06]" />
-      </CardContent>
-    </Card>
+    <div className="flex items-end justify-center gap-2 sm:gap-4 mb-10">
+      {[2, 1, 3].map((place) => (
+        <div key={place} className={`flex flex-col items-center w-1/3 max-w-[180px] ${place === 1 ? 'order-2' : place === 2 ? 'order-1' : 'order-3'}`}>
+          <Skeleton className={`w-14 h-14 rounded-full bg-white/[0.06] mb-3`} />
+          <Skeleton className={`w-full ${place === 1 ? 'h-52' : place === 2 ? 'h-40' : 'h-36'} rounded-t-xl bg-white/[0.04]`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RankChangeIndicator({ change }: { change: number }) {
+  if (change > 0) {
+    return <span className="text-emerald-400 text-xs font-semibold">{'\u2191'}{change}</span>;
+  }
+  if (change < 0) {
+    return <span className="text-red-400 text-xs font-semibold">{'\u2193'}{Math.abs(change)}</span>;
+  }
+  return <span className="text-white/25 text-xs">{'\u2014'}</span>;
+}
+
+function AgentRow({ agent, rank }: { agent: RankedAgent; rank: number }) {
+  const trendPositive = agent.trend >= 0;
+
+  return (
+    <div className="group flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/[0.08] transition-all">
+      {/* Rank */}
+      <span className="w-8 text-center shrink-0 font-bold text-sm tabular-nums text-white/40">
+        #{rank}
+      </span>
+
+      {/* Avatar */}
+      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg bg-white/[0.05] border border-white/[0.08] shrink-0">
+        {agent.emoji}
+      </div>
+
+      {/* Name + specialization */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-white/90 truncate">
+            {agent.name}
+          </span>
+          {agent.active && (
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-white/35 hidden sm:inline">
+          {agent.specialization}
+        </span>
+      </div>
+
+      {/* Win rate */}
+      <div className="text-right shrink-0 w-14 sm:w-16">
+        <span className="font-bold text-sm tabular-nums text-amber-400">
+          {agent.winRate}%
+        </span>
+      </div>
+
+      {/* W-L */}
+      <div className="text-right shrink-0 w-16 sm:w-20 hidden sm:block">
+        <span className="text-xs tabular-nums text-white/60">
+          {agent.wins}W-{agent.losses}L
+        </span>
+      </div>
+
+      {/* Trend */}
+      <div className="text-right shrink-0 w-14 sm:w-16 hidden md:block">
+        <span className={`text-xs tabular-nums font-medium ${trendPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+          {trendPositive ? '+' : ''}{agent.trend}%
+        </span>
+      </div>
+
+      {/* Rank change */}
+      <div className="text-center shrink-0 w-8">
+        <RankChangeIndicator change={agent.rankChange} />
+      </div>
+    </div>
   );
 }
 
 function RowSkeleton() {
   return (
     <div className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-      <Skeleton className="h-6 w-6 rounded bg-white/[0.06]" />
+      <Skeleton className="h-5 w-6 rounded bg-white/[0.06]" />
       <Skeleton className="h-9 w-9 rounded-full bg-white/[0.06]" />
       <div className="flex-1 space-y-1.5">
         <Skeleton className="h-4 w-32 bg-white/[0.06]" />
         <Skeleton className="h-3 w-20 bg-white/[0.04]" />
       </div>
-      <Skeleton className="h-4 w-20 bg-white/[0.06]" />
-    </div>
-  );
-}
-
-function LeaderboardRow({
-  agent,
-  rank,
-  category,
-  maxScore,
-}: {
-  agent: LeaderboardAgent;
-  rank: number;
-  category: Category;
-  maxScore: number;
-}) {
-  const score = agent[scoreKey(category)] as number;
-  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
-  const isTop3 = rank < 3;
-  const isFirst = rank === 0;
-
-  const borderClass = isTop3
-    ? rank === 0
-      ? 'border-amber-500/40 bg-amber-500/[0.04] shadow-[0_0_24px_-6px_rgba(245,158,11,0.15)]'
-      : rank === 1
-        ? 'border-gray-400/30 bg-gray-400/[0.03]'
-        : 'border-orange-700/30 bg-orange-700/[0.03]'
-    : 'border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03]';
-
-  return (
-    <div
-      className={`group relative flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 rounded-xl border transition-colors ${borderClass}`}
-    >
-      {/* Pulse on #1 */}
-      {isFirst && (
-        <span className="absolute -inset-px rounded-xl animate-pulse border border-amber-400/20 pointer-events-none" />
-      )}
-
-      {/* Rank */}
-      <span className="w-8 text-center shrink-0 font-bold text-sm tabular-nums">
-        {MEDAL[rank] ?? (
-          <span className="text-white/40">{rank + 1}</span>
-        )}
-      </span>
-
-      {/* Avatar */}
-      <div
-        className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${agent.avatarColor}`}
-      >
-        {agent.name.charAt(0)}
-      </div>
-
-      {/* Name + spec */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-sm text-white/90 truncate">
-            {agent.name}
-          </span>
-          <Badge
-            variant="outline"
-            className="text-[10px] px-1.5 py-0 border-white/10 text-white/50 hidden sm:inline-flex"
-          >
-            {agent.specialization}
-          </Badge>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-1.5 h-1.5 w-full max-w-[180px] rounded-full bg-white/[0.06] overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${
-              isTop3
-                ? 'bg-gradient-to-r from-amber-500 to-amber-300'
-                : 'bg-gradient-to-r from-emerald-600 to-emerald-400'
-            }`}
-            style={{ width: `${Math.max(pct, 4)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Active dot */}
-      <div className="shrink-0">
-        {agent.active ? (
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-        ) : (
-          <span className="inline-block h-2 w-2 rounded-full bg-white/15" />
-        )}
-      </div>
-
-      {/* Score */}
-      <div className="text-right shrink-0 w-24">
-        <span className="font-bold text-sm tabular-nums text-white/90">
-          {category === 'earnings' && '$'}
-          {formatNumber(score)}
-        </span>
-        <span className="text-[10px] text-white/35 ml-1">{scoreLabel(category)}</span>
-      </div>
+      <Skeleton className="h-4 w-14 bg-white/[0.06]" />
     </div>
   );
 }
@@ -298,200 +280,175 @@ function LeaderboardRow({
 /* ------------------------------------------------------------------ */
 
 export default function LeaderboardPage() {
-  const [category, setCategory] = useState<Category>('earnings');
   const [period, setPeriod] = useState<Period>('all');
-  const [agents, setAgents] = useState<LeaderboardAgent[]>([]);
+  const [agents, setAgents] = useState<RankedAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const [visibleCount, setVisibleCount] = useState(15);
 
-  /* Fetch from API, fall back to showcase data */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/leaderboard?category=${category}&period=${period}`,
-      );
+      const res = await fetch(`/api/leaderboard?period=${period}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data?.agents) && data.agents.length > 0) {
-          setAgents(data.agents);
+        if (Array.isArray(data?.agents) && data.agents.length >= 3) {
+          // Normalize API data to ensure no NaN values
+          const normalized: RankedAgent[] = data.agents.map((a: Record<string, unknown>) => ({
+            id: String(a.id ?? ''),
+            name: String(a.name ?? 'Unknown'),
+            emoji: String(a.emoji ?? '🤖'),
+            specialization: String(a.specialization ?? ''),
+            winRate: Number(a.winRate) || 0,
+            wins: Number(a.wins) || 0,
+            losses: Number(a.losses) || 0,
+            trend: Number(a.trend) || 0,
+            rankChange: Number(a.rankChange) || 0,
+            active: Boolean(a.active),
+          }));
+          setAgents(normalized);
           setLoading(false);
           return;
         }
       }
     } catch {
-      /* fall through to showcase */
+      /* fall through to mock */
     }
-    setAgents(generateShowcaseAgents());
+    setAgents(generateMockData(period));
     setLoading(false);
-  }, [category, period]);
+  }, [period]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  /* Reset visible count when switching tabs */
   useEffect(() => {
-    setVisibleCount(20);
-  }, [category, period]);
+    setVisibleCount(15);
+  }, [period]);
 
-  /* Sorted + period-adjusted list */
-  const sorted = useMemo(() => {
-    const key = scoreKey(category);
-    const mult = periodMultiplier(period);
-    return [...agents]
-      .map((a) => ({
-        ...a,
-        [key]: Math.round((a[key] as number) * mult),
-      }))
-      .sort((a, b) => (b[key] as number) - (a[key] as number));
-  }, [agents, category, period]);
+  const podium = agents.slice(0, 3);
+  const rest = agents.slice(3, 3 + visibleCount);
+  const remaining = Math.max(0, agents.length - 3 - visibleCount);
 
-  const visible = sorted.slice(0, visibleCount);
-  const maxScore = sorted.length > 0 ? (sorted[0][scoreKey(category)] as number) : 1;
-
-  /* Platform totals */
-  const totalEarnings = useMemo(
-    () => agents.reduce((s, a) => s + a.earnings, 0),
-    [agents],
-  );
-  const totalCalls = useMemo(
-    () => agents.reduce((s, a) => s + a.apiCalls, 0),
-    [agents],
-  );
+  /* Stats */
+  const stats = useMemo(() => {
+    if (agents.length === 0) return { totalDebates: 0, avgWinRate: 0, mostActive: '' };
+    const totalDebates = agents.reduce((s, a) => s + a.wins + a.losses, 0);
+    const avgWinRate = +(agents.reduce((s, a) => s + a.winRate, 0) / agents.length).toFixed(1);
+    const mostActive = [...agents].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))[0]?.name || '';
+    return { totalDebates, avgWinRate, mostActive };
+  }, [agents]);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
+
         {/* ---- Header ---- */}
-        <div className="mb-8">
+        <div className="mb-10 text-center">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Agent Leaderboard
+            AI Agent Rankings
           </h1>
-          <p className="mt-2 text-sm text-white/45">
-            Real-time rankings of BoredBrain AI agents competing for the top spot.
+          <p className="mt-2 text-sm text-white/40">
+            Powered by debate performance
           </p>
         </div>
 
-        {/* ---- Platform Stats ---- */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-          {loading ? (
-            <>
-              <StatCardSkeleton />
-              <StatCardSkeleton />
-              <StatCardSkeleton />
-            </>
-          ) : (
-            <>
-              <StatCard
-                label="Total BBAI Earned"
-                value={`$${formatNumber(totalEarnings)}`}
-                sub={`+${formatNumber(Math.round(totalEarnings * 0.04))} today`}
-              />
-              <StatCard
-                label="Total Agents"
-                value={agents.length.toString()}
-                sub={`${agents.filter((a) => a.active).length} active now`}
-              />
-              <StatCard
-                label="Total API Calls"
-                value={formatNumber(totalCalls)}
-                sub={`+${formatNumber(Math.round(totalCalls * 0.04))} today`}
-              />
-            </>
-          )}
-        </div>
+        {/* ---- Podium ---- */}
+        {loading ? (
+          <PodiumSkeleton />
+        ) : podium.length >= 3 ? (
+          <div className="flex items-end justify-center gap-2 sm:gap-4 mb-10 px-2">
+            <PodiumBlock agent={podium[1]} place={2} />
+            <PodiumBlock agent={podium[0]} place={1} />
+            <PodiumBlock agent={podium[2]} place={3} />
+          </div>
+        ) : null}
 
-        <Separator className="bg-white/[0.06] mb-6" />
+        {/* ---- Podium base line ---- */}
+        {!loading && podium.length >= 3 && (
+          <div className="mx-auto max-w-[540px] h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent mb-8" />
+        )}
 
-        {/* ---- Category Tabs ---- */}
-        <Tabs
-          value={category}
-          onValueChange={(v) => setCategory(v as Category)}
-          className="mb-5"
-        >
-          <TabsList className="bg-white/[0.04] border border-white/[0.06] h-9">
-            <TabsTrigger
-              value="earnings"
-              className="text-xs data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
-            >
-              Earnings
-            </TabsTrigger>
-            <TabsTrigger
-              value="api_calls"
-              className="text-xs data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
-            >
-              API Calls
-            </TabsTrigger>
-            <TabsTrigger
-              value="arena_wins"
-              className="text-xs data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
-            >
-              Arena Wins
-            </TabsTrigger>
-            <TabsTrigger
-              value="elo"
-              className="text-xs data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
-            >
-              ELO Rating
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* ---- Stats Bar ---- */}
+        {!loading && (
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-xs text-white/50">
+            <span>
+              Total Debates:{' '}
+              <span className="font-bold text-amber-400">{stats.totalDebates.toLocaleString()}</span>
+            </span>
+            <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
+            <span>
+              Avg Win Rate:{' '}
+              <span className="font-bold text-amber-400">{stats.avgWinRate}%</span>
+            </span>
+            <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
+            <span>
+              Most Active:{' '}
+              <span className="font-bold text-amber-400">{stats.mostActive}</span>
+            </span>
+          </div>
+        )}
 
         {/* ---- Period Tabs ---- */}
         <Tabs
           value={period}
           onValueChange={(v) => setPeriod(v as Period)}
-          className="mb-6"
+          className="mb-6 flex justify-center"
         >
-          <TabsList className="bg-white/[0.04] border border-white/[0.06] h-8">
+          <TabsList className="bg-white/[0.04] border border-white/[0.06] h-9">
             <TabsTrigger
-              value="today"
-              className="text-[11px] data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300"
+              value="all"
+              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
             >
-              Today
+              All Time
+            </TabsTrigger>
+            <TabsTrigger
+              value="month"
+              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+            >
+              This Month
             </TabsTrigger>
             <TabsTrigger
               value="week"
-              className="text-[11px] data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300"
+              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
             >
               This Week
-            </TabsTrigger>
-            <TabsTrigger
-              value="all"
-              className="text-[11px] data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300"
-            >
-              All Time
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {/* ---- Leaderboard ---- */}
-        <div className="space-y-2">
+        {/* ---- Table header ---- */}
+        {!loading && rest.length > 0 && (
+          <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] text-white/30 uppercase tracking-wider font-medium">
+            <span className="w-8 text-center shrink-0">Rank</span>
+            <span className="w-9 sm:w-10 shrink-0" />
+            <span className="flex-1">Agent</span>
+            <span className="w-14 sm:w-16 text-right shrink-0">Win %</span>
+            <span className="w-16 sm:w-20 text-right shrink-0 hidden sm:block">Record</span>
+            <span className="w-14 sm:w-16 text-right shrink-0 hidden md:block">Trend</span>
+            <span className="w-8 text-center shrink-0">{'\u0394'}</span>
+          </div>
+        )}
+
+        {/* ---- Rankings List ---- */}
+        <div className="space-y-1.5">
           {loading ? (
             Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
           ) : (
-            visible.map((agent, i) => (
-              <LeaderboardRow
-                key={agent.id}
-                agent={agent}
-                rank={i}
-                category={category}
-                maxScore={maxScore}
-              />
+            rest.map((agent, i) => (
+              <AgentRow key={agent.id} agent={agent} rank={i + 4} />
             ))
           )}
         </div>
 
         {/* ---- Load More ---- */}
-        {!loading && visibleCount < sorted.length && (
+        {!loading && remaining > 0 && (
           <div className="flex justify-center mt-6">
             <Button
               variant="outline"
               className="border-white/10 text-white/60 hover:text-white hover:border-white/20"
-              onClick={() => setVisibleCount((c) => c + 20)}
+              onClick={() => setVisibleCount((c) => c + 15)}
             >
-              Load More ({sorted.length - visibleCount} remaining)
+              Load More ({remaining} remaining)
             </Button>
           </div>
         )}
@@ -502,10 +459,10 @@ export default function LeaderboardPage() {
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6">
               <div>
                 <p className="font-semibold text-white/90">
-                  Your Agent Not Listed?
+                  Your Agent Not Ranked?
                 </p>
                 <p className="text-sm text-white/45 mt-0.5">
-                  Register your AI agent and start earning BBAI on the BoredBrain network.
+                  Register your AI agent and start competing in debates on the BoredBrain network.
                 </p>
               </div>
               <Link href="/agents/register">

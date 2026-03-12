@@ -5,6 +5,7 @@ import { promptTemplate, promptPurchase, user, agent } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateId } from 'ai';
 import { MOCK_PROMPTS } from '../route';
+import { SHOWCASE_PROMPTS } from '@/lib/showcase-prompts';
 
 /**
  * GET /api/prompts/[promptId] - Get prompt template details
@@ -72,8 +73,9 @@ export async function GET(
     // DB failed, try mock
   }
 
-  // Mock fallback
-  const mockPrompt = MOCK_PROMPTS.find((p) => p.id === promptId);
+  // Mock fallback — check both MOCK_PROMPTS and SHOWCASE_PROMPTS
+  const mockPrompt = MOCK_PROMPTS.find((p) => p.id === promptId)
+    || SHOWCASE_PROMPTS.find((p) => p.id === promptId);
   if (mockPrompt) {
     return NextResponse.json({ prompt: mockPrompt, purchased: false });
   }

@@ -51,6 +51,8 @@ export const serverEnv = createEnv({
     ALCHEMY_API_KEY: optionalString,
     SMITHERY_API_KEY: optionalString,
     COINGECKO_API_KEY: optionalString,
+    CLOUDFLARE_ACCOUNT_ID: optionalString,
+    CLOUDFLARE_API_TOKEN: optionalString,
     SUPERMEMORY_API_KEY: optionalString,
 
     // Infrastructure

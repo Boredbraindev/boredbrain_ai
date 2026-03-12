@@ -7,10 +7,22 @@
 @plugin "@tailwindcss/typography";
 @source "../node_modules/streamdown/dist/index.js";
 
-/* Custom cursor — hide default on pointer devices */
+/* Custom cursor — hide default but allow pointer on interactive elements & modals */
 @media (pointer: fine) {
   * {
-    cursor: none !important;
+    cursor: none;
+  }
+  /* Restore pointer cursor inside modals, dialogs, and interactive overlays */
+  [role="dialog"] *,
+  [data-radix-popper-content-wrapper] *,
+  [data-state="open"] *,
+  .fixed[role="presentation"] *,
+  button, a, input, select, textarea, label,
+  [role="button"], [role="link"], [role="menuitem"] {
+    cursor: pointer;
+  }
+  input, textarea {
+    cursor: text;
   }
 }
 
@@ -1386,4 +1398,27 @@ body {
   border-radius: inherit;
   border: 2px solid currentColor;
   animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* Battle arena shimmer for HP bars */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Battle arena hit flash */
+@keyframes flash {
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Arena battle shake effect */
+@keyframes arena-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  15% { transform: translate(-3px, -2px) rotate(-0.5deg); }
+  30% { transform: translate(3px, 1px) rotate(0.5deg); }
+  45% { transform: translate(-2px, 2px) rotate(-0.3deg); }
+  60% { transform: translate(2px, -1px) rotate(0.3deg); }
+  75% { transform: translate(-1px, 1px) rotate(-0.2deg); }
+  90% { transform: translate(1px, -1px) rotate(0.1deg); }
 }

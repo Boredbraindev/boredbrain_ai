@@ -96,7 +96,7 @@ export default function StatsPage() {
 
         // Fetch agents and arena independently — tools API doesn't exist
         const [agentsRes, matchesRes] = await Promise.allSettled([
-          fetch('/api/agents?limit=50', { signal: controller.signal }),
+          fetch('/api/agents', { signal: controller.signal }),
           fetch('/api/arena?limit=20', { signal: controller.signal }),
         ]);
         clearTimeout(timer);

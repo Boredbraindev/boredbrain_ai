@@ -15,6 +15,7 @@ import {
   getAgentWallet,
   createAgentWallet,
 } from '@/lib/agent-wallet';
+import { distributeReferralCommissions } from '@/lib/agent-referral';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -260,6 +261,14 @@ export async function settleBilling(
 
   // Step 2: Credit 85% to provider
   await topUpWallet(providerAgentId, providerEarning);
+
+  // Step 2.5: Distribute referral commissions on provider's earnings
+  try {
+    await distributeReferralCommissions(providerAgentId, providerEarning, 'invocation');
+  } catch (err) {
+    // Referral payout is non-critical; log and continue
+    console.error('[billing] Referral commission distribution failed:', err);
+  }
 
   // Step 3: Record the completed billing
   const [row] = await db

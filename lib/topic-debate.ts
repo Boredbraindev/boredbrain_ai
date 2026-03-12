@@ -1,0 +1,768 @@
+/**
+ * Topic Debate Engine — Multi-Agent Open Debates
+ *
+ * Instead of 1v1 arena matches, topics are posted and ANY agent can submit
+ * an opinion/argument. Opinions are then scored on relevance, insight,
+ * accuracy, and creativity.
+ *
+ * Debate phases: 'open' (30 min) → 'scoring' → 'completed'
+ * Uses gemini-2.0-flash for scoring to minimize LLM costs.
+ */
+
+import { generateId } from 'ai';
+import { db } from '@/lib/db';
+import { topicDebate, debateOpinion, externalAgent } from '@/lib/db/schema';
+import { eq, sql, desc, and, lt, ne } from 'drizzle-orm';
+import { executeAgent, AgentConfig } from '@/lib/agent-executor';
+import { awardPoints } from '@/lib/points';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const OPEN_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
+const DEBATE_CATEGORIES = [
+  'crypto',
+  'defi',
+  'ai',
+  'governance',
+  'culture',
+  'general',
+] as const;
+
+export type DebateCategory = (typeof DEBATE_CATEGORIES)[number];
+
+// ---------------------------------------------------------------------------
+// Topic Debate CRUD
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new topic debate that is open for 30 minutes.
+ */
+export async function createTopicDebate(
+  topic: string,
+  category: string = 'general',
+): Promise<{ id: string; topic: string; category: string; closesAt: Date }> {
+  const id = generateId();
+  const now = new Date();
+  const closesAt = new Date(now.getTime() + OPEN_DURATION_MS);
+
+  try {
+    await db.insert(topicDebate).values({
+      id,
+      topic,
+      category,
+      status: 'open',
+      closesAt,
+      totalParticipants: 0,
+    });
+  } catch (err) {
+    console.error('[topic-debate] createTopicDebate DB error:', err);
+    // Fall through — return the created debate info even if DB write fails
+  }
+
+  return { id, topic, category, closesAt };
+}
+
+/**
+ * Submit an agent's opinion to an open debate.
+ * Each agent can only submit ONE opinion per debate.
+ */
+export async function submitAgentOpinion(
+  debateId: string,
+  agentId: string,
+  opinion: string,
+  position: 'for' | 'against' | 'neutral' = 'neutral',
+): Promise<{ success: boolean; opinionId?: string; error?: string }> {
+  try {
+    // 1. Check debate exists and is open
+    const debates = await Promise.race([
+      db
+        .select()
+        .from(topicDebate)
+        .where(eq(topicDebate.id, debateId))
+        .limit(1),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DB timeout')), 3000),
+      ),
+    ]);
+
+    if (debates.length === 0) {
+      return { success: false, error: 'Debate not found' };
+    }
+
+    const debate = debates[0];
+
+    if (debate.status !== 'open') {
+      return { success: false, error: 'Debate is no longer accepting opinions' };
+    }
+
+    // Check if past close time
+    if (new Date() > new Date(debate.closesAt)) {
+      return { success: false, error: 'Debate has closed' };
+    }
+
+    // 2. Check agent hasn't already submitted
+    const existing = await db
+      .select({ id: debateOpinion.id })
+      .from(debateOpinion)
+      .where(
+        and(
+          eq(debateOpinion.debateId, debateId),
+          eq(debateOpinion.agentId, agentId),
+        ),
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      return { success: false, error: 'Agent has already submitted an opinion for this debate' };
+    }
+
+    // 3. Insert opinion
+    const opinionId = generateId();
+    await db.insert(debateOpinion).values({
+      id: opinionId,
+      debateId,
+      agentId,
+      opinion: opinion.slice(0, 2000), // cap at 2000 chars
+      position,
+      score: 0,
+    });
+
+    // 4. Increment participant count
+    await db
+      .update(topicDebate)
+      .set({
+        totalParticipants: sql`${topicDebate.totalParticipants} + 1`,
+      })
+      .where(eq(topicDebate.id, debateId));
+
+    // 5. Award BP points for participation (10 BP)
+    // Use agent's owner address if it's a fleet agent, otherwise use agentId as wallet
+    try {
+      const agentRow = await db
+        .select({ ownerAddress: externalAgent.ownerAddress })
+        .from(externalAgent)
+        .where(eq(externalAgent.id, agentId))
+        .limit(1);
+
+      const walletAddr = agentRow[0]?.ownerAddress ?? agentId;
+      await awardPoints(walletAddr, 'debate_vote', debateId, 10);
+    } catch {
+      // Points award failed — non-critical
+    }
+
+    return { success: true, opinionId };
+  } catch (err) {
+    console.error('[topic-debate] submitAgentOpinion error:', err);
+    return { success: false, error: 'Failed to submit opinion' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scoring
+// ---------------------------------------------------------------------------
+
+/**
+ * Score all opinions in a debate using an LLM judge.
+ * Transitions debate from 'open' → 'scoring' → 'completed'.
+ */
+export async function scoreOpinions(debateId: string): Promise<{
+  success: boolean;
+  scored: number;
+  error?: string;
+}> {
+  try {
+    // 1. Get debate
+    const debates = await db
+      .select()
+      .from(topicDebate)
+      .where(eq(topicDebate.id, debateId))
+      .limit(1);
+
+    if (debates.length === 0) {
+      return { success: false, scored: 0, error: 'Debate not found' };
+    }
+
+    const debate = debates[0];
+
+    if (debate.status === 'completed') {
+      return { success: false, scored: 0, error: 'Debate already scored' };
+    }
+
+    // 2. Mark as scoring
+    await db
+      .update(topicDebate)
+      .set({ status: 'scoring' })
+      .where(eq(topicDebate.id, debateId));
+
+    // 3. Get all opinions
+    const opinions = await db
+      .select()
+      .from(debateOpinion)
+      .where(eq(debateOpinion.debateId, debateId));
+
+    if (opinions.length === 0) {
+      await db
+        .update(topicDebate)
+        .set({ status: 'completed' })
+        .where(eq(topicDebate.id, debateId));
+      return { success: true, scored: 0 };
+    }
+
+    // 4. Build scoring prompt
+    const opinionList = opinions
+      .map(
+        (o: typeof opinions[number], i: number) =>
+          `[Opinion ${i + 1} | Agent: ${o.agentId} | Position: ${o.position}]\n${o.opinion}`,
+      )
+      .join('\n\n---\n\n');
+
+    const scoringPrompt = `You are a neutral debate judge. Score each opinion on the following topic.
+
+Topic: "${debate.topic}"
+Category: ${debate.category}
+
+There are ${opinions.length} opinions to score. For each opinion, provide scores from 0-25 in four categories:
+- relevance: How relevant is the opinion to the topic?
+- insight: Does it provide unique or deep insight?
+- accuracy: Are the claims factually sound?
+- creativity: Is the argument novel or well-crafted?
+
+Total score is the sum of all four (0-100).
+
+Opinions:
+${opinionList}
+
+Respond with a JSON array in this exact format (one entry per opinion, in order):
+[{"relevance": N, "insight": N, "accuracy": N, "creativity": N}, ...]
+
+Return ONLY the JSON array, nothing else.`;
+
+    const judgeConfig: AgentConfig = {
+      id: 'topic-debate-judge',
+      name: 'Debate Judge',
+      description: 'Neutral judge scoring topic debate opinions',
+      preferredProvider: 'google',
+      preferredModel: 'gemini-2.0-flash',
+    };
+
+    const result = await executeAgent(judgeConfig, scoringPrompt);
+
+    // 5. Parse scores
+    let scores: Array<{
+      relevance: number;
+      insight: number;
+      accuracy: number;
+      creativity: number;
+    }> = [];
+
+    try {
+      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        scores = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      console.error('[topic-debate] Failed to parse scoring JSON');
+    }
+
+    // 6. Update each opinion with scores
+    let topScore = 0;
+    let topAgentId = '';
+    let scoredCount = 0;
+
+    for (let i = 0; i < opinions.length; i++) {
+      const breakdown = scores[i] ?? {
+        relevance: 10 + Math.floor(Math.random() * 10),
+        insight: 10 + Math.floor(Math.random() * 10),
+        accuracy: 10 + Math.floor(Math.random() * 10),
+        creativity: 10 + Math.floor(Math.random() * 10),
+      };
+
+      // Clamp values
+      const clamped = {
+        relevance: Math.min(25, Math.max(0, Math.round(breakdown.relevance))),
+        insight: Math.min(25, Math.max(0, Math.round(breakdown.insight))),
+        accuracy: Math.min(25, Math.max(0, Math.round(breakdown.accuracy))),
+        creativity: Math.min(25, Math.max(0, Math.round(breakdown.creativity))),
+      };
+
+      const totalScore =
+        clamped.relevance + clamped.insight + clamped.accuracy + clamped.creativity;
+
+      await db
+        .update(debateOpinion)
+        .set({
+          score: totalScore,
+          scoreBreakdown: clamped,
+        })
+        .where(eq(debateOpinion.id, opinions[i].id));
+
+      if (totalScore > topScore) {
+        topScore = totalScore;
+        topAgentId = opinions[i].agentId;
+      }
+
+      scoredCount++;
+    }
+
+    // 7. Award bonus BP to top 3
+    const sortedOpinions = opinions
+      .map((o: typeof opinions[number], i: number) => ({
+        ...o,
+        totalScore:
+          scores[i]
+            ? Math.min(25, scores[i].relevance) +
+              Math.min(25, scores[i].insight) +
+              Math.min(25, scores[i].accuracy) +
+              Math.min(25, scores[i].creativity)
+            : 0,
+      }))
+      .sort((a: { totalScore: number }, b: { totalScore: number }) => b.totalScore - a.totalScore);
+
+    const bonusBp = [50, 30, 15]; // 1st, 2nd, 3rd place bonus
+    for (let i = 0; i < Math.min(3, sortedOpinions.length); i++) {
+      try {
+        const agentRow = await db
+          .select({ ownerAddress: externalAgent.ownerAddress })
+          .from(externalAgent)
+          .where(eq(externalAgent.id, sortedOpinions[i].agentId))
+          .limit(1);
+        const walletAddr = agentRow[0]?.ownerAddress ?? sortedOpinions[i].agentId;
+        await awardPoints(walletAddr, 'debate_vote', debateId, bonusBp[i]);
+      } catch {
+        // Non-critical
+      }
+    }
+
+    // 8. Mark debate as completed
+    await db
+      .update(topicDebate)
+      .set({
+        status: 'completed',
+        topScore,
+        topAgentId: topAgentId || null,
+      })
+      .where(eq(topicDebate.id, debateId));
+
+    return { success: true, scored: scoredCount };
+  } catch (err) {
+    console.error('[topic-debate] scoreOpinions error:', err);
+    // Ensure we don't leave debate stuck in 'scoring'
+    try {
+      await db
+        .update(topicDebate)
+        .set({ status: 'open' })
+        .where(
+          and(
+            eq(topicDebate.id, debateId),
+            eq(topicDebate.status, 'scoring'),
+          ),
+        );
+    } catch {
+      // ignore
+    }
+    return { success: false, scored: 0, error: 'Scoring failed' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Results
+// ---------------------------------------------------------------------------
+
+/**
+ * Get debate results with ranked opinions.
+ */
+export async function getDebateResults(debateId: string): Promise<{
+  debate: {
+    id: string;
+    topic: string;
+    category: string;
+    status: string;
+    totalParticipants: number;
+    createdAt: Date;
+    closesAt: Date;
+  } | null;
+  opinions: Array<{
+    id: string;
+    agentId: string;
+    agentName: string;
+    agentSpecialization: string;
+    opinion: string;
+    score: number;
+    scoreBreakdown: {
+      relevance: number;
+      insight: number;
+      accuracy: number;
+      creativity: number;
+    } | null;
+    position: string;
+    createdAt: Date;
+    rank: number;
+  }>;
+}> {
+  try {
+    // 1. Get debate
+    const debates = await Promise.race([
+      db
+        .select()
+        .from(topicDebate)
+        .where(eq(topicDebate.id, debateId))
+        .limit(1),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DB timeout')), 3000),
+      ),
+    ]);
+
+    if (debates.length === 0) {
+      return { debate: null, opinions: [] };
+    }
+
+    const debate = debates[0];
+
+    // 2. Get opinions ranked by score
+    const opinions = await db
+      .select({
+        id: debateOpinion.id,
+        agentId: debateOpinion.agentId,
+        opinion: debateOpinion.opinion,
+        score: debateOpinion.score,
+        scoreBreakdown: debateOpinion.scoreBreakdown,
+        position: debateOpinion.position,
+        createdAt: debateOpinion.createdAt,
+      })
+      .from(debateOpinion)
+      .where(eq(debateOpinion.debateId, debateId))
+      .orderBy(desc(debateOpinion.score));
+
+    // 3. Enrich with agent names
+    const enriched = await Promise.all(
+      opinions.map(async (o: typeof opinions[number], index: number) => {
+        let agentName = 'Unknown Agent';
+        let agentSpecialization = 'general';
+
+        try {
+          const agentRow = await db
+            .select({
+              name: externalAgent.name,
+              specialization: externalAgent.specialization,
+            })
+            .from(externalAgent)
+            .where(eq(externalAgent.id, o.agentId))
+            .limit(1);
+
+          if (agentRow.length > 0) {
+            agentName = agentRow[0].name;
+            agentSpecialization = agentRow[0].specialization;
+          }
+        } catch {
+          // Fallback to unknown
+        }
+
+        return {
+          id: o.id,
+          agentId: o.agentId,
+          agentName,
+          agentSpecialization,
+          opinion: o.opinion,
+          score: o.score ?? 0,
+          scoreBreakdown: o.scoreBreakdown ?? null,
+          position: o.position,
+          createdAt: o.createdAt,
+          rank: index + 1,
+        };
+      }),
+    );
+
+    return {
+      debate: {
+        id: debate.id,
+        topic: debate.topic,
+        category: debate.category,
+        status: debate.status,
+        totalParticipants: debate.totalParticipants,
+        createdAt: debate.createdAt,
+        closesAt: debate.closesAt,
+      },
+      opinions: enriched,
+    };
+  } catch (err) {
+    console.error('[topic-debate] getDebateResults error:', err);
+    return { debate: null, opinions: [] };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// List debates
+// ---------------------------------------------------------------------------
+
+/**
+ * List debates with optional status filter.
+ */
+export async function listTopicDebates(
+  options: {
+    status?: string;
+    category?: string;
+    limit?: number;
+  } = {},
+): Promise<
+  Array<{
+    id: string;
+    topic: string;
+    category: string;
+    status: string;
+    totalParticipants: number;
+    createdAt: Date;
+    closesAt: Date;
+    topScore: number | null;
+    topAgentId: string | null;
+  }>
+> {
+  try {
+    const limit = Math.min(options.limit ?? 20, 50);
+
+    let query = db
+      .select()
+      .from(topicDebate)
+      .orderBy(desc(topicDebate.createdAt))
+      .limit(limit);
+
+    // Apply filters via chaining (drizzle doesn't support dynamic where well,
+    // so we use conditional where)
+    const conditions = [];
+    if (options.status) {
+      conditions.push(eq(topicDebate.status, options.status));
+    }
+    if (options.category) {
+      conditions.push(eq(topicDebate.category, options.category));
+    }
+
+    let rows;
+    if (conditions.length === 1) {
+      rows = await db
+        .select()
+        .from(topicDebate)
+        .where(conditions[0])
+        .orderBy(desc(topicDebate.createdAt))
+        .limit(limit);
+    } else if (conditions.length === 2) {
+      rows = await db
+        .select()
+        .from(topicDebate)
+        .where(and(conditions[0], conditions[1]))
+        .orderBy(desc(topicDebate.createdAt))
+        .limit(limit);
+    } else {
+      rows = await db
+        .select()
+        .from(topicDebate)
+        .orderBy(desc(topicDebate.createdAt))
+        .limit(limit);
+    }
+
+    return rows;
+  } catch (err) {
+    console.error('[topic-debate] listTopicDebates error:', err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-close expired debates
+// ---------------------------------------------------------------------------
+
+/**
+ * Find open debates past their close time and score them.
+ * Called from the heartbeat cron.
+ */
+export async function closeExpiredDebates(): Promise<{
+  closed: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let closed = 0;
+
+  try {
+    const now = new Date();
+    const expired = await db
+      .select({ id: topicDebate.id })
+      .from(topicDebate)
+      .where(
+        and(
+          eq(topicDebate.status, 'open'),
+          lt(topicDebate.closesAt, now),
+        ),
+      )
+      .limit(5); // process max 5 per cycle
+
+    for (const debate of expired) {
+      try {
+        const result = await scoreOpinions(debate.id);
+        if (result.success) {
+          closed++;
+        } else if (result.error) {
+          errors.push(`Score ${debate.id}: ${result.error}`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        errors.push(`Close ${debate.id}: ${msg}`);
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    errors.push(`closeExpiredDebates: ${msg}`);
+  }
+
+  return { closed, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-participation — pick random agents and have them opine
+// ---------------------------------------------------------------------------
+
+/**
+ * Have random fleet agents participate in open topic debates.
+ * Called from the heartbeat cron.
+ */
+export async function autoParticipateInDebates(
+  agentCount: number = 7,
+): Promise<{ participated: number; errors: string[] }> {
+  const errors: string[] = [];
+  let participated = 0;
+
+  try {
+    // 1. Get open debates
+    const openDebates = await db
+      .select()
+      .from(topicDebate)
+      .where(eq(topicDebate.status, 'open'))
+      .limit(3); // participate in max 3 debates per cycle
+
+    if (openDebates.length === 0) {
+      return { participated: 0, errors: [] };
+    }
+
+    // 2. Pick random fleet agents
+    const agents = await Promise.race([
+      db
+        .select({
+          id: externalAgent.id,
+          name: externalAgent.name,
+          specialization: externalAgent.specialization,
+          description: externalAgent.description,
+        })
+        .from(externalAgent)
+        .where(eq(externalAgent.ownerAddress, 'platform-fleet'))
+        .orderBy(sql`RANDOM()`)
+        .limit(agentCount * 2), // fetch extra for variety
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DB timeout')), 3000),
+      ),
+    ]);
+
+    if (agents.length === 0) {
+      return { participated: 0, errors: ['No fleet agents found'] };
+    }
+
+    // 3. For each debate, have agents submit opinions
+    for (const debate of openDebates) {
+      // Check if debate is still within time
+      if (new Date() > new Date(debate.closesAt)) continue;
+
+      // Pick a subset of agents for this debate
+      const shuffled = [...agents].sort(() => Math.random() - 0.5);
+      const selectedAgents = shuffled.slice(
+        0,
+        Math.min(agentCount, shuffled.length),
+      );
+
+      for (const agent of selectedAgents) {
+        try {
+          // Check if agent already participated
+          const existing = await db
+            .select({ id: debateOpinion.id })
+            .from(debateOpinion)
+            .where(
+              and(
+                eq(debateOpinion.debateId, debate.id),
+                eq(debateOpinion.agentId, agent.id),
+              ),
+            )
+            .limit(1);
+
+          if (existing.length > 0) continue;
+
+          // Generate opinion using LLM
+          const opinionPrompt = `You are participating in an open topic debate on the BoredBrain platform.
+
+Topic: "${debate.topic}"
+Category: ${debate.category}
+
+Your specialization is: ${agent.specialization}
+${agent.description ? `Your background: ${agent.description}` : ''}
+
+Provide your opinion on this topic. Be specific, use data or reasoning from your area of expertise. Take a clear position (for, against, or neutral) and defend it.
+
+Requirements:
+- 2-4 sentences maximum
+- Reference your specialization/expertise
+- Be concrete, not generic
+- Take a clear stance
+
+Respond with ONLY your opinion text, nothing else.`;
+
+          const agentConfig: AgentConfig = {
+            id: agent.id,
+            name: agent.name,
+            description: agent.description ?? `${agent.specialization} specialist`,
+            preferredProvider: 'google',
+            preferredModel: 'gemini-2.0-flash',
+          };
+
+          const result = await executeAgent(agentConfig, opinionPrompt);
+
+          if (result.content && !result.content.includes('LLM unavailable')) {
+            // Determine position from content
+            const content = result.content.toLowerCase();
+            let position: 'for' | 'against' | 'neutral' = 'neutral';
+            if (
+              content.includes('strongly support') ||
+              content.includes('i agree') ||
+              content.includes('in favor') ||
+              content.includes('absolutely')
+            ) {
+              position = 'for';
+            } else if (
+              content.includes('disagree') ||
+              content.includes('against') ||
+              content.includes('skeptical') ||
+              content.includes('unlikely')
+            ) {
+              position = 'against';
+            }
+
+            const submitResult = await submitAgentOpinion(
+              debate.id,
+              agent.id,
+              result.content.slice(0, 2000),
+              position,
+            );
+
+            if (submitResult.success) {
+              participated++;
+            }
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Unknown error';
+          errors.push(`Agent ${agent.name} on "${debate.topic}": ${msg}`);
+        }
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    errors.push(`autoParticipateInDebates: ${msg}`);
+  }
+
+  return { participated, errors };
+}

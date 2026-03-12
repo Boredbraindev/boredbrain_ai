@@ -231,7 +231,7 @@ export default function AgentMarketplacePage() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
       try {
-        const res = await fetch('/api/agents?limit=50', { signal: controller.signal });
+        const res = await fetch('/api/agents', { signal: controller.signal });
         const data = await res.json();
         const apiAgents = data.agents || [];
         setAgents(apiAgents);

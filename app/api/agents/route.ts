@@ -1,32 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { agent } from '@/lib/db/schema';
+import { agent, user } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { generateId } from 'ai';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 
 /**
- * GET /api/agents - List all active agents (marketplace)
+ * GET /api/agents - List agents
+ *   ?owner=0xABC...  — filter by wallet address (returns only that user's agents)
+ *   Without owner    — returns all active agents (marketplace view)
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+  const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
   const offset = parseInt(searchParams.get('offset') || '0');
+  const ownerWallet = searchParams.get('owner');
 
   try {
-    const dbPromise = db
-      .select()
-      .from(agent)
-      .where(eq(agent.status, 'active'))
-      .orderBy(desc(agent.totalExecutions))
-      .limit(limit)
-      .offset(offset);
+    let dbPromise;
+
+    if (ownerWallet && /^0x[0-9a-fA-F]{40}$/.test(ownerWallet)) {
+      // User-specific: join agent + user to filter by wallet address
+      dbPromise = db
+        .select({
+          id: agent.id,
+          ownerId: agent.ownerId,
+          name: agent.name,
+          description: agent.description,
+          capabilities: agent.capabilities,
+          systemPrompt: agent.systemPrompt,
+          tools: agent.tools,
+          pricePerQuery: agent.pricePerQuery,
+          nftTokenId: agent.nftTokenId,
+          chainId: agent.chainId,
+          txHash: agent.txHash,
+          totalExecutions: agent.totalExecutions,
+          totalRevenue: agent.totalRevenue,
+          rating: agent.rating,
+          eloRating: agent.eloRating,
+          status: agent.status,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+        })
+        .from(agent)
+        .innerJoin(user, eq(agent.ownerId, user.id))
+        .where(eq(user.walletAddress, ownerWallet.toLowerCase()))
+        .orderBy(desc(agent.totalExecutions))
+        .limit(limit)
+        .offset(offset);
+    } else {
+      // Marketplace: all active agents
+      dbPromise = db
+        .select()
+        .from(agent)
+        .where(eq(agent.status, 'active'))
+        .orderBy(desc(agent.totalExecutions))
+        .limit(limit)
+        .offset(offset);
+    }
 
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000)
     );
     const agents = await Promise.race([dbPromise, timeout]);
+
+    // For owner-filtered queries, always return result (even empty)
+    if (ownerWallet) {
+      return NextResponse.json({
+        agents,
+        pagination: { limit, offset, total: agents.length },
+      });
+    }
 
     if (agents.length > 0) {
       return NextResponse.json({
@@ -38,13 +83,20 @@ export async function GET(request: NextRequest) {
     }
   } catch {
     // DB connection failed or timeout, fall through to mock data
+    // For owner-filtered queries, return empty on failure
+    if (ownerWallet) {
+      return NextResponse.json({
+        agents: [],
+        pagination: { limit, offset, total: 0 },
+      });
+    }
   }
 
-  // Return mock data as fallback
-  const mockSlice = MOCK_AGENTS.slice(offset, offset + limit);
+  // Return mock data as fallback (marketplace only)
+  const mockSlice = limit ? MOCK_AGENTS.slice(offset, offset + limit) : MOCK_AGENTS.slice(offset);
   return NextResponse.json({
     agents: mockSlice,
-    pagination: { limit, offset, total: MOCK_AGENTS.length },
+    pagination: { limit: limit ?? mockSlice.length, offset, total: MOCK_AGENTS.length },
   });
 }
 

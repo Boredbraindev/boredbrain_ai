@@ -10,6 +10,7 @@
 
 import { serverEnv } from '@/env/server';
 import { executeTool, getAvailableToolDefinitions } from '@/lib/tools/tool-executor';
+import { buildContextFromMemory, recordMemory } from '@/lib/agent-memory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -540,6 +541,14 @@ export async function executeAgent(
     return generateLLMUnavailableResponse(agent, 'No LLM API keys configured');
   }
 
+  // Recall relevant memories for this query (fire-and-forget on failure)
+  let memoryContext = '';
+  try {
+    memoryContext = await buildContextFromMemory(agent.id, prompt);
+  } catch {
+    // Memory recall failed — proceed without it
+  }
+
   // Build system prompt
   const systemParts: string[] = [
     `You are ${agent.name}, an AI agent on the BoredBrain platform.`,
@@ -549,6 +558,9 @@ export async function executeAgent(
   }
   if (agent.systemPrompt) {
     systemParts.push(agent.systemPrompt);
+  }
+  if (memoryContext) {
+    systemParts.push(memoryContext);
   }
   if (agent.tools && agent.tools.length > 0) {
     systemParts.push(
@@ -773,6 +785,16 @@ export async function executeAgent(
       totalTokens += result.tokensUsed;
       finalContent = result.content;
     }
+
+    // Record this interaction as episodic memory (fire-and-forget)
+    const memorySummary = `Q: ${prompt.slice(0, 200)} | A: ${finalContent.slice(0, 300)}`;
+    recordMemory({
+      agentId: agent.id,
+      type: 'episodic',
+      content: memorySummary,
+      importance: allToolCalls.length > 0 ? 7 : 5,
+      tags: agent.tools?.slice(0, 5) ?? [],
+    }).catch(() => {});
 
     return {
       content: finalContent,

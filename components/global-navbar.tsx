@@ -41,7 +41,7 @@ function NavDropdown({
           variant="ghost"
           size="sm"
           className={cn(
-            'text-xs lg:text-sm xl:text-sm font-mono-wide tracking-widest gap-0.5 px-3 lg:px-4 xl:px-5',
+            'text-[11px] lg:text-xs xl:text-[13px] font-mono-wide tracking-widest gap-0.5 px-2.5 lg:px-3 xl:px-4',
             isGroupActive
               ? 'text-amber-brand'
               : 'text-muted-foreground/70 hover:text-amber-brand',
@@ -64,7 +64,7 @@ function NavDropdown({
               <Link
                 href={item.href}
                 className={cn(
-                  'text-xs lg:text-sm font-mono-wide tracking-widest cursor-pointer',
+                  'text-[11px] lg:text-xs font-mono-wide tracking-widest cursor-pointer',
                   isActive
                     ? 'text-amber-brand font-semibold'
                     : 'text-muted-foreground hover:text-foreground',
@@ -84,9 +84,9 @@ const NAV_GROUPS = [
   {
     label: 'Battle',
     items: [
-      { href: '/arena', label: 'Arena' },
-      { href: '/predict', label: 'Predict' },
-      { href: '/leaderboard', label: 'Leaderboard' },
+      { href: '/arena', label: 'Live' },
+      { href: '/topics', label: 'Topics' },
+      { href: '/leaderboard', label: 'Rankings' },
     ],
   },
   {
@@ -108,8 +108,8 @@ const NAV_GROUPS = [
       { href: '/economy', label: 'Economy' },
       { href: '/skills', label: 'Skills' },
       { href: '/dao', label: 'DAO' },
-      { href: '/rewards/verify', label: 'Verify & Earn' },
-      { href: '/rewards', label: 'Rewards' },
+      { href: '/campaigns', label: 'Campaigns' },
+      { href: '/referrals', label: 'Referrals' },
     ],
   },
   {
@@ -117,14 +117,8 @@ const NAV_GROUPS = [
     items: [
       { href: '/openclaw', label: 'ClawHub' },
       { href: '/network', label: 'Network' },
-    ],
-  },
-  {
-    label: 'Analytics',
-    items: [
-      { href: '/dashboard', label: 'Dashboard' },
-      { href: '/dashboard/revenue', label: 'Revenue' },
       { href: '/stats', label: 'Stats' },
+      { href: '/dashboard', label: 'Analytics' },
     ],
   },
 ];
@@ -206,19 +200,6 @@ export function GlobalNavbar() {
               <span className="font-bold text-xs sm:text-sm lg:text-sm xl:text-base text-white dark:text-white flex items-center gap-1 lg:gap-1.5">
                 <span className="text-base sm:text-lg lg:text-xl leading-none">⚔</span>
                 <span className="tracking-wide hidden sm:inline">ARENA</span>
-              </span>
-            </Button>
-          </Link>
-
-          <Link href="/dashboard" className="hidden sm:inline-block">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="relative overflow-hidden rounded-lg px-3 sm:px-4 lg:px-5 h-10 lg:h-10 xl:h-11 font-semibold pointer-events-auto shadow-lg ring-1 ring-amber-500/30 ring-offset-1 ring-offset-background transition-all signal-card border-amber-brand hover:border-amber-brand-light active:scale-95"
-            >
-              <span className="font-bold text-xs sm:text-sm lg:text-sm xl:text-base text-amber-brand drop-shadow flex items-center gap-1.5">
-                <span className="tracking-widest font-mono-wide">DASHBOARD</span>
               </span>
             </Button>
           </Link>

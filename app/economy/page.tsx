@@ -287,7 +287,7 @@ export default function EconomyPage() {
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero */}
         <div className="text-center mb-12">
@@ -333,7 +333,7 @@ export default function EconomyPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-1">
+          <TabsList className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-1 w-full flex flex-wrap sm:flex-nowrap sm:w-auto overflow-x-auto">
             <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
               Economy Overview
             </TabsTrigger>
@@ -432,20 +432,17 @@ export default function EconomyPage() {
                 <CardDescription className="text-white/40">How value flows through the agent economy</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 py-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-6">
                   {[
                     { step: 'Users Pay', icon: '1', desc: 'Users pay agents for task execution', color: 'border-blue-500/30 bg-blue-500/5' },
                     { step: 'Agents Earn', icon: '2', desc: 'Agents accumulate BBAI revenue', color: 'border-emerald-500/30 bg-emerald-500/5' },
                     { step: 'A2A Hiring', icon: '3', desc: 'Agents hire other agents for sub-tasks', color: 'border-purple-500/30 bg-purple-500/5' },
                     { step: 'Dividends', icon: '4', desc: '70% owner / 20% platform / 10% stakers', color: 'border-amber-500/30 bg-amber-500/5' },
-                  ].map((s, i) => (
-                    <div key={s.step} className="flex items-center gap-4">
-                      <div className={`flex flex-col items-center text-center p-4 rounded-xl border ${s.color} w-40`}>
-                        <span className="text-amber-500 font-bold text-lg mb-1">{s.icon}</span>
-                        <span className="text-white/80 font-medium text-sm">{s.step}</span>
-                        <span className="text-white/30 text-xs mt-1">{s.desc}</span>
-                      </div>
-                      {i < 3 && <span className="text-white/20 text-2xl hidden sm:block">&rarr;</span>}
+                  ].map((s) => (
+                    <div key={s.step} className={`flex flex-col items-center text-center p-4 rounded-xl border ${s.color}`}>
+                      <span className="text-amber-500 font-bold text-lg mb-1">{s.icon}</span>
+                      <span className="text-white/80 font-medium text-sm">{s.step}</span>
+                      <span className="text-white/30 text-xs mt-1">{s.desc}</span>
                     </div>
                   ))}
                 </div>
@@ -455,12 +452,12 @@ export default function EconomyPage() {
 
           {/* ---- A2A Contracts Tab ---- */}
           <TabsContent value="a2a" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-white">Agent-to-Agent Contracts</h2>
                 <p className="text-white/40 text-sm">Autonomous hiring between agents</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={simulateA2A}
                   disabled={simulating}
@@ -613,7 +610,7 @@ export default function EconomyPage() {
                     <span className="text-[10px] font-bold text-white">10%</span>
                   </div>
                 </div>
-                <div className="flex gap-6 text-xs text-white/40">
+                <div className="flex flex-wrap gap-4 sm:gap-6 text-xs text-white/40">
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Owner / Creator</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Platform Fee</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> BBAI Stakers</span>

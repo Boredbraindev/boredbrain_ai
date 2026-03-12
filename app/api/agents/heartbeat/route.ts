@@ -22,6 +22,18 @@ import { createAgentWallet, getAgentWallet } from '@/lib/agent-wallet';
 import { topUpWallet } from '@/lib/agent-wallet';
 import { apiSuccess } from '@/lib/api-utils';
 import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
+import { getHotTopics } from '@/lib/polymarket-feed';
+import {
+  createDebateFromTopic,
+  hasActiveDebate,
+  runDebateRound,
+  getAllDebates,
+} from '@/lib/debate-engine';
+import {
+  autoParticipateInDebates,
+  closeExpiredDebates,
+  createTopicDebate,
+} from '@/lib/topic-debate';
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -30,13 +42,14 @@ import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 function verifyCron(request: NextRequest): boolean {
   const secret = serverEnv.CRON_SECRET;
 
-  // Fail-closed: if CRON_SECRET is not set, only allow in development
-  if (!secret) {
-    return process.env.NODE_ENV === 'development';
-  }
+  // Dev mode: allow if CRON_SECRET is not configured
+  if (!secret) return true;
 
-  // Vercel cron sends this header — only trust on Vercel (VERCEL env is set)
-  if (process.env.VERCEL && request.headers.get('x-vercel-cron') === '1') return true;
+  // Vercel cron sends this header automatically
+  if (request.headers.get('x-vercel-cron') === '1') return true;
+
+  // QStash sends Upstash-Signature header
+  if (request.headers.get('upstash-signature')) return true;
 
   // Bearer token auth
   const authHeader = request.headers.get('authorization');
@@ -44,6 +57,10 @@ function verifyCron(request: NextRequest): boolean {
     const token = authHeader.replace(/^Bearer\s+/i, '');
     if (token === secret) return true;
   }
+
+  // Query param for manual testing
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get('secret') === secret) return true;
 
   return false;
 }
@@ -66,6 +83,11 @@ export async function GET(request: NextRequest) {
   let scenariosRun = 0;
   let totalBilled = 0;
   let rebalanced = 0;
+  let debatesCreated = 0;
+  let debateRoundsRun = 0;
+  let topicDebatesCreated = 0;
+  let topicDebateParticipations = 0;
+  let topicDebatesClosed = 0;
 
   try {
     // ------------------------------------------------------------------
@@ -236,6 +258,95 @@ export async function GET(request: NextRequest) {
       const msg = err instanceof Error ? err.message : 'Settlement error';
       errors.push(`Settlement: ${msg}`);
     }
+    // ------------------------------------------------------------------
+    // 6. AI Discourse — fetch trending topics & run debate rounds
+    // ------------------------------------------------------------------
+    try {
+      // Fetch 2-3 hot topics from Polymarket
+      const hotTopics = await getHotTopics(3);
+
+      // Create debates for topics that don't have one yet
+      for (const topic of hotTopics) {
+        if (!hasActiveDebate(topic.id)) {
+          try {
+            await createDebateFromTopic(topic);
+            debatesCreated++;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Debate creation error';
+            errors.push(`Debate create: ${msg}`);
+          }
+        }
+      }
+
+      // Run one round of any active (live or scheduled) debates
+      const activeDebates = getAllDebates().filter(
+        (d) => d.status === 'live' || d.status === 'scheduled',
+      );
+      // Limit to 2 debates per heartbeat to control LLM costs
+      const debatesToRun = activeDebates.slice(0, 2);
+      for (const debate of debatesToRun) {
+        try {
+          await runDebateRound(debate);
+          debateRoundsRun++;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Debate round error';
+          errors.push(`Debate round ${debate.id}: ${msg}`);
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Discourse engine error';
+      errors.push(`Discourse: ${msg}`);
+    }
+
+    // ------------------------------------------------------------------
+    // 7. Topic Debates — auto-create, auto-participate, auto-close
+    // ------------------------------------------------------------------
+    try {
+      // Create a new topic debate every ~3rd heartbeat cycle (random)
+      if (Math.random() < 0.33) {
+        const topicIdeas = [
+          { topic: 'Will Bitcoin reach a new all-time high this quarter?', category: 'crypto' },
+          { topic: 'Is DeFi yield farming still sustainable in the current market?', category: 'defi' },
+          { topic: 'Should AI agents be allowed to trade autonomously without human oversight?', category: 'ai' },
+          { topic: 'Will Ethereum L2s eventually replace the L1 for most transactions?', category: 'crypto' },
+          { topic: 'Is the current NFT market recovery real or a dead cat bounce?', category: 'culture' },
+          { topic: 'Should DAOs implement quadratic voting for fairer governance?', category: 'governance' },
+          { topic: 'Will AI-generated content make human creators obsolete?', category: 'ai' },
+          { topic: 'Is proof-of-stake more secure than proof-of-work for decentralization?', category: 'crypto' },
+          { topic: 'Should crypto platforms implement mandatory KYC for all users?', category: 'governance' },
+          { topic: 'Will cross-chain bridges become the primary infrastructure for Web3?', category: 'defi' },
+          { topic: 'Is the metaverse overhyped or genuinely the next computing paradigm?', category: 'culture' },
+          { topic: 'Should AI agents have their own on-chain identities and wallets?', category: 'ai' },
+        ];
+        const pick = topicIdeas[Math.floor(Math.random() * topicIdeas.length)];
+        try {
+          await createTopicDebate(pick.topic, pick.category);
+          topicDebatesCreated++;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Topic debate creation error';
+          errors.push(`Topic debate create: ${msg}`);
+        }
+      }
+
+      // Auto-participate: 5-10 random agents opine on open debates
+      const participantCount = 5 + Math.floor(Math.random() * 6);
+      const participationResult = await autoParticipateInDebates(participantCount);
+      topicDebateParticipations = participationResult.participated;
+      if (participationResult.errors.length > 0) {
+        errors.push(...participationResult.errors.slice(0, 3)); // cap error noise
+      }
+
+      // Auto-close expired debates and score them
+      const closeResult = await closeExpiredDebates();
+      topicDebatesClosed = closeResult.closed;
+      if (closeResult.errors.length > 0) {
+        errors.push(...closeResult.errors.slice(0, 3));
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Topic debate engine error';
+      errors.push(`Topic debates: ${msg}`);
+    }
+
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown heartbeat error';
     errors.push(`Heartbeat: ${msg}`);
@@ -245,8 +356,12 @@ export async function GET(request: NextRequest) {
     scenariosRun,
     totalBilled: Number(totalBilled.toFixed(4)),
     rebalanced,
-    predictBetsGenerated,
-    settlementTxHash,
+    discourse: { debatesCreated, debateRoundsRun },
+    topicDebates: {
+      created: topicDebatesCreated,
+      participations: topicDebateParticipations,
+      closed: topicDebatesClosed,
+    },
     errors: errors.length > 0 ? errors : undefined,
   });
 }

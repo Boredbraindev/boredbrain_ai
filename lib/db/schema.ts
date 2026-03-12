@@ -759,6 +759,84 @@ export const userBadge = pgTable('user_badge', {
 });
 
 // ============================================
+// Agent Memory & Relationships
+// ============================================
+
+// Agent memory — episodic (past interactions), semantic (facts), procedural (learned patterns)
+export const agentMemory = pgTable('agent_memory', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull(),
+  type: text('type').notNull(), // 'episodic' | 'semantic' | 'procedural'
+  content: text('content').notNull(),
+  importance: integer('importance').default(5), // 1-10
+  tags: jsonb('tags').$type<string[]>().default([]),
+  accessCount: integer('access_count').default(0),
+  lastAccessed: timestamp('last_accessed'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Agent relationships — trust scores with other agents
+export const agentRelationship = pgTable('agent_relationship', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  agentId: text('agent_id').notNull(),
+  targetAgentId: text('target_agent_id').notNull(),
+  trustScore: integer('trust_score').default(50), // 0-100
+  interactionCount: integer('interaction_count').default(0),
+  lastInteraction: timestamp('last_interaction'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============================================
+// Agent Self-Replication & Evolution
+// ============================================
+
+// Agent lineage — tracks parent/child relationships for self-replication
+export const agentLineage = pgTable('agent_lineage', {
+  id: text('id').primaryKey(),
+  parentId: text('parent_id').notNull(),
+  childId: text('child_id').notNull(),
+  generation: integer('generation').default(1),
+  fundingAmount: text('funding_amount').notNull(),
+  genesisPrompt: text('genesis_prompt'),
+  spawnedAt: timestamp('spawned_at').defaultNow(),
+});
+
+// Agent evolution — tracks performance events and self-improvement
+export const agentEvolution = pgTable('agent_evolution', {
+  id: text('id').primaryKey(),
+  agentId: text('agent_id').notNull(),
+  eventType: text('event_type').notNull(), // 'battle_win' | 'battle_loss' | 'invocation' | 'evolution' | 'spawn'
+  data: jsonb('data').$type<Record<string, unknown>>(),
+  performanceScore: integer('performance_score'), // 0-100
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============================================
+// Agent Referral Network (MLM)
+// ============================================
+
+// Agent referral relationships (2-level max)
+export const agentReferral = pgTable('agent_referral', {
+  id: text('id').primaryKey(),
+  recruiterId: text('recruiter_id').notNull(),
+  recruitedId: text('recruited_id').notNull(),
+  level: integer('level').notNull().default(1), // 1 = direct, 2 = second-level
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Referral commission payout log
+export const referralPayout = pgTable('referral_payout', {
+  id: text('id').primaryKey(),
+  recruiterId: text('recruiter_id').notNull(),
+  earningAgentId: text('earning_agent_id').notNull(),
+  level: integer('level').notNull(), // 1 or 2
+  amount: text('amount').notNull(), // BBAI amount
+  source: text('source').notNull(), // 'invocation' | 'debate' | 'arena'
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============================================
 // Type exports
 // ============================================
 
@@ -806,6 +884,12 @@ export type DaoVote = InferSelectModel<typeof daoVote>;
 export type UserPoints = InferSelectModel<typeof userPoints>;
 export type PointTransaction = InferSelectModel<typeof pointTransaction>;
 export type UserBadge = InferSelectModel<typeof userBadge>;
+export type AgentMemory = InferSelectModel<typeof agentMemory>;
+export type AgentRelationship = InferSelectModel<typeof agentRelationship>;
+export type AgentLineage = InferSelectModel<typeof agentLineage>;
+export type AgentEvolution = InferSelectModel<typeof agentEvolution>;
+export type AgentReferral = InferSelectModel<typeof agentReferral>;
+export type ReferralPayout = InferSelectModel<typeof referralPayout>;
 
 // ============================================
 // P2P Betting Marketplace
@@ -874,6 +958,43 @@ export const bettingPosition = pgTable('betting_position', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
+
+// ============================================
+// Topic Debates (multi-agent open debates)
+// ============================================
+
+// Topic debate — open-participation debates where any agent can submit an opinion
+export const topicDebate = pgTable('topic_debate', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  topic: text('topic').notNull(),
+  category: text('category').notNull().default('general'), // 'crypto', 'defi', 'ai', 'governance', 'culture', 'general'
+  status: text('status').notNull().default('open'), // 'open' | 'scoring' | 'completed'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  closesAt: timestamp('closes_at').notNull(),
+  totalParticipants: integer('total_participants').notNull().default(0),
+  topScore: integer('top_score').default(0),
+  topAgentId: text('top_agent_id'),
+});
+
+// Debate opinion — an agent's submitted take on a topic debate
+export const debateOpinion = pgTable('debate_opinion', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  debateId: text('debate_id').notNull(),
+  agentId: text('agent_id').notNull(),
+  opinion: text('opinion').notNull(),
+  score: integer('score').default(0),
+  scoreBreakdown: jsonb('score_breakdown').$type<{
+    relevance: number;
+    insight: number;
+    accuracy: number;
+    creativity: number;
+  }>(),
+  position: text('position').notNull().default('neutral'), // 'for' | 'against' | 'neutral'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type TopicDebate = InferSelectModel<typeof topicDebate>;
+export type DebateOpinion = InferSelectModel<typeof debateOpinion>;
 
 export type BettingMarket = InferSelectModel<typeof bettingMarket>;
 export type BettingOrder = InferSelectModel<typeof bettingOrder>;
