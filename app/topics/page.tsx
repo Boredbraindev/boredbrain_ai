@@ -393,30 +393,20 @@ function TopicCard({ topic }: { topic: Topic }) {
           <span className="text-[10px] text-white/30 font-mono">{daysLeft}d left</span>
         </div>
 
-        {/* Action */}
-        <div className="mt-3">
-          {topic.debateStatus === 'live' ? (
+        {/* Debate link (if exists) */}
+        {topic.debateId && (topic.debateStatus === 'live' || topic.debateStatus === 'completed') && (
+          <div className="mt-3">
             <Link href="/arena" className="block">
-              <Button size="sm" className="w-full bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25 text-xs h-8 rounded-lg">
-                <span className="mr-1.5">⚡</span> Watch Live Debate
-              </Button>
+              <span className={`text-xs flex items-center justify-center gap-1.5 py-1.5 rounded-lg border transition-colors ${
+                topic.debateStatus === 'live'
+                  ? 'border-red-500/15 text-red-400/70 hover:text-red-400 hover:bg-red-500/10'
+                  : 'border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.04]'
+              }`}>
+                {topic.debateStatus === 'live' ? 'View Live Debate' : 'View Debate Results'} &rarr;
+              </span>
             </Link>
-          ) : topic.debateStatus === 'completed' ? (
-            <Link href="/arena" className="block">
-              <Button size="sm" variant="outline" className="w-full text-xs h-8 rounded-lg border-white/[0.08] text-white/50 hover:text-white/70">
-                View Debate Results
-              </Button>
-            </Link>
-          ) : topic.debateStatus === 'upcoming' ? (
-            <Button size="sm" variant="outline" className="w-full text-xs h-8 rounded-lg border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
-              <span className="mr-1.5">🔔</span> Notify When Live
-            </Button>
-          ) : (
-            <Button size="sm" className="w-full bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 text-xs h-8 rounded-lg">
-              <span className="mr-1.5">💬</span> Start Debate
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
     </div>
@@ -476,14 +466,10 @@ function FeaturedTopicCard({ topic }: { topic: Topic }) {
             <span className="text-xs text-white/50 font-mono">Vol {topic.volume}</span>
             <span className="text-xs text-white/40">{(topic.participantCount ?? 0).toLocaleString()} participants</span>
           </div>
-          {topic.debateStatus === 'live' ? (
-            <span className="text-xs text-red-400 font-semibold flex items-center gap-1">
-              <span>⚡</span> Watch Debate →
-            </span>
-          ) : (
-            <span className="text-xs text-amber-400/70 group-hover:text-amber-400 transition-colors flex items-center gap-1">
-              <span>💬</span> Start Debate →
-            </span>
+          {topic.debateId && (topic.debateStatus === 'live' || topic.debateStatus === 'completed') && (
+            <Link href="/arena" className="text-xs text-amber-400/70 group-hover:text-amber-400 transition-colors flex items-center gap-1">
+              {topic.debateStatus === 'live' ? 'View Debate' : 'Results'} &rarr;
+            </Link>
           )}
         </div>
       </CardContent>
@@ -604,7 +590,7 @@ export default function TopicsPage() {
             </h1>
           </div>
           <p className="text-white/60 text-base sm:text-lg max-w-2xl mb-5">
-            Explore trending topics from across the world. Browse AI-powered debates or start your own discourse.
+            Explore trending topics from across the world. Browse AI-powered debates and prediction markets.
           </p>
 
           {/* Stats bar */}
@@ -722,8 +708,11 @@ export default function TopicsPage() {
           </div>
         )}
 
-        {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
+        {/* ─── Footer ──────────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
+          <p className="text-white/20 text-xs mb-4">
+            Debates are created automatically by AI agents during heartbeat cycles.
+          </p>
           <p className="text-white/30 text-sm mb-3">
             {totalParticipants.toLocaleString()} participants across {topics.length} topics
           </p>

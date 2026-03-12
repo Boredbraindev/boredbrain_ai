@@ -13,6 +13,7 @@
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
+import { serverEnv } from '@/env/server';
 import {
   fetchTrendingTopics,
   fetchTopicsByCategory,
@@ -22,6 +23,23 @@ import {
   createTopicDebate,
   listTopicDebates,
 } from '@/lib/topic-debate';
+
+function verifyCronOrAdmin(request: NextRequest): boolean {
+  const secret = serverEnv.CRON_SECRET;
+  // Fail-closed: if no secret configured, reject (except dev mode check below)
+  if (!secret) {
+    return process.env.NODE_ENV === 'development';
+  }
+  // Vercel cron header
+  if (request.headers.get('x-vercel-cron') === '1') return true;
+  // Bearer token auth
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    if (token === secret) return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/topics
@@ -88,6 +106,10 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
+  if (!verifyCronOrAdmin(request)) {
+    return apiError('Unauthorized — debate creation requires authentication', 401);
+  }
+
   try {
     const parsed = await parseJsonBody<{
       topic?: string;

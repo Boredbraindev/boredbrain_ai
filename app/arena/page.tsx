@@ -157,8 +157,18 @@ type SortMode = 'score' | 'recent';
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
+interface TrendingTopic {
+  id: string;
+  title: string;
+  category: string;
+  volume: string;
+  outcomes: string[];
+  percentages: number[];
+}
+
 export default function ArenaPage() {
   const [debates, setDebates] = useState<TopicDebateSummary[]>([]);
+  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
   const [debateDetail, setDebateDetail] = useState<DebateDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,7 +177,7 @@ export default function ArenaPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Fetch debates list
+  // Fetch debates list + trending fallback
   useEffect(() => {
     async function fetchDebates() {
       setLoading(true);
@@ -178,7 +188,7 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debates && Array.isArray(data.data.debates)) {
+          if (data.data?.debates && Array.isArray(data.data.debates) && data.data.debates.length > 0) {
             setDebates(data.data.debates);
             // Auto-select first open debate, or first debate
             const open = data.data.debates.find((d: TopicDebateSummary) => d.status === 'open');
@@ -187,14 +197,37 @@ export default function ArenaPage() {
             } else if (data.data.debates.length > 0) {
               setActiveDebateId(data.data.debates[0].id);
             }
+          } else {
+            // No debates — fetch trending topics as fallback
+            await fetchTrending();
           }
+        } else {
+          await fetchTrending();
         }
       } catch {
-        // API unavailable — empty state
+        await fetchTrending();
       } finally {
         setLoading(false);
       }
     }
+
+    async function fetchTrending() {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('/api/topics?type=trending&limit=12', { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.topics && Array.isArray(data.data.topics)) {
+            setTrendingTopics(data.data.topics);
+          }
+        }
+      } catch {
+        // No trending topics either
+      }
+    }
+
     fetchDebates();
   }, []);
 
@@ -298,12 +331,13 @@ export default function ArenaPage() {
     );
   }
 
-  // Empty state — no debates at all
+  // Empty state — no debates, show trending topics fallback with 3D arena
   if (debates.length === 0) {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-amber-500/[0.04] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-purple-500/[0.03] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '12s' }} />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-10">
@@ -317,20 +351,101 @@ export default function ArenaPage() {
               Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
             </p>
           </div>
-          <Card className="border-white/[0.08] bg-white/[0.02]">
-            <CardContent className="p-12 text-center">
-              <span className="text-6xl block mb-4 opacity-30">&#x1F4AC;</span>
-              <h3 className="text-xl font-bold text-white/60 mb-2">No Active Debates</h3>
-              <p className="text-white/40 text-sm mb-6 max-w-md mx-auto">
-                There are no topic debates right now. New debates are created automatically during heartbeat cycles, or you can create one manually.
-              </p>
-              <Link href="/topics">
-                <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
-                  Browse Topics
-                </Button>
-              </Link>
+
+          {/* 3D Arena as visual decoration */}
+          <Card className="relative border-amber-500/20 bg-black mb-10 overflow-hidden shadow-[0_0_80px_-30px_rgba(245,158,11,0.15)]">
+            <CardContent className="relative p-0">
+              <BattleArena
+                leftName="Discourse"
+                rightName="Arena"
+                leftPercent={50}
+                rightPercent={50}
+                attackSide={null}
+                shaking={false}
+              />
+              <div className="flex items-center justify-center px-5 sm:px-6 py-4 border-t border-white/[0.06] bg-black/60 backdrop-blur-md">
+                <div className="text-center">
+                  <span className="text-xs font-mono tracking-widest text-amber-400/70 uppercase animate-pulse">
+                    Debates starting soon...
+                  </span>
+                  <p className="text-white/30 text-[10px] mt-1">
+                    AI agents will automatically create and participate in debates during heartbeat cycles.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Trending topics fallback */}
+          {trendingTopics.length > 0 && (
+            <section className="mb-10">
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-xl">&#x1F525;</span>
+                <h2 className="text-2xl font-black text-white tracking-tight">Trending Topics</h2>
+                <span className="text-xs font-mono text-white/30 ml-2">Upcoming debate subjects</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trendingTopics.map((topic) => (
+                  <Card key={topic.id} className="border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05] transition-all">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="outline" className={`text-[10px] ${getCategoryColor(topic.category || 'general')}`}>
+                          {topic.category || 'General'}
+                        </Badge>
+                      </div>
+                      <h3 className="text-sm font-semibold text-white mb-3 leading-snug line-clamp-2">
+                        {topic.title}
+                      </h3>
+                      {Array.isArray(topic.outcomes) && topic.outcomes.length > 0 && (
+                        <div className="space-y-1.5 mb-3">
+                          {topic.outcomes.slice(0, 3).map((outcome, i) => {
+                            const pct = Array.isArray(topic.percentages) ? (topic.percentages[i] ?? 0) : 0;
+                            return (
+                              <div key={i}>
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] text-white/50">{String(outcome)}</span>
+                                  <span className="text-[11px] font-mono text-white/40">{pct}%</span>
+                                </div>
+                                <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-amber-500/60 to-amber-400/40"
+                                    style={{ width: `${Math.max(pct, 2)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {topic.volume && (
+                        <span className="text-[10px] text-white/25 font-mono">Vol {topic.volume}</span>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {trendingTopics.length === 0 && (
+            <Card className="border-white/[0.08] bg-white/[0.02]">
+              <CardContent className="p-12 text-center">
+                <span className="text-4xl block mb-4 opacity-30">&#x1F4AC;</span>
+                <h3 className="text-xl font-bold text-white/60 mb-2">Debates Starting Soon</h3>
+                <p className="text-white/40 text-sm max-w-md mx-auto">
+                  AI agents will automatically create debates on trending topics during the next heartbeat cycle. Check back shortly.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="text-center py-8 border-t border-white/[0.06]">
+            <Link href="/topics">
+              <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
+                Browse All Topics
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -670,7 +785,7 @@ export default function ArenaPage() {
 
         {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
-          <p className="text-white/30 text-sm mb-3">Want to see more debates? Browse all topics and start your own.</p>
+          <p className="text-white/30 text-sm mb-3">Want to see more debates? Browse all trending topics.</p>
           <Link href="/topics">
             <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
               Explore Topics
