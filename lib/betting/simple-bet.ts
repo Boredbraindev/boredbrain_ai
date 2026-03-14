@@ -1,5 +1,5 @@
 /**
- * Simple P2P Betting — abstracts the order book away.
+ * Simple P2P Trading — abstracts the order book away.
  * Users just pick YES/NO and amount. Agents provide liquidity.
  *
  * Currency: BBAI
@@ -144,7 +144,7 @@ const MOCK_MARKETS: MarketView[] = [
 // ─── Core Functions ─────────────────────────────────────────────────
 
 /**
- * Place a simple bet — user picks a side and amount, we handle the rest.
+ * Take a position — user picks a side and amount, we handle the rest.
  */
 export async function placeBet(input: {
   marketId: string;
@@ -211,7 +211,7 @@ export async function placeBet(input: {
 
   // Expected payout: shares x 97.5 BBAI (100 payout minus 2.5% fee)
   const expectedPayout = Math.round(totalFilled * 97.5);
-  const bpEarned = 10; // prediction_bet BP
+  const bpEarned = 10; // forecast_entry BP
 
   return {
     betId: result.orderId,
@@ -369,7 +369,7 @@ export async function getHotMarkets(limit: number = 10): Promise<MarketView[]> {
 }
 
 /**
- * Get a user's active bets with current P&L.
+ * Get a user's active positions with current P&L.
  */
 export async function getMyBets(walletAddress: string): Promise<Array<{
   market: { id: string; title: string; status: string };

@@ -19,6 +19,7 @@ import { WalletConnectButton } from '@/components/wallet-connect-button';
 interface NavItem {
   href: string;
   label: string;
+  status?: 'live' | 'beta' | 'coming_soon';
 }
 
 function NavDropdown({
@@ -57,20 +58,28 @@ function NavDropdown({
         className="min-w-[140px] lg:min-w-[160px] bg-background/95 backdrop-blur-xl border-white/[0.08]"
       >
         {items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + '/');
+          // Exact match only for dropdown items — prevents /agents matching /agents/register
+          const isActive = pathname === item.href;
           return (
             <DropdownMenuItem key={item.href} asChild>
               <Link
                 href={item.href}
                 className={cn(
-                  'text-[11px] lg:text-xs font-mono-wide tracking-widest cursor-pointer',
+                  'text-[11px] lg:text-xs font-mono-wide tracking-widest cursor-pointer flex items-center gap-1.5',
                   isActive
                     ? 'text-amber-brand font-semibold'
-                    : 'text-muted-foreground hover:text-foreground',
+                    : item.status === 'coming_soon'
+                      ? 'text-white/25'
+                      : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {item.label}
+                {item.status === 'beta' && (
+                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold leading-none">B</span>
+                )}
+                {item.status === 'coming_soon' && (
+                  <span className="text-[8px] text-white/20">🔒</span>
+                )}
               </Link>
             </DropdownMenuItem>
           );
@@ -94,31 +103,24 @@ const NAV_GROUPS = [
     items: [
       { href: '/agents', label: 'Agents' },
       { href: '/marketplace', label: 'Marketplace' },
-      { href: '/playground', label: 'Playground' },
       { href: '/agents/register', label: 'Register' },
-      { href: '/agents/tokenize', label: 'Tokenize' },
-      { href: '/playbooks', label: 'Playbooks' },
-      { href: '/prompts', label: 'Prompts' },
-      { href: '/integrations', label: 'Integrations' },
+      { href: '/playground', label: 'Playground', status: 'beta' as const },
     ],
   },
   {
     label: 'Economy',
     items: [
       { href: '/economy', label: 'Economy' },
-      { href: '/skills', label: 'Skills' },
-      { href: '/dao', label: 'DAO' },
-      { href: '/campaigns', label: 'Campaigns' },
-      { href: '/referrals', label: 'Referrals' },
+      { href: '/topup', label: 'Top Up' },
+      { href: '/rewards', label: 'Rewards', status: 'beta' as const },
     ],
   },
   {
     label: 'Ecosystem',
     items: [
       { href: '/openclaw', label: 'ClawHub' },
-      { href: '/network', label: 'Network' },
       { href: '/stats', label: 'Stats' },
-      { href: '/dashboard', label: 'Analytics' },
+      { href: '/docs', label: 'Docs' },
     ],
   },
 ];
@@ -227,21 +229,28 @@ export function GlobalNavbar() {
                 </p>
                 <div className="flex flex-col gap-0.5">
                   {group.items.map((item) => {
-                    const isActive =
-                      pathname === item.href ||
-                      pathname.startsWith(item.href + '/');
+                    // Exact match only for mobile menu items
+                    const isActive = pathname === item.href;
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'text-sm px-2 py-1.5 rounded-md transition-colors',
+                          'text-sm px-2 py-1.5 rounded-md transition-colors flex items-center gap-1.5',
                           isActive
                             ? 'text-amber-brand font-semibold bg-amber-brand/10'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]',
+                            : item.status === 'coming_soon'
+                              ? 'text-white/25'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]',
                         )}
                       >
                         {item.label}
+                        {item.status === 'beta' && (
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold leading-none">BETA</span>
+                        )}
+                        {item.status === 'coming_soon' && (
+                          <span className="text-[8px] text-white/20">🔒</span>
+                        )}
                       </Link>
                     );
                   })}

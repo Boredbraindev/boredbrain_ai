@@ -1,7 +1,11 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { externalAgent } from '@/lib/db/schema';
+import { externalAgent, userPoints } from '@/lib/db/schema';
+import { awardPoints } from '@/lib/points';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 import { getToolPrice } from '@/lib/tool-pricing';
 import {
@@ -38,6 +42,8 @@ interface AgentRecord {
   pricePerQuery: number;
   specialization?: string;
   isFleetAgent?: boolean;
+  invokeCost?: number;  // premium BP cost for user invocations
+  eloRating?: number;
 }
 
 const DISCOVERY_AGENTS: AgentRecord[] = [
@@ -115,6 +121,8 @@ async function findAgent(agentId: string): Promise<AgentRecord | null> {
         pricePerQuery: 10, // default for fleet agents
         specialization: agent.specialization ?? 'general',
         isFleetAgent: true,
+        invokeCost: agent.invokeCost ?? 0,
+        eloRating: agent.eloRating ?? 1200,
       };
     }
   } catch {
@@ -169,6 +177,7 @@ export async function POST(
     callerAgentId?: string;
     maxBudget?: number;
     tools?: string[];
+    walletAddress?: string; // user wallet for premium invoke BP deduction
   };
 
   try {
@@ -185,6 +194,34 @@ export async function POST(
   const callerAgentId = body.callerAgentId ?? null;
   const maxBudget = body.maxBudget ?? Infinity;
   const requestedTools = body.tools ?? null;
+  const walletAddress = body.walletAddress ?? null;
+
+  // -------------------------------------------------------------------------
+  // 2b. Premium invoke cost — charge BP if agent has invokeCost > 0
+  // -------------------------------------------------------------------------
+  const premiumCost = agentRecord.invokeCost ?? 0;
+  let premiumCharged = 0;
+
+  if (premiumCost > 0 && walletAddress) {
+    // Check user BP balance
+    const [userRow] = await db
+      .select({ totalBp: userPoints.totalBp })
+      .from(userPoints)
+      .where(eq(userPoints.walletAddress, walletAddress))
+      .limit(1);
+
+    const userBp = userRow?.totalBp ?? 0;
+    if (userBp < premiumCost) {
+      return apiError(
+        `This is a premium agent (${premiumCost} BP per call). You have ${userBp} BP.`,
+        402,
+      );
+    }
+
+    // Deduct BP
+    await awardPoints(walletAddress, 'agent_invoke_premium', agentId, -premiumCost);
+    premiumCharged = premiumCost;
+  }
 
   // -------------------------------------------------------------------------
   // 3. Resolve tools to execute
@@ -352,6 +389,7 @@ export async function POST(
     simulated: execution.simulated,
     toolCalls: execution.toolCalls ?? [],
     billing: billingInfo,
+    premiumCost: premiumCharged > 0 ? { charged: premiumCharged, unit: 'BP' } : undefined,
     meta: {
       latencyMs,
       timestamp: new Date().toISOString(),

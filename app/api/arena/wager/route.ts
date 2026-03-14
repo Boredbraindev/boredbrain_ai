@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest } from 'next/server';
 import { placeWager, getMatchWagerStats } from '@/lib/arena/wagering';
 import {
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     const result = await placeWager({ matchId, bettorId, bettorType, agentId, amount });
     return apiSuccess(result, 201);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to place wager';
+    const message = error instanceof Error ? error.message : 'Failed to place stake';
     return apiError(message, 400);
   }
 }
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
     const stats = await getMatchWagerStats(sanitizedMatchId);
     return apiSuccess(stats);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get wager stats';
+    const message = error instanceof Error ? error.message : 'Failed to get stake stats';
     return apiError(message, 500);
   }
 }

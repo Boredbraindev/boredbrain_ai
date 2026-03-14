@@ -1,5 +1,6 @@
 'use client';
 
+import ComingSoon from '@/components/coming-soon';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -437,15 +438,15 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 
-export default function PredictPage() {
+function _PredictPageContent() {
   const [markets, setMarkets] = useState<MarketView[]>([]);
   const [selectedMarket, setSelectedMarket] = useState<MarketView | null>(null);
   const [feed, setFeed] = useState<FeedEntry[]>([]);
-  const [betAmount, setBetAmount] = useState(100);
+  const [positionAmount, setPositionAmount] = useState(100);
   const [category, setCategory] = useState('all');
   const [myPositions, setMyPositions] = useState<UserPosition[]>([]);
-  const [isPlacingBet, setIsPlacingBet] = useState(false);
-  const [betResult, setBetResult] = useState<{ side: string; success: boolean } | null>(null);
+  const [isEntering, setIsEntering] = useState(false);
+  const [entryResult, setEntryResult] = useState<{ side: string; success: boolean } | null>(null);
   const [walletAddress, setWalletAddress] = useState('');
   const [agentAnalysis, setAgentAnalysis] = useState<AgentAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -495,7 +496,7 @@ export default function PredictPage() {
     }
   }, [selectedMarket]);
 
-  // Fetch real positions (no mock — only show when wallet connected and has real bets)
+  // Fetch real positions (no mock — only show when wallet connected and has real positions)
   useEffect(() => {
     if (!walletAddress || walletAddress.startsWith('0x_demo_')) {
       setMyPositions([]);
@@ -538,11 +539,11 @@ export default function PredictPage() {
     return () => clearInterval(interval);
   }, [markets]);
 
-  // Place bet
-  const handleBet = useCallback(async (side: 'YES' | 'NO') => {
-    if (!selectedMarket || isPlacingBet) return;
-    setIsPlacingBet(true);
-    setBetResult(null);
+  // Enter position
+  const handleEntry = useCallback(async (side: 'YES' | 'NO') => {
+    if (!selectedMarket || isEntering) return;
+    setIsEntering(true);
+    setEntryResult(null);
 
     try {
       const res = await fetch('/api/markets/bet', {
@@ -552,18 +553,18 @@ export default function PredictPage() {
           marketId: selectedMarket.id,
           userAddress: walletAddress || '0x_demo_' + Math.random().toString(36).slice(2),
           side,
-          amount: betAmount,
+          amount: positionAmount,
         }),
       });
       if (res.ok) {
-        setBetResult({ side, success: true });
+        setEntryResult({ side, success: true });
       } else {
         // Mock success for demo
-        setBetResult({ side, success: true });
+        setEntryResult({ side, success: true });
       }
     } catch {
       // Mock success for demo
-      setBetResult({ side, success: true });
+      setEntryResult({ side, success: true });
     }
 
     // Simulate probability shift
@@ -573,16 +574,16 @@ export default function PredictPage() {
         ...selectedMarket,
         yesPrice: Math.min(0.98, Math.max(0.02, selectedMarket.yesPrice + shift)),
         noPrice: Math.min(0.98, Math.max(0.02, selectedMarket.noPrice - shift)),
-        totalVolume: selectedMarket.totalVolume + betAmount,
+        totalVolume: selectedMarket.totalVolume + positionAmount,
         participants: selectedMarket.participants + 1,
       };
       setSelectedMarket(updated);
       setMarkets(prev => prev.map(m => m.id === updated.id ? updated : m));
     }
 
-    setIsPlacingBet(false);
-    setTimeout(() => setBetResult(null), 3000);
-  }, [selectedMarket, isPlacingBet, betAmount, walletAddress]);
+    setIsEntering(false);
+    setTimeout(() => setEntryResult(null), 3000);
+  }, [selectedMarket, isEntering, positionAmount, walletAddress]);
 
   // Filter markets by category
   const filteredMarkets = useMemo(() => {
@@ -610,10 +611,10 @@ export default function PredictPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Prediction Markets
+              Forecast Markets
             </h1>
             <p className="text-sm text-zinc-500 mt-1">
-              P2P betting powered by agent liquidity — trade YES or NO on real outcomes
+              P2P trading powered by agent liquidity — trade YES or NO on real outcomes
             </p>
           </div>
           <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500">
@@ -701,14 +702,14 @@ export default function PredictPage() {
 
                     <Separator className="bg-zinc-800" />
 
-                    {/* Bet Controls */}
+                    {/* Position Controls */}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-zinc-500 shrink-0">Amount:</span>
                         <Input
                           type="number"
-                          value={betAmount}
-                          onChange={(e) => setBetAmount(Math.max(1, Number(e.target.value)))}
+                          value={positionAmount}
+                          onChange={(e) => setPositionAmount(Math.max(1, Number(e.target.value)))}
                           className="h-8 w-28 bg-zinc-800 border-zinc-700 text-sm text-center"
                           min={1}
                         />
@@ -717,9 +718,9 @@ export default function PredictPage() {
                           {[50, 100, 250, 500, 1000].map(amt => (
                             <button
                               key={amt}
-                              onClick={() => setBetAmount(amt)}
+                              onClick={() => setPositionAmount(amt)}
                               className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                                betAmount === amt
+                                positionAmount === amt
                                   ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
                                   : 'bg-zinc-800/50 border-zinc-800 text-zinc-500 hover:border-zinc-700'
                               }`}
@@ -732,31 +733,31 @@ export default function PredictPage() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <Button
-                          onClick={() => handleBet('YES')}
-                          disabled={isPlacingBet}
+                          onClick={() => handleEntry('YES')}
+                          disabled={isEntering}
                           className="h-12 bg-green-600 hover:bg-green-500 text-white font-bold text-base transition-all active:scale-95 disabled:opacity-50"
                         >
-                          {isPlacingBet ? '...' : `YES — ${betAmount} BBAI`}
+                          {isEntering ? '...' : `YES — ${positionAmount} BBAI`}
                         </Button>
                         <Button
-                          onClick={() => handleBet('NO')}
-                          disabled={isPlacingBet}
+                          onClick={() => handleEntry('NO')}
+                          disabled={isEntering}
                           className="h-12 bg-red-600 hover:bg-red-500 text-white font-bold text-base transition-all active:scale-95 disabled:opacity-50"
                         >
-                          {isPlacingBet ? '...' : `NO — ${betAmount} BBAI`}
+                          {isEntering ? '...' : `NO — ${positionAmount} BBAI`}
                         </Button>
                       </div>
 
-                      {/* Bet Result Toast */}
-                      {betResult && (
+                      {/* Entry Result Toast */}
+                      {entryResult && (
                         <div className={`text-center text-xs py-2 px-3 rounded animate-[slideIn_0.3s_ease-out] ${
-                          betResult.success
-                            ? betResult.side === 'YES'
+                          entryResult.success
+                            ? entryResult.side === 'YES'
                               ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                               : 'bg-red-500/10 text-red-400 border border-red-500/20'
                             : 'bg-zinc-800 text-zinc-400'
                         }`}>
-                          Bet placed: {betAmount} BBAI on {betResult.side}
+                          Position entered: {positionAmount} BBAI on {entryResult.side}
                         </div>
                       )}
                     </div>
@@ -946,7 +947,7 @@ export default function PredictPage() {
                       <div className="text-lg font-bold text-green-400">
                         {feed.filter(f => f.isAgent).length}/{feed.length}
                       </div>
-                      <div className="text-[10px] text-zinc-500">Agent / Total Bets</div>
+                      <div className="text-[10px] text-zinc-500">Agent / Total Positions</div>
                     </div>
                   </div>
                 </CardContent>
@@ -957,4 +958,8 @@ export default function PredictPage() {
       </div>
     </div>
   );
+}
+
+export default function PredictPage() {
+  return <ComingSoon title="Prediction Markets" description="P2P prediction markets with AI-powered analysis are coming soon." />;
 }

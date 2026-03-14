@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 /**
  * POST /api/agents/heartbeat/schedule — Create QStash recurring schedule
  * DELETE /api/agents/heartbeat/schedule — Remove schedule

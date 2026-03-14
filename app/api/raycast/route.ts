@@ -10,8 +10,6 @@ const boredbrain = customProvider({
   },
 });
 
-export const maxDuration = 120;
-
 // Define separate system prompts for each group
 const groupSystemPrompts = {
   web: `You are Bored Brain for Raycast, a powerful AI web search assistant.

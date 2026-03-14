@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getToolPrice } from '@/lib/tool-pricing';
 import { db } from '@/lib/db';
@@ -52,7 +55,7 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
     const dbPromise = db
       .select()
       .from(externalAgent)
-      .where(sql`${externalAgent.status} in ('active', 'online', 'verified')`);
+      .where(sql`${externalAgent.status} in ('active', 'verified')`);
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('timeout')), 3000),
     );

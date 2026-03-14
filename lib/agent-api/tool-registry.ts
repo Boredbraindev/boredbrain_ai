@@ -11,7 +11,6 @@ import {
   youtubeSearchTool,
   retrieveTool,
   weatherTool,
-  codeInterpreterTool,
   findPlaceOnMapTool,
   nearbyPlacesSearchTool,
   flightTrackerTool,
@@ -138,15 +137,8 @@ export const toolRegistry: Record<string, ToolMeta> = {
     tool: weatherTool,
     requiresStreaming: false,
   },
-  code_interpreter: {
-    name: 'code_interpreter',
-    description: 'Execute code in a sandboxed environment (Python, JS, etc.)',
-    category: 'utility',
-    pricePerCall: 25,
-    rateLimit: 10,
-    tool: codeInterpreterTool,
-    requiresStreaming: false,
-  },
+  // code_interpreter: Removed — requires Daytona SDK which causes build-time issues.
+  // Import directly from '@/lib/tools/code-interpreter' if needed at runtime.
   find_place_on_map: {
     name: 'find_place_on_map',
     description: 'Find places on a map with coordinates and details',

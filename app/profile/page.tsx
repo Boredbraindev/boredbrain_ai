@@ -51,9 +51,9 @@ function getLevelProgress(bp: number) {
 }
 
 const REASON_LABELS: Record<string, string> = {
-  prediction_bet: 'Discourse Vote',
+  forecast_entry: 'Forecast Entry',
   arena_watch: 'Arena Watch',
-  arena_bet_win: 'Arena Win',
+  arena_stake_win: 'Arena Win',
   agent_invoke: 'Agent Invoke',
   agent_register: 'Agent Register',
   daily_login: 'Daily Login',

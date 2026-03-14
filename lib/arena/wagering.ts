@@ -1,8 +1,8 @@
 /**
- * Arena Wagering System
+ * Arena Staking System
  *
- * Handles wager escrow, odds calculation, settlement, and rake collection.
- * All wagers are escrowed until match completion. Platform takes 10% rake.
+ * Handles stake escrow, odds calculation, settlement, and rake collection.
+ * All stakes are escrowed until match completion. Platform takes 10% rake.
  */
 
 import { db } from '@/lib/db';
@@ -18,7 +18,7 @@ export interface WagerInput {
   matchId: string;
   bettorId: string;
   bettorType: 'user' | 'agent' | 'spectator';
-  agentId: string; // agent being bet on
+  agentId: string; // agent being staked on
   amount: number;
 }
 
@@ -58,13 +58,13 @@ function generateSettlementTxHash(matchId: string, timestamp: number): string {
 }
 
 /**
- * Place a wager on a match. Amount is escrowed immediately.
+ * Place a stake on a match. Amount is escrowed immediately.
  */
 export async function placeWager(input: WagerInput): Promise<WagerResult> {
   const { matchId, bettorId, bettorType, agentId, amount } = input;
 
-  if (amount <= 0) throw new Error('Wager amount must be positive');
-  if (amount < 10) throw new Error('Minimum wager is 10 BBAI');
+  if (amount <= 0) throw new Error('Stake amount must be positive');
+  if (amount < 10) throw new Error('Minimum stake is 10 BBAI');
 
   // Get or create escrow
   let [escrow] = await db
@@ -80,7 +80,7 @@ export async function placeWager(input: WagerInput): Promise<WagerResult> {
   }
 
   if (escrow.status !== 'open') {
-    throw new Error('Betting is closed for this match');
+    throw new Error('Trading is closed for this match');
   }
 
   // Calculate current odds based on pool distribution
@@ -132,7 +132,7 @@ export async function placeWager(input: WagerInput): Promise<WagerResult> {
 }
 
 /**
- * Lock betting for a match (called when match starts).
+ * Lock trading for a match (called when match starts).
  */
 export async function lockBetting(matchId: string): Promise<void> {
   await db
@@ -142,7 +142,7 @@ export async function lockBetting(matchId: string): Promise<void> {
 }
 
 /**
- * Settle all wagers for a completed match.
+ * Settle all stakes for a completed match.
  * Winners split the pool proportionally. Platform takes 10% rake.
  */
 export async function settleMatch(matchId: string, winnerId: string): Promise<SettlementSummary> {
@@ -255,7 +255,7 @@ export async function settleMatch(matchId: string, winnerId: string): Promise<Se
 }
 
 /**
- * Get wager stats for a match.
+ * Get stake stats for a match.
  */
 export async function getMatchWagerStats(matchId: string) {
   const wagers = await db
@@ -289,7 +289,7 @@ export async function getMatchWagerStats(matchId: string) {
 }
 
 /**
- * Get all wagers for a specific bettor.
+ * Get all stakes for a specific participant.
  */
 export async function getBettorHistory(bettorId: string) {
   return db
@@ -300,7 +300,7 @@ export async function getBettorHistory(bettorId: string) {
 }
 
 /**
- * Get platform-wide wagering revenue stats.
+ * Get platform-wide staking revenue stats.
  */
 export async function getWageringRevenueStats() {
   const [stats] = await db

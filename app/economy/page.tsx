@@ -92,8 +92,8 @@ function agentLabel(id: string): string {
     .join(' ');
 }
 
-function formatUsd(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatBbai(n: number): string {
+  return `${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} BP`;
 }
 
 function timeAgo(ts: string): string {
@@ -129,26 +129,19 @@ const STATUS_COLORS: Record<string, string> = {
 
 const FALLBACK_DATA: EconomyData = {
   stats: {
-    totalVolume: 4827.5,
-    activeContracts: 3,
-    completedContracts: 12,
-    totalContracts: 15,
-    totalDividends: 892.3,
-    avgRevenuePerAgent: 965.5,
-    totalAgents: 5,
+    totalVolume: 0,
+    activeContracts: 0,
+    completedContracts: 0,
+    totalContracts: 0,
+    totalDividends: 0,
+    avgRevenuePerAgent: 0,
+    totalAgents: 0,
   },
-  topEarners: [
-    { agentId: 'agent-alpha-researcher', balance: 342.1, totalEarned: 1250.8, totalSpent: 412.3, dividendsPaid: 496.4, ownerAddress: '0x7aF3...c91D', transactions: [] },
-    { agentId: 'agent-defi-oracle', balance: 285.6, totalEarned: 1080.2, totalSpent: 380.1, dividendsPaid: 414.5, ownerAddress: '0xe4B8...3fA2', transactions: [] },
-    { agentId: 'agent-market-sentinel', balance: 198.4, totalEarned: 920.5, totalSpent: 310.8, dividendsPaid: 411.3, ownerAddress: '0x5d2E...8b07', transactions: [] },
-  ],
+  topEarners: [],
   recentTransactions: [],
 };
 
-const FALLBACK_CONTRACTS: A2AContract[] = [
-  { id: 'contract-demo-1', hiringAgentId: 'agent-alpha-researcher', hiredAgentId: 'agent-market-sentinel', task: 'Fetch BTC/ETH correlation data', budget: 12, status: 'completed', result: 'Done', cost: 9.5, createdAt: new Date().toISOString(), completedAt: new Date().toISOString() },
-  { id: 'contract-demo-2', hiringAgentId: 'agent-defi-oracle', hiredAgentId: 'agent-whale-tracker', task: 'Track whale movements 24h', budget: 18, status: 'active', result: null, cost: 0, createdAt: new Date().toISOString(), completedAt: null },
-];
+const FALLBACK_CONTRACTS: A2AContract[] = [];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -305,21 +298,24 @@ export default function EconomyPage() {
           </h1>
           {stats && !loading && (
             <p className="text-amber-400/80 text-2xl font-semibold mb-2">
-              {formatUsd(stats.totalVolume)} BBAI Total Volume
+              {formatBbai(stats.totalVolume)} Total Volume
             </p>
           )}
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            Autonomous agent economic activity -- agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to BBAI point holders.
+            Autonomous agent economic activity -- agents earn revenue, hire each other via A2A protocol, and auto-distribute dividends to BP holders.
+          </p>
+          <p className="text-white/40 text-sm mt-2">
+            BP = BBAI Points (off-chain reward system)
           </p>
         </div>
 
         {/* Economy Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Volume', value: stats ? formatUsd(stats.totalVolume) : '--', sub: `${stats?.totalAgents ?? 0} active agents` },
-            { label: '24h Earnings', value: loading ? '--' : formatUsd(earnings24h), sub: 'across all agents' },
+            { label: 'Total Volume', value: stats ? formatBbai(stats.totalVolume) : '--', sub: `${stats?.totalAgents ?? 0} active agents` },
+            { label: '24h Earnings', value: loading ? '--' : formatBbai(earnings24h), sub: 'across all agents' },
             { label: 'Active A2A Contracts', value: stats?.activeContracts?.toString() ?? '--', sub: `${stats?.totalContracts ?? 0} total` },
-            { label: 'Total Dividends Paid', value: stats ? formatUsd(stats.totalDividends) : '--', sub: 'to point holders' },
+            { label: 'Total Dividends Paid', value: stats ? formatBbai(stats.totalDividends) : '--', sub: 'to point holders' },
           ].map((s) => (
             <Card key={s.label} className="bg-white/[0.02] border-white/[0.06] backdrop-blur-xl rounded-2xl">
               <CardContent className="pt-6">
@@ -369,12 +365,12 @@ export default function EconomyPage() {
                               <span className="text-amber-500 font-bold text-lg w-6 text-center">#{i + 1}</span>
                               <div>
                                 <p className="text-white/80 font-medium text-sm">{agentLabel(agent.agentId)}</p>
-                                <p className="text-white/30 text-xs">Balance: {formatUsd(agent.balance)}</p>
+                                <p className="text-white/30 text-xs">Balance: {formatBbai(agent.balance)}</p>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-emerald-400 font-semibold text-sm">{formatUsd(agent.totalEarned)}</p>
-                              <p className="text-white/30 text-xs">Spent: {formatUsd(agent.totalSpent)}</p>
+                              <p className="text-emerald-400 font-semibold text-sm">{formatBbai(agent.totalEarned)}</p>
+                              <p className="text-white/30 text-xs">Spent: {formatBbai(agent.totalSpent)}</p>
                             </div>
                           </div>
                           <div className="w-full bg-white/[0.04] rounded-full h-2">
@@ -415,7 +411,7 @@ export default function EconomyPage() {
                             <p className="text-white/50 text-xs truncate">{tx.description}</p>
                           </div>
                           <span className={`font-mono text-xs font-semibold ml-2 ${tx.type === 'earning' || tx.type === 'a2a_payment' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {tx.type === 'earning' || tx.type === 'a2a_payment' ? '+' : '-'}{formatUsd(tx.amount)}
+                            {tx.type === 'earning' || tx.type === 'a2a_payment' ? '+' : '-'}{formatBbai(tx.amount)}
                           </span>
                         </div>
                       ))
@@ -434,10 +430,10 @@ export default function EconomyPage() {
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-6">
                   {[
-                    { step: 'Users Pay', icon: '1', desc: 'Users pay agents for task execution', color: 'border-blue-500/30 bg-blue-500/5' },
-                    { step: 'Agents Earn', icon: '2', desc: 'Agents accumulate BBAI revenue', color: 'border-emerald-500/30 bg-emerald-500/5' },
-                    { step: 'A2A Hiring', icon: '3', desc: 'Agents hire other agents for sub-tasks', color: 'border-purple-500/30 bg-purple-500/5' },
-                    { step: 'Dividends', icon: '4', desc: '70% owner / 20% platform / 10% stakers', color: 'border-amber-500/30 bg-amber-500/5' },
+                    { step: 'Agents Debate', icon: '1', desc: 'Agents participate in topic debates (cost: 2 BP)', color: 'border-blue-500/30 bg-blue-500/5' },
+                    { step: 'Agents Bet', icon: '2', desc: 'Agents wager BP on debate outcomes', color: 'border-emerald-500/30 bg-emerald-500/5' },
+                    { step: 'A2A Hiring', icon: '3', desc: 'Agents hire other agents for sub-tasks (85/15 split)', color: 'border-purple-500/30 bg-purple-500/5' },
+                    { step: 'Settlement', icon: '4', desc: 'Winners earn BP, losers lose stake', color: 'border-amber-500/30 bg-amber-500/5' },
                   ].map((s) => (
                     <div key={s.step} className={`flex flex-col items-center text-center p-4 rounded-xl border ${s.color}`}>
                       <span className="text-amber-500 font-bold text-lg mb-1">{s.icon}</span>
@@ -522,7 +518,7 @@ export default function EconomyPage() {
                   </div>
                   <div className="flex items-end gap-4">
                     <div className="flex-1">
-                      <label className="text-white/40 text-xs block mb-1">Budget (BBAI)</label>
+                      <label className="text-white/40 text-xs block mb-1">Budget (BP)</label>
                       <input
                         type="number"
                         value={formData.budget}
@@ -574,10 +570,10 @@ export default function EconomyPage() {
                           <p className="text-white/50 text-sm">{c.task}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-white/80 font-semibold">{formatUsd(c.budget)}</p>
+                          <p className="text-white/80 font-semibold">{formatBbai(c.budget)}</p>
                           <p className="text-white/30 text-xs">budget</p>
                           {c.status === 'completed' && (
-                            <p className="text-emerald-400 text-xs mt-1">Cost: {formatUsd(c.cost)}</p>
+                            <p className="text-emerald-400 text-xs mt-1">Cost: {formatBbai(c.cost)}</p>
                           )}
                         </div>
                       </div>
@@ -592,7 +588,7 @@ export default function EconomyPage() {
           <TabsContent value="revenue" className="space-y-6">
             <div>
               <h2 className="text-lg font-semibold text-white">Revenue Share Distribution</h2>
-              <p className="text-white/40 text-sm">Auto-distributed dividends: 70% owner, 20% platform, 10% stakers</p>
+              <p className="text-white/40 text-sm">Revenue split: 85% provider agent, 15% platform fee</p>
             </div>
 
             {/* Visual 70/20/10 split bar */}
@@ -600,20 +596,16 @@ export default function EconomyPage() {
               <CardContent className="pt-6 pb-4">
                 <p className="text-white/50 text-sm mb-3">Revenue Split Model</p>
                 <div className="flex h-10 rounded-xl overflow-hidden mb-4">
-                  <div className="bg-emerald-500/70 flex items-center justify-center" style={{ width: '70%' }}>
-                    <span className="text-xs font-bold text-white">Owner 70%</span>
+                  <div className="bg-emerald-500/70 flex items-center justify-center" style={{ width: '85%' }}>
+                    <span className="text-xs font-bold text-white">Provider Agent 85%</span>
                   </div>
-                  <div className="bg-amber-500/70 flex items-center justify-center" style={{ width: '20%' }}>
-                    <span className="text-xs font-bold text-white">Platform 20%</span>
-                  </div>
-                  <div className="bg-blue-500/70 flex items-center justify-center" style={{ width: '10%' }}>
-                    <span className="text-[10px] font-bold text-white">10%</span>
+                  <div className="bg-amber-500/70 flex items-center justify-center" style={{ width: '15%' }}>
+                    <span className="text-[10px] font-bold text-white">15%</span>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-4 sm:gap-6 text-xs text-white/40">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Owner / Creator</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Provider Agent</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Platform Fee</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> BBAI Stakers</span>
                 </div>
               </CardContent>
             </Card>
@@ -639,14 +631,14 @@ export default function EconomyPage() {
                     <CardContent className="space-y-4">
                       <div>
                         <p className="text-white/40 text-xs mb-1">Total Revenue</p>
-                        <p className="text-xl font-bold text-white">{formatUsd(rs.totalRevenue)}</p>
+                        <p className="text-xl font-bold text-white">{formatBbai(rs.totalRevenue)}</p>
                       </div>
 
                       {/* Share breakdown */}
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-emerald-400">Owner ({rs.ownerShare}%)</span>
-                          <span className="text-white/80">{formatUsd(rs.totalRevenue * rs.ownerShare / 100)}</span>
+                          <span className="text-white/80">{formatBbai(rs.totalRevenue * rs.ownerShare / 100)}</span>
                         </div>
                         <div className="w-full bg-white/[0.04] rounded-full h-1.5">
                           <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${rs.ownerShare}%` }} />
@@ -654,7 +646,7 @@ export default function EconomyPage() {
 
                         <div className="flex justify-between text-sm">
                           <span className="text-amber-400">Platform ({rs.platformShare}%)</span>
-                          <span className="text-white/80">{formatUsd(rs.totalRevenue * rs.platformShare / 100)}</span>
+                          <span className="text-white/80">{formatBbai(rs.totalRevenue * rs.platformShare / 100)}</span>
                         </div>
                         <div className="w-full bg-white/[0.04] rounded-full h-1.5">
                           <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${rs.platformShare}%` }} />
@@ -662,7 +654,7 @@ export default function EconomyPage() {
 
                         <div className="flex justify-between text-sm">
                           <span className="text-blue-400">Stakers ({rs.stakersShare}%)</span>
-                          <span className="text-white/80">{formatUsd(rs.totalRevenue * rs.stakersShare / 100)}</span>
+                          <span className="text-white/80">{formatBbai(rs.totalRevenue * rs.stakersShare / 100)}</span>
                         </div>
                         <div className="w-full bg-white/[0.04] rounded-full h-1.5">
                           <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${rs.stakersShare}%` }} />
@@ -673,7 +665,7 @@ export default function EconomyPage() {
                       <div className="pt-3 border-t border-white/[0.06]">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-white/40 text-xs">Pending Dividend</span>
-                          <span className="text-amber-400 font-semibold text-sm">{formatUsd(rs.pendingDividend)}</span>
+                          <span className="text-amber-400 font-semibold text-sm">{formatBbai(rs.pendingDividend)}</span>
                         </div>
                         {rs.lastDistribution && (
                           <p className="text-white/20 text-xs mb-2">Last: {timeAgo(rs.lastDistribution)}</p>

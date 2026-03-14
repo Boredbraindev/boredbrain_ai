@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import { externalAgent } from '@/lib/db/schema';
-import { desc } from 'drizzle-orm';
-import { apiSuccess, apiError } from '@/lib/api-utils';
+export const runtime = 'edge';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 
 /**
  * GET /api/leaderboard - Agent leaderboard rankings.
@@ -23,51 +22,50 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category') || 'agents';
   const period = searchParams.get('period') || 'all';
 
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return NextResponse.json({ success: true, data: { agents: [], total: 0, category, period } });
+  }
+
   try {
-    // Determine sort column based on category
-    let orderColumn;
+    const sql = neon(dbUrl);
+
+    let orderClause: string;
     switch (category) {
       case 'battles':
-        orderColumn = desc(externalAgent.eloRating);
+        orderClause = 'elo_rating DESC NULLS LAST';
         break;
       case 'earnings':
-        orderColumn = desc(externalAgent.totalEarned);
+        orderClause = 'total_earned DESC NULLS LAST';
         break;
       case 'agents':
       default:
-        orderColumn = desc(externalAgent.totalCalls);
+        orderClause = 'total_executions DESC NULLS LAST';
         break;
     }
 
-    // DB-first with 3s timeout
-    const dbPromise = db
-      .select()
-      .from(externalAgent)
-      .orderBy(orderColumn)
-      .limit(50);
+    const rows = await sql(`
+      SELECT id, name, description, specialization, status, rating,
+             elo_rating, total_executions, total_earned, registered_at, owner_address
+      FROM external_agent
+      ORDER BY ${orderClause}
+      LIMIT 50
+    `);
 
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 3000),
-    );
-
-    const rows = await Promise.race([dbPromise, timeout]);
-
-    // Map to the shape the leaderboard page expects
-    const agents = rows.map((row, i) => ({
+    const agents = rows.map((row: Record<string, unknown>, i: number) => ({
       id: row.id,
       name: row.name,
       specialization: row.specialization,
       avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
-      earnings: row.totalEarned,
-      apiCalls: row.totalCalls,
-      arenaWins: Math.round((row.eloRating - 900) * 0.08),
-      elo: row.eloRating,
+      earnings: row.total_earned,
+      apiCalls: row.total_executions,
+      arenaWins: Math.round(((row.elo_rating as number) - 900) * 0.08),
+      elo: row.elo_rating,
       active: row.status === 'active',
     }));
 
-    return apiSuccess({ agents, total: agents.length, category, period });
+    return NextResponse.json({ success: true, data: { agents, total: agents.length, category, period } });
   } catch {
-    // Fallback to empty array — the page will use its showcase generator
-    return apiSuccess({ agents: [], total: 0, category, period });
+    return NextResponse.json({ success: true, data: { agents: [], total: 0, category, period } });
   }
 }

@@ -68,236 +68,6 @@ function getCategoryColor(cat: string) {
   return CATEGORY_COLORS[cat] || 'bg-white/10 text-white/60 border-white/10';
 }
 
-// ─── Mock Topics ─────────────────────────────────────────────────────────────
-
-const MOCK_TOPICS: Topic[] = [
-  {
-    id: 'topic-001',
-    title: 'Will the Fed cut rates in April?',
-    description: 'Federal Reserve interest rate decision for the April FOMC meeting. Markets are split on whether cooling inflation data warrants a cut.',
-    category: 'Macro',
-    volume: '187M Vol',
-    volumeNum: 187000000,
-    outcomes: [{ label: 'Yes — Cut', percent: 58 }, { label: 'No — Hold', percent: 42 }],
-    debateStatus: 'live',
-    debateId: 'debate-001',
-    endDate: '2026-04-15',
-    participantCount: 14520,
-    featured: true,
-  },
-  {
-    id: 'topic-002',
-    title: 'Champions League Winner 2026',
-    description: 'Which club will lift the Champions League trophy this season? Real Madrid seeking back-to-back titles.',
-    category: 'Sports',
-    volume: '274M Vol',
-    volumeNum: 274000000,
-    outcomes: [{ label: 'Real Madrid', percent: 32 }, { label: 'Man City', percent: 28 }, { label: 'Bayern', percent: 18 }, { label: 'Other', percent: 22 }],
-    debateStatus: 'live',
-    debateId: 'debate-002',
-    endDate: '2026-06-01',
-    participantCount: 32100,
-    featured: true,
-  },
-  {
-    id: 'topic-003',
-    title: 'Bitcoin above $100K by April?',
-    description: 'Will Bitcoin break and sustain above the $100,000 psychological level before end of April 2026?',
-    category: 'Crypto',
-    volume: '45M Vol',
-    volumeNum: 45000000,
-    outcomes: [{ label: 'Yes', percent: 44 }, { label: 'No', percent: 56 }],
-    debateStatus: 'live',
-    debateId: 'debate-003',
-    endDate: '2026-04-30',
-    participantCount: 8740,
-  },
-  {
-    id: 'topic-004',
-    title: 'Nvidia Earnings Beat Q1 2026?',
-    description: 'Will Nvidia exceed Wall Street consensus estimates for Q1 2026 earnings?',
-    category: 'Finance',
-    volume: '32M Vol',
-    volumeNum: 32000000,
-    outcomes: [{ label: 'Beat', percent: 72 }, { label: 'Miss', percent: 28 }],
-    debateStatus: 'none',
-    endDate: '2026-04-25',
-    participantCount: 5430,
-  },
-  {
-    id: 'topic-005',
-    title: 'Iran Ceasefire Deal by May?',
-    description: 'Will a comprehensive ceasefire agreement be reached in the Iran conflict before May 2026?',
-    category: 'Geopolitics',
-    volume: '98M Vol',
-    volumeNum: 98000000,
-    outcomes: [{ label: 'Yes', percent: 61 }, { label: 'No', percent: 39 }],
-    debateStatus: 'none',
-    endDate: '2026-05-01',
-    participantCount: 11200,
-  },
-  {
-    id: 'topic-006',
-    title: 'ETH/BTC Ratio above 0.05 by Q2?',
-    description: 'Will the ETH/BTC trading pair return above the 0.05 ratio before the end of Q2 2026?',
-    category: 'Crypto',
-    volume: '21M Vol',
-    volumeNum: 21000000,
-    outcomes: [{ label: 'Yes', percent: 35 }, { label: 'No', percent: 65 }],
-    debateStatus: 'completed',
-    debateId: 'debate-005',
-    endDate: '2026-06-30',
-    participantCount: 3280,
-  },
-  {
-    id: 'topic-007',
-    title: 'Apple Vision Pro 2 Announced in 2026?',
-    description: 'Will Apple officially announce the second generation of Vision Pro hardware during 2026?',
-    category: 'Tech',
-    volume: '14M Vol',
-    volumeNum: 14000000,
-    outcomes: [{ label: 'Yes', percent: 67 }, { label: 'No', percent: 33 }],
-    debateStatus: 'none',
-    endDate: '2026-12-31',
-    participantCount: 2890,
-  },
-  {
-    id: 'topic-008',
-    title: 'OpenAI IPO before 2027?',
-    description: 'Will OpenAI complete an initial public offering or direct listing before January 1, 2027?',
-    category: 'Tech',
-    volume: '52M Vol',
-    volumeNum: 52000000,
-    outcomes: [{ label: 'Yes', percent: 41 }, { label: 'No', percent: 59 }],
-    debateStatus: 'live',
-    debateId: 'debate-004',
-    endDate: '2026-12-31',
-    participantCount: 7650,
-  },
-  {
-    id: 'topic-009',
-    title: 'GPT-5 Released by June 2026?',
-    description: 'Will OpenAI release GPT-5 (or its successor model) to the public before June 30, 2026?',
-    category: 'AI',
-    volume: '38M Vol',
-    volumeNum: 38000000,
-    outcomes: [{ label: 'Yes', percent: 55 }, { label: 'No', percent: 45 }],
-    debateStatus: 'upcoming',
-    endDate: '2026-06-30',
-    participantCount: 6120,
-  },
-  {
-    id: 'topic-010',
-    title: 'Solana TVL exceeds $20B?',
-    description: 'Will total value locked on Solana exceed $20 billion USD before the end of Q2 2026?',
-    category: 'Crypto',
-    volume: '18M Vol',
-    volumeNum: 18000000,
-    outcomes: [{ label: 'Yes', percent: 48 }, { label: 'No', percent: 52 }],
-    debateStatus: 'none',
-    endDate: '2026-06-30',
-    participantCount: 4350,
-  },
-  {
-    id: 'topic-011',
-    title: 'US National Debt exceeds $37T?',
-    description: 'Will US national debt cross the $37 trillion mark before July 2026?',
-    category: 'Macro',
-    volume: '29M Vol',
-    volumeNum: 29000000,
-    outcomes: [{ label: 'Yes', percent: 82 }, { label: 'No', percent: 18 }],
-    debateStatus: 'none',
-    endDate: '2026-07-01',
-    participantCount: 3890,
-  },
-  {
-    id: 'topic-012',
-    title: 'Tesla Robotaxi Launch in 2026?',
-    description: 'Will Tesla launch a commercial robotaxi service in any US city during 2026?',
-    category: 'Tech',
-    volume: '67M Vol',
-    volumeNum: 67000000,
-    outcomes: [{ label: 'Yes', percent: 29 }, { label: 'No', percent: 71 }],
-    debateStatus: 'completed',
-    debateId: 'debate-006',
-    endDate: '2026-12-31',
-    participantCount: 9100,
-  },
-  {
-    id: 'topic-013',
-    title: 'World Cup 2026 — Will USA reach semis?',
-    description: 'Will the United States men\'s national team reach the semifinal round of the 2026 FIFA World Cup?',
-    category: 'Sports',
-    volume: '156M Vol',
-    volumeNum: 156000000,
-    outcomes: [{ label: 'Yes', percent: 22 }, { label: 'No', percent: 78 }],
-    debateStatus: 'none',
-    endDate: '2026-07-19',
-    participantCount: 18700,
-  },
-  {
-    id: 'topic-014',
-    title: 'AGI Achieved by 2027?',
-    description: 'Will any AI lab credibly claim to have achieved artificial general intelligence before 2027?',
-    category: 'AI',
-    volume: '44M Vol',
-    volumeNum: 44000000,
-    outcomes: [{ label: 'Yes', percent: 12 }, { label: 'No', percent: 88 }],
-    debateStatus: 'live',
-    debateId: 'debate-007',
-    endDate: '2026-12-31',
-    participantCount: 12400,
-  },
-  {
-    id: 'topic-015',
-    title: 'Spot ETH ETF Staking Approval?',
-    description: 'Will the SEC approve staking for spot Ethereum ETFs in 2026?',
-    category: 'Crypto',
-    volume: '31M Vol',
-    volumeNum: 31000000,
-    outcomes: [{ label: 'Yes', percent: 64 }, { label: 'No', percent: 36 }],
-    debateStatus: 'none',
-    endDate: '2026-12-31',
-    participantCount: 5670,
-  },
-  {
-    id: 'topic-016',
-    title: 'CRISPR Gene Therapy FDA Approval?',
-    description: 'Will a new CRISPR-based gene therapy receive FDA approval in 2026?',
-    category: 'Science',
-    volume: '8M Vol',
-    volumeNum: 8000000,
-    outcomes: [{ label: 'Yes', percent: 73 }, { label: 'No', percent: 27 }],
-    debateStatus: 'none',
-    endDate: '2026-12-31',
-    participantCount: 1840,
-  },
-  {
-    id: 'topic-017',
-    title: 'K-Pop group breaks Billboard record?',
-    description: 'Will any K-Pop group break the record for most consecutive weeks at #1 on Billboard Hot 100 in 2026?',
-    category: 'Culture',
-    volume: '5M Vol',
-    volumeNum: 5000000,
-    outcomes: [{ label: 'Yes', percent: 38 }, { label: 'No', percent: 62 }],
-    debateStatus: 'none',
-    endDate: '2026-12-31',
-    participantCount: 2100,
-  },
-  {
-    id: 'topic-018',
-    title: 'S&P 500 above 6000 by June?',
-    description: 'Will the S&P 500 index close above 6,000 points before July 1, 2026?',
-    category: 'Finance',
-    volume: '89M Vol',
-    volumeNum: 89000000,
-    outcomes: [{ label: 'Yes', percent: 51 }, { label: 'No', percent: 49 }],
-    debateStatus: 'upcoming',
-    endDate: '2026-07-01',
-    participantCount: 7200,
-  },
-];
-
 // ─── PulsingDot ──────────────────────────────────────────────────────────────
 
 function PulsingDot() {
@@ -481,50 +251,50 @@ function FeaturedTopicCard({ topic }: { topic: Topic }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function TopicsPage() {
-  const [topics, setTopics] = useState<Topic[]>(MOCK_TOPICS);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('volume');
 
-  // Fetch from API with mock fallback — transform Polymarket format
+  // Fetch real topics from API
   useEffect(() => {
     async function fetchTopics() {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch('/api/topics', { signal: controller.signal });
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('/api/topics?type=debates&limit=30', { signal: controller.signal });
         clearTimeout(timer);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.topics?.length > 0) {
-            const transformed: Topic[] = data.topics.map((t: Record<string, unknown>, idx: number) => {
-              const rawOutcomes = Array.isArray(t.outcomes) ? t.outcomes : [];
-              const rawPercentages = Array.isArray(t.percentages) ? t.percentages : [];
-              const outcomes: TopicOutcome[] = rawOutcomes.map((o: unknown, i: number) => {
-                if (typeof o === 'object' && o !== null && 'label' in o) {
-                  return o as TopicOutcome;
-                }
-                return { label: String(o ?? 'Option'), percent: Number(rawPercentages[i]) || 0 };
-              }).slice(0, 6);
-              return {
-                id: String(t.id ?? `api-${idx}`),
-                title: String(t.title ?? ''),
-                description: String(t.title ?? ''),
-                category: typeof t.category === 'string' ? t.category : 'General',
-                volume: String(t.volume ?? '$0'),
-                volumeNum: Number(t.volumeRaw ?? t.volumeNum) || 0,
-                outcomes,
-                debateStatus: 'none' as const,
-                endDate: String(t.endDate ?? '2026-12-31'),
-                participantCount: 0,
-                featured: Number(t.volumeRaw ?? 0) > 100_000_000,
-              };
-            });
-            setTopics(transformed);
-          }
-        }
+        if (!res.ok) return;
+        const data = await res.json();
+        // API returns { debates: [...] } not { topics: [...] }
+        const debatesList = data.debates ?? data.topics ?? [];
+        if (!debatesList.length) return;
+        const transformed: Topic[] = debatesList.map((t: Record<string, unknown>, idx: number) => {
+          const status = String(t.status ?? 'open');
+          const debateStatus = status === 'open' ? 'live' : status === 'completed' ? 'completed' : 'none';
+          const participants = Number(t.totalParticipants ?? 0);
+          const outcomes: TopicOutcome[] = [
+            { label: 'For', percent: participants > 0 ? 55 : 50 },
+            { label: 'Against', percent: participants > 0 ? 45 : 50 },
+          ];
+          return {
+            id: String(t.id ?? `api-${idx}`),
+            title: String(t.topic ?? t.title ?? ''),
+            description: String(t.topic ?? t.title ?? ''),
+            category: typeof t.category === 'string' ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : 'General',
+            volume: `${participants} agents`,
+            volumeNum: participants,
+            outcomes,
+            debateStatus: debateStatus as Topic['debateStatus'],
+            debateId: String(t.id ?? ''),
+            endDate: String(t.closesAt ?? '2026-12-31'),
+            participantCount: participants,
+            featured: participants >= 25,
+          };
+        });
+        setTopics(transformed);
       } catch {
-        // use mock data
+        // Network error or timeout — leave topics empty
       }
     }
     fetchTopics();
@@ -686,32 +456,50 @@ export default function TopicsPage() {
           </div>
         </div>
 
-        {/* ─── Topic Grid ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          {filtered.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
-          ))}
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-16">
-            <span className="text-4xl block mb-3">🔍</span>
-            <p className="text-white/40 text-sm">No topics found matching your filters.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3 text-amber-400 hover:text-amber-300"
-              onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
-            >
-              Clear Filters
-            </Button>
+        {/* ─── Empty State ──────────────────────────────────────────────────── */}
+        {topics.length === 0 && (
+          <div className="flex items-center justify-center py-20">
+            <Card className="border-white/[0.08] bg-white/[0.03] max-w-md w-full">
+              <CardContent className="p-8 text-center">
+                <span className="text-4xl block mb-4">🌐</span>
+                <p className="text-white/50 text-sm leading-relaxed">
+                  No topics yet. New debates are created regularly — check back soon.
+                </p>
+              </CardContent>
+            </Card>
           </div>
+        )}
+
+        {/* ─── Topic Grid ──────────────────────────────────────────────────── */}
+        {topics.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+              {filtered.map((topic) => (
+                <TopicCard key={topic.id} topic={topic} />
+              ))}
+            </div>
+
+            {filtered.length === 0 && (
+              <div className="text-center py-16">
+                <span className="text-4xl block mb-3">🔍</span>
+                <p className="text-white/40 text-sm">No topics found matching your filters.</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 text-amber-400 hover:text-amber-300"
+                  onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* ─── Footer ──────────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
           <p className="text-white/20 text-xs mb-4">
-            Debates are created automatically by AI agents during heartbeat cycles.
+            Debates are created automatically by AI agents around the clock.
           </p>
           <p className="text-white/30 text-sm mb-3">
             {totalParticipants.toLocaleString()} participants across {topics.length} topics

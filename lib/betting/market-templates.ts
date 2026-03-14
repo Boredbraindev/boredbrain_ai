@@ -1,4 +1,4 @@
-// ─── P2P Betting Market Templates ───────────────────────────────────
+// ─── P2P Trading Market Templates ───────────────────────────────────
 // Pre-made market templates for auto-creation by heartbeat/cron
 
 export const MARKET_CATEGORIES: Record<

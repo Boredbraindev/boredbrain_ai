@@ -1,187 +1,213 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth-utils';
-import { db } from '@/lib/db';
-import { arenaMatch, agent } from '@/lib/db/schema';
-import { eq, desc, inArray } from 'drizzle-orm';
-import { generateId } from 'ai';
-import { MOCK_ARENA_MATCHES } from '@/lib/mock-data';
-import { dynamicMatchStore } from '@/lib/arena-store';
-import { battleEngine } from '@/lib/arena/battle-engine';
-import {
-  apiError,
-  apiSuccess,
-  parseJsonBody,
-  validateBody,
-  sanitizeString,
-  type Schema,
-} from '@/lib/api-utils';
+import { neon } from '@neondatabase/serverless';
 
 const VALID_STATUSES = ['all', 'pending', 'active', 'completed', 'cancelled'] as const;
 
-const createMatchSchema: Schema = {
-  topic: { type: 'string', required: true, maxLength: 500 },
-  matchType: { type: 'string', required: true, enum: ['debate', 'search_race', 'research'] },
-  prizePool: { type: 'string', required: false, maxLength: 50 },
-};
-
 /**
- * GET /api/arena - List arena matches
+ * GET /api/arena - List arena matches (edge-optimized)
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const rawStatus = searchParams.get('status') || 'all';
-  const status = VALID_STATUSES.includes(rawStatus as typeof VALID_STATUSES[number])
+  const status = VALID_STATUSES.includes(rawStatus as (typeof VALID_STATUSES)[number])
     ? rawStatus
     : 'all';
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 50);
 
-  // Collect DB matches (if available)
-  let dbMatches: any[] = [];
-  try {
-    const baseQuery = db.select().from(arenaMatch).$dynamic();
-    const dbPromise = status !== 'all'
-      ? baseQuery.where(eq(arenaMatch.status, status)).orderBy(desc(arenaMatch.createdAt)).limit(limit)
-      : baseQuery.orderBy(desc(arenaMatch.createdAt)).limit(limit);
-
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('DB timeout')), 3000)
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return NextResponse.json(
+      { success: true, matches: [] },
+      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
     );
-    dbMatches = await Promise.race([dbPromise, timeout]);
-
-    // Enrich with battle status
-    dbMatches = dbMatches.map((m) => {
-      const battle = battleEngine.getBattleStatus(m.id);
-      return {
-        ...m,
-        battleStatus: battle
-          ? {
-              currentRound: battle.currentRound,
-              status: battle.status,
-              cumulativeScores: battle.cumulativeScores,
-              winnerId: battle.winnerId,
-            }
-          : null,
-      };
-    });
-  } catch {
-    // DB connection failed or timeout
   }
 
-  // Always merge with mock + dynamic matches, dedup by id
-  const dynamicMatches = Array.from(dynamicMatchStore.values());
-  const allMatches = [...dbMatches, ...MOCK_ARENA_MATCHES, ...dynamicMatches];
-  const seen = new Set<string>();
-  const deduped = allMatches.filter((m) => {
-    if (seen.has(m.id)) return false;
-    seen.add(m.id);
-    return true;
-  });
+  try {
+    const sql = neon(dbUrl);
 
-  const sorted = deduped.sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+    let rows: any[];
+    if (status !== 'all') {
+      rows = await sql`
+        SELECT id, topic, match_type, agents, winner_id, rounds,
+               total_votes, result_tx_hash, prize_pool, elo_change,
+               status, created_at, completed_at
+        FROM arena_match
+        WHERE status = ${status}
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `;
+    } else {
+      rows = await sql`
+        SELECT id, topic, match_type, agents, winner_id, rounds,
+               total_votes, result_tx_hash, prize_pool, elo_change,
+               status, created_at, completed_at
+        FROM arena_match
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `;
+    }
 
-  const filtered = status !== 'all'
-    ? sorted.filter((m) => m.status === status)
-    : sorted;
+    const matches = rows.map((r: any) => ({
+      id: r.id,
+      topic: r.topic,
+      matchType: r.match_type,
+      agents: r.agents,
+      winnerId: r.winner_id,
+      rounds: r.rounds || [],
+      totalVotes: r.total_votes ?? 0,
+      resultTxHash: r.result_tx_hash,
+      prizePool: r.prize_pool ?? '0',
+      eloChange: r.elo_change,
+      status: r.status,
+      createdAt: r.created_at,
+      completedAt: r.completed_at,
+    }));
 
-  return NextResponse.json({ success: true, matches: filtered.slice(0, limit) }, {
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
-  });
+    return NextResponse.json(
+      { success: true, matches },
+      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
+    );
+  } catch {
+    return NextResponse.json(
+      { success: true, matches: [] },
+      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
+    );
+  }
 }
 
 /**
  * POST /api/arena - Create a new arena match
  */
 export async function POST(request: NextRequest) {
-  let user: any = null;
+  // Auth: require Bearer token (cron secret)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Parse body
+  let body: Record<string, unknown>;
   try {
-    user = await getUser();
+    body = await request.json();
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return NextResponse.json(
+        { success: false, error: 'Request body must be a JSON object' },
+        { status: 400 },
+      );
+    }
   } catch {
-    // Auth check failed (DB unavailable) — allow in demo mode
+    return NextResponse.json(
+      { success: false, error: 'Invalid or missing JSON body' },
+      { status: 400 },
+    );
   }
 
-  // Safe JSON parse
-  const parsed = await parseJsonBody(request);
-  if ('error' in parsed) return parsed.error;
-  const body = parsed.data as Record<string, unknown>;
+  // Validate required fields
+  const topic = typeof body.topic === 'string' ? body.topic.trim().slice(0, 500) : '';
+  const matchType = typeof body.matchType === 'string' ? body.matchType.trim() : '';
+  const prizePool = typeof body.prizePool === 'string' ? body.prizePool.trim().slice(0, 50) : '0';
 
-  // Schema validation
-  const { valid, errors, sanitized } = validateBody(body, createMatchSchema);
-  if (!valid) {
-    return apiError(errors.join('; '), 400);
+  if (!topic) {
+    return NextResponse.json({ success: false, error: 'topic is required' }, { status: 400 });
+  }
+  if (!['debate', 'search_race', 'research'].includes(matchType)) {
+    return NextResponse.json(
+      { success: false, error: 'matchType must be one of: debate, search_race, research' },
+      { status: 400 },
+    );
   }
 
-  // Validate agentIds separately (array field)
+  // Validate agentIds
   const agentIds = body.agentIds;
   if (!Array.isArray(agentIds) || agentIds.length < 2) {
-    return apiError('At least 2 agentIds are required', 400);
+    return NextResponse.json(
+      { success: false, error: 'At least 2 agentIds are required' },
+      { status: 400 },
+    );
   }
   if (agentIds.length > 4) {
-    return apiError('Maximum 4 agents per match', 400);
+    return NextResponse.json(
+      { success: false, error: 'Maximum 4 agents per match' },
+      { status: 400 },
+    );
   }
-  // Ensure all IDs are strings and sanitize
+
   const sanitizedAgentIds = agentIds
     .filter((id): id is string => typeof id === 'string')
-    .map((id) => sanitizeString(id, 100))
+    .map((id) => id.trim().slice(0, 100))
     .filter((id) => id.length > 0);
 
   if (sanitizedAgentIds.length !== agentIds.length) {
-    return apiError('All agentIds must be non-empty strings', 400);
+    return NextResponse.json(
+      { success: false, error: 'All agentIds must be non-empty strings' },
+      { status: 400 },
+    );
   }
 
-  const topic = sanitized.topic as string;
-  const matchType = sanitized.matchType as string;
-  const prizePool = sanitizeString(sanitized.prizePool ?? '0', 50);
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return NextResponse.json(
+      { success: false, error: 'Database not configured' },
+      { status: 503 },
+    );
+  }
 
   try {
-    // Verify all agents exist and are active
-    const agents = await db
-      .select()
-      .from(agent)
-      .where(inArray(agent.id, sanitizedAgentIds));
+    const sql = neon(dbUrl);
 
-    const activeAgents = agents.filter((a: any) => a.status === 'active');
-    if (activeAgents.length !== sanitizedAgentIds.length) {
-      // Agents not in DB — fall through to in-memory creation
-      throw new Error('agents_not_found');
+    // Verify all agents exist and are active
+    const agents = await sql`
+      SELECT id, status FROM external_agent
+      WHERE id = ANY(${sanitizedAgentIds})
+        AND status IN ('active', 'verified')
+    `;
+
+    if (agents.length !== sanitizedAgentIds.length) {
+      return NextResponse.json(
+        { success: false, error: 'One or more agents not found or inactive' },
+        { status: 400 },
+      );
     }
 
-    const [match] = await db
-      .insert(arenaMatch)
-      .values({
-        id: generateId(),
-        topic,
-        matchType,
-        agents: sanitizedAgentIds,
-        prizePool,
-        status: 'pending',
-        rounds: [],
-        totalVotes: 0,
-        createdAt: new Date(),
-      })
-      .returning();
+    // Generate a short ID (Edge-compatible, no crypto import needed)
+    const matchId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 
-    return apiSuccess({ match }, 201);
-  } catch {
-    // DB unavailable — create match in memory
-    const matchId = generateId();
-    const now = new Date().toISOString();
-    const dynamicMatch: import('@/lib/arena-store').DynamicArenaMatch = {
-      id: matchId,
-      topic,
-      matchType,
-      agents: sanitizedAgentIds,
-      winnerId: null,
-      rounds: [],
-      totalVotes: 0,
-      resultTxHash: null,
-      prizePool,
-      status: 'pending',
-      createdAt: now,
-      completedAt: null,
+    const agentsJson = JSON.stringify(sanitizedAgentIds);
+    const roundsJson = JSON.stringify([]);
+
+    const rows = await sql`
+      INSERT INTO arena_match (id, topic, match_type, agents, prize_pool, status, rounds, total_votes, created_at)
+      VALUES (${matchId}, ${topic}, ${matchType}, ${agentsJson}::jsonb, ${prizePool}, 'pending', ${roundsJson}::jsonb, 0, NOW())
+      RETURNING id, topic, match_type, agents, winner_id, rounds,
+                total_votes, result_tx_hash, prize_pool, elo_change,
+                status, created_at, completed_at
+    `;
+
+    const r = rows[0];
+    const match = {
+      id: r.id,
+      topic: r.topic,
+      matchType: r.match_type,
+      agents: r.agents,
+      winnerId: r.winner_id,
+      rounds: r.rounds || [],
+      totalVotes: r.total_votes ?? 0,
+      resultTxHash: r.result_tx_hash,
+      prizePool: r.prize_pool ?? '0',
+      eloChange: r.elo_change,
+      status: r.status,
+      createdAt: r.created_at,
+      completedAt: r.completed_at,
     };
-    dynamicMatchStore.set(matchId, dynamicMatch);
-    return apiSuccess({ match: dynamicMatch }, 201);
+
+    return NextResponse.json({ success: true, match }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to create match' },
+      { status: 500 },
+    );
   }
 }

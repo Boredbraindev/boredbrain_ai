@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { auth } from '@/lib/auth';
 import { toNextJsHandler } from 'better-auth/next-js';
 

@@ -1,5 +1,6 @@
 'use client';
 
+import ComingSoon from '@/components/coming-soon';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -200,7 +201,7 @@ function DonutChart({ segments }: { segments: { pct: number; color: string }[] }
 // Component
 // ---------------------------------------------------------------------------
 
-export default function DAOPage() {
+function _DAOPageContent() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [stats, setStats] = useState<GovernanceStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1132,4 +1133,8 @@ export default function DAOPage() {
       </div>
     </div>
   );
+}
+
+export default function DAOPage() {
+  return <ComingSoon title="DAO Governance" description="Decentralized governance and proposal voting are coming soon." />;
 }

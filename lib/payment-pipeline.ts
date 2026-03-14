@@ -100,6 +100,8 @@ export function generateInternalSeqNumber(): number {
 // Legacy aliases
 export const generateMockTxHash = generateInternalTxRef;
 export const generateMockBlockNumber = generateInternalSeqNumber;
+export const generateTxHash = generateInternalTxRef;
+export const generateBlockNumber = generateInternalSeqNumber;
 
 function calculateSplit(amount: number): { platformFee: number; providerShare: number } {
   const platformFee = Math.round(amount * 0.15 * 100) / 100;

@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 /**
  * Agent Heartbeat Cron
  *
@@ -170,7 +173,8 @@ export async function GET(request: NextRequest) {
       for (let i = 0; i < maxRebalances; i++) {
         const candidate = candidates[i];
         try {
-          const topUpAmount = 200 - candidate.balance;
+          // Rebalance to 20 BP minimum (just enough for ~10 debate participations)
+          const topUpAmount = 20 - candidate.balance;
           if (topUpAmount > 0) {
             await topUpWallet(candidate.agentId, topUpAmount);
             rebalanced++;
@@ -302,38 +306,49 @@ export async function GET(request: NextRequest) {
     // 7. Topic Debates — auto-create, auto-participate, auto-close
     // ------------------------------------------------------------------
     try {
-      // Create a new topic debate every ~3rd heartbeat cycle (random)
-      if (Math.random() < 0.33) {
-        const topicIdeas = [
-          { topic: 'Will Bitcoin reach a new all-time high this quarter?', category: 'crypto' },
-          { topic: 'Is DeFi yield farming still sustainable in the current market?', category: 'defi' },
-          { topic: 'Should AI agents be allowed to trade autonomously without human oversight?', category: 'ai' },
-          { topic: 'Will Ethereum L2s eventually replace the L1 for most transactions?', category: 'crypto' },
-          { topic: 'Is the current NFT market recovery real or a dead cat bounce?', category: 'culture' },
-          { topic: 'Should DAOs implement quadratic voting for fairer governance?', category: 'governance' },
-          { topic: 'Will AI-generated content make human creators obsolete?', category: 'ai' },
-          { topic: 'Is proof-of-stake more secure than proof-of-work for decentralization?', category: 'crypto' },
-          { topic: 'Should crypto platforms implement mandatory KYC for all users?', category: 'governance' },
-          { topic: 'Will cross-chain bridges become the primary infrastructure for Web3?', category: 'defi' },
-          { topic: 'Is the metaverse overhyped or genuinely the next computing paradigm?', category: 'culture' },
-          { topic: 'Should AI agents have their own on-chain identities and wallets?', category: 'ai' },
-        ];
-        const pick = topicIdeas[Math.floor(Math.random() * topicIdeas.length)];
+      // Create a new topic debate — prefer Polymarket trending topics for real settlement
+      if (Math.random() < 0.8) {
         try {
-          await createTopicDebate(pick.topic, pick.category);
-          topicDebatesCreated++;
+          const hotTopics = await getHotTopics(10);
+          if (hotTopics.length > 0) {
+            // Pick a random trending Polymarket topic
+            const pick = hotTopics[Math.floor(Math.random() * hotTopics.length)];
+            await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id);
+            topicDebatesCreated++;
+          } else {
+            // Fallback to hardcoded topics if Polymarket API is down
+            const fallbackTopics = [
+              { topic: 'Will Bitcoin reach a new all-time high this quarter?', category: 'crypto' },
+              { topic: 'Is DeFi yield farming still sustainable in the current market?', category: 'defi' },
+              { topic: 'Should AI agents be allowed to trade autonomously without human oversight?', category: 'ai' },
+            ];
+            const pick = fallbackTopics[Math.floor(Math.random() * fallbackTopics.length)];
+            await createTopicDebate(pick.topic, pick.category);
+            topicDebatesCreated++;
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Topic debate creation error';
           errors.push(`Topic debate create: ${msg}`);
         }
       }
 
-      // Auto-participate: 5-10 random agents opine on open debates
-      const participantCount = 5 + Math.floor(Math.random() * 6);
-      const participationResult = await autoParticipateInDebates(participantCount);
-      topicDebateParticipations = participationResult.participated;
-      if (participationResult.errors.length > 0) {
-        errors.push(...participationResult.errors.slice(0, 3)); // cap error noise
+      // Auto-participate moved to /api/topics/participate (separate endpoint)
+      // Call it once from heartbeat to trigger 1 real LLM opinion per cycle
+      try {
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'https://boredbrain.app';
+        const secret = serverEnv.CRON_SECRET;
+        const participateRes = await fetch(`${baseUrl}/api/topics/participate`, {
+          method: 'POST',
+          headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+        });
+        if (participateRes.ok) {
+          const pData = await participateRes.json();
+          if (pData.participated) topicDebateParticipations = 1;
+        }
+      } catch {
+        // Non-critical — participation can happen via separate cron
       }
 
       // Auto-close expired debates and score them
@@ -341,6 +356,21 @@ export async function GET(request: NextRequest) {
       topicDebatesClosed = closeResult.closed;
       if (closeResult.errors.length > 0) {
         errors.push(...closeResult.errors.slice(0, 3));
+      }
+
+      // Auto-settle debates linked to Polymarket
+      let settledCount = 0;
+      try {
+        const settleRes = await fetch(`${baseUrl}/api/topics/settle`, {
+          method: 'POST',
+          headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+        });
+        if (settleRes.ok) {
+          const sData = await settleRes.json();
+          settledCount = sData.settled ?? 0;
+        }
+      } catch {
+        // Non-critical
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Topic debate engine error';

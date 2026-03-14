@@ -4,7 +4,7 @@ import { placeBet, getMyBets } from '@/lib/betting/simple-bet';
 import { awardPoints } from '@/lib/points';
 
 // ─── POST /api/markets/bet ──────────────────────────────────────────
-// Place a simple bet: pick a side + amount
+// Place a simple position entry: pick a side + amount
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,12 +43,12 @@ export async function POST(request: NextRequest) {
       amount: body.amount,
     });
 
-    // Award BP points for placing a bet
+    // Award BP points for placing a position
     let pointsResult = { bp: 0, newTotal: 0, levelUp: false };
     try {
       pointsResult = await awardPoints(
         body.userAddress,
-        'prediction_bet',
+        'forecast_entry',
         result.betId,
       );
     } catch {
@@ -64,12 +64,12 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err: any) {
-    return apiError(err.message || 'Failed to place bet', 500);
+    return apiError(err.message || 'Failed to place entry', 500);
   }
 }
 
 // ─── GET /api/markets/bet?wallet=0x... ──────────────────────────────
-// Get user's active bets with P&L
+// Get user's active positions with P&L
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,17 +83,17 @@ export async function GET(request: NextRequest) {
     const bets = await getMyBets(wallet);
 
     const totalPnl = bets.reduce((sum, b) => sum + b.pnl, 0);
-    const activeBets = bets.filter((b) => b.market.status === 'open').length;
+    const activePositions = bets.filter((b) => b.market.status === 'open').length;
 
     return apiSuccess({
-      bets,
+      positions: bets,
       summary: {
-        totalBets: bets.length,
-        activeBets,
+        totalPositions: bets.length,
+        activePositions,
         totalPnl,
       },
     });
   } catch (err: any) {
-    return apiError(err.message || 'Failed to fetch bets', 500);
+    return apiError(err.message || 'Failed to fetch positions', 500);
   }
 }

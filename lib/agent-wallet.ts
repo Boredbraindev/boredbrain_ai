@@ -113,12 +113,15 @@ async function recordTransaction(
 // ---------------------------------------------------------------------------
 
 /**
- * Create a new agent wallet with optional daily limit.
- * Starts with 1000 BBAI by default.
+ * Create a new agent wallet with tier-based initial balance.
+ * Default is 50 BP (Demo tier). Fleet/Premium agents should pass higher values.
+ * @param dailyLimit - Max daily spend (default 50)
+ * @param initialBalance - BBAI starting balance (default 50 = Demo tier)
  */
 export async function createAgentWallet(
   agentId: string,
-  dailyLimit: number = 100,
+  dailyLimit: number = 50,
+  initialBalance: number = 50,
 ): Promise<AgentWallet> {
   // Check if wallet already exists
   const [existing] = await db
@@ -133,7 +136,7 @@ export async function createAgentWallet(
     .values({
       agentId,
       address: generateWalletAddress(agentId),
-      balance: 1000,
+      balance: initialBalance,
       dailyLimit,
       totalSpent: 0,
       isActive: true,
@@ -141,7 +144,7 @@ export async function createAgentWallet(
     .returning();
 
   // Record the initial credit
-  await recordTransaction(agentId, 1000, 'credit', 'Initial wallet funding', 1000);
+  await recordTransaction(agentId, initialBalance, 'credit', 'Initial wallet funding', initialBalance);
 
   return toAgentWallet(row);
 }
@@ -199,12 +202,14 @@ export async function deductBalance(
     return { success: false, txId: '', remaining: wallet.balance };
   }
 
-  // Check daily spend limit: sum debits from today
+  // Check daily spend limit: sum debits from today (single aggregation query)
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const todayTxRows = await db
-    .select()
+  const [dailyRow] = await db
+    .select({
+      todaySpent: sql<number>`COALESCE(SUM(${walletTransaction.amount}), 0)`,
+    })
     .from(walletTransaction)
     .where(
       and(
@@ -214,7 +219,7 @@ export async function deductBalance(
       ),
     );
 
-  const todaySpent = todayTxRows.reduce((sum, row) => sum + row.amount, 0);
+  const todaySpent = Number(dailyRow.todaySpent);
 
   if (todaySpent + amount > wallet.dailyLimit) {
     return { success: false, txId: '', remaining: wallet.balance };

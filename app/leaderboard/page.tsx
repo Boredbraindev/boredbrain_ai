@@ -13,6 +13,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 /* ------------------------------------------------------------------ */
 
 type Period = 'all' | 'week' | 'month';
+type LeaderboardView = 'winrate' | 'pnl';
+
+interface PnlAgent {
+  rank: number;
+  agentId: string;
+  name: string;
+  specialization: string;
+  balance: number;
+  totalSpent: number;
+  pnl: number;
+  eloRating: number;
+  isFleet: boolean;
+}
 
 interface RankedAgent {
   id: string;
@@ -25,62 +38,6 @@ interface RankedAgent {
   trend: number;       // percentage change
   rankChange: number;  // positive = up, negative = down, 0 = same
   active: boolean;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mock Data Generator                                                */
-/* ------------------------------------------------------------------ */
-
-const AGENT_POOL: Omit<RankedAgent, 'trend' | 'rankChange'>[] = [
-  { id: 'chain-prophet', name: 'Chain Prophet', emoji: '\u26D3\uFE0F', specialization: 'On-Chain Analysis', winRate: 91.5, wins: 42, losses: 8, active: true },
-  { id: 'alpha-hunter', name: 'Alpha Hunter', emoji: '\uD83C\uDFAF', specialization: 'Alpha Discovery', winRate: 87.2, wins: 38, losses: 5, active: true },
-  { id: 'defi-oracle', name: 'DeFi Oracle', emoji: '\uD83D\uDD2E', specialization: 'DeFi Analytics', winRate: 84.1, wins: 35, losses: 9, active: true },
-  { id: 'momentum-bot', name: 'Momentum Bot', emoji: '\u26A1', specialization: 'Trend Following', winRate: 78.3, wins: 32, losses: 9, active: true },
-  { id: 'neural-trader', name: 'Neural Trader', emoji: '\uD83E\uDDE0', specialization: 'ML Predictions', winRate: 76.1, wins: 29, losses: 9, active: true },
-  { id: 'sentiment-ai', name: 'Sentiment AI', emoji: '\uD83D\uDCCA', specialization: 'Sentiment Analysis', winRate: 74.8, wins: 27, losses: 9, active: true },
-  { id: 'whale-watcher', name: 'Whale Watcher', emoji: '\uD83D\uDC33', specialization: 'Whale Tracking', winRate: 72.4, wins: 25, losses: 10, active: true },
-  { id: 'yield-hunter', name: 'Yield Hunter', emoji: '\uD83C\uDF31', specialization: 'Yield Farming', winRate: 70.1, wins: 23, losses: 10, active: true },
-  { id: 'mev-shield', name: 'MEV Shield', emoji: '\uD83D\uDEE1\uFE0F', specialization: 'MEV Protection', winRate: 68.9, wins: 22, losses: 10, active: false },
-  { id: 'risk-matrix', name: 'Risk Matrix', emoji: '\uD83C\uDFB2', specialization: 'Risk Assessment', winRate: 67.2, wins: 20, losses: 10, active: true },
-  { id: 'gas-optimizer', name: 'Gas Optimizer', emoji: '\u26FD', specialization: 'Gas Optimization', winRate: 65.5, wins: 19, losses: 10, active: true },
-  { id: 'arb-finder', name: 'Arb Finder', emoji: '\uD83D\uDD04', specialization: 'Arbitrage', winRate: 63.8, wins: 18, losses: 10, active: false },
-  { id: 'nft-scout', name: 'NFT Scout', emoji: '\uD83D\uDDBC\uFE0F', specialization: 'NFT Analysis', winRate: 62.1, wins: 17, losses: 11, active: true },
-  { id: 'governance-ai', name: 'Governance AI', emoji: '\uD83C\uDFDB\uFE0F', specialization: 'DAO Governance', winRate: 60.4, wins: 16, losses: 11, active: true },
-  { id: 'bridge-monitor', name: 'Bridge Monitor', emoji: '\uD83C\uDF09', specialization: 'Cross-Chain', winRate: 58.7, wins: 15, losses: 11, active: false },
-  { id: 'token-screener', name: 'Token Screener', emoji: '\uD83D\uDD0D', specialization: 'Token Research', winRate: 57.0, wins: 14, losses: 11, active: true },
-  { id: 'social-pulse', name: 'Social Pulse', emoji: '\uD83D\uDCE1', specialization: 'Social Signals', winRate: 55.3, wins: 13, losses: 11, active: true },
-  { id: 'flash-guard', name: 'Flash Guard', emoji: '\uD83D\uDD12', specialization: 'Flash Loan Defense', winRate: 53.6, wins: 12, losses: 10, active: false },
-  { id: 'order-flow', name: 'Order Flow AI', emoji: '\uD83D\uDCC8', specialization: 'Order Flow', winRate: 51.9, wins: 11, losses: 10, active: true },
-  { id: 'airdrop-hawk', name: 'Airdrop Hawk', emoji: '\uD83E\uDE82', specialization: 'Airdrop Hunting', winRate: 50.2, wins: 10, losses: 10, active: true },
-];
-
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function generateMockData(period: Period): RankedAgent[] {
-  const ticks = Math.floor((Date.now() - new Date('2026-03-01').getTime()) / 3600000);
-  const periodSeed = period === 'all' ? 0 : period === 'month' ? 1 : 2;
-
-  return AGENT_POOL.map((agent, i) => {
-    const drift = seededRandom(i * 137 + ticks + periodSeed) * 6 - 3;
-    const mult = period === 'week' ? 0.3 : period === 'month' ? 0.6 : 1;
-    const adjWins = Math.max(1, Math.round(agent.wins * mult));
-    const adjLosses = Math.max(0, Math.round(agent.losses * mult));
-    const adjRate = Math.min(99, Math.max(30, agent.winRate + drift));
-    const trend = +(seededRandom(i * 73 + ticks + periodSeed) * 20 - 5).toFixed(1);
-    const rankChange = Math.round(seededRandom(i * 41 + ticks + periodSeed) * 6 - 3);
-
-    return {
-      ...agent,
-      winRate: +adjRate.toFixed(1),
-      wins: adjWins,
-      losses: adjLosses,
-      trend,
-      rankChange,
-    };
-  }).sort((a, b) => b.winRate - a.winRate);
 }
 
 /* ------------------------------------------------------------------ */
@@ -276,27 +233,115 @@ function RowSkeleton() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  P&L Components                                                     */
+/* ------------------------------------------------------------------ */
+
+function PnlRow({ agent }: { agent: PnlAgent }) {
+  const pnlPositive = agent.pnl >= 0;
+
+  return (
+    <div className="group flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/[0.08] transition-all">
+      {/* Rank */}
+      <span className="w-8 text-center shrink-0 font-bold text-sm tabular-nums text-white/40">
+        #{agent.rank}
+      </span>
+
+      {/* Avatar */}
+      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg bg-white/[0.05] border border-white/[0.08] shrink-0">
+        {agent.isFleet ? '\uD83E\uDD16' : '\uD83D\uDCBC'}
+      </div>
+
+      {/* Name + specialization */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-white/90 truncate">
+            {agent.name}
+          </span>
+          {agent.isFleet && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-medium">Fleet</span>
+          )}
+        </div>
+        <span className="text-[10px] text-white/35 hidden sm:inline">
+          {agent.specialization}
+        </span>
+      </div>
+
+      {/* Balance */}
+      <div className="text-right shrink-0 w-20 sm:w-24">
+        <span className="font-bold text-sm tabular-nums text-amber-400">
+          {agent.balance.toLocaleString()} <span className="text-[10px] text-white/40">BBAI</span>
+        </span>
+      </div>
+
+      {/* P&L */}
+      <div className="text-right shrink-0 w-20 sm:w-24 hidden sm:block">
+        <span className={`text-xs tabular-nums font-semibold ${pnlPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+          {pnlPositive ? '+' : ''}{agent.pnl.toLocaleString()} BBAI
+        </span>
+      </div>
+
+      {/* ELO */}
+      <div className="text-right shrink-0 w-12 hidden md:block">
+        <span className="text-xs tabular-nums text-white/50">
+          {agent.eloRating}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function LeaderboardPage() {
+  const [view, setView] = useState<LeaderboardView>('winrate');
   const [period, setPeriod] = useState<Period>('all');
   const [agents, setAgents] = useState<RankedAgent[]>([]);
+  const [pnlAgents, setPnlAgents] = useState<PnlAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(15);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+
+    if (view === 'pnl') {
+      try {
+        const res = await fetch('/api/agents/pnl?limit=100');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.leaderboard)) {
+            setPnlAgents(
+              data.leaderboard.map((a: Record<string, unknown>) => ({
+                rank: Number(a.rank) || 0,
+                agentId: String(a.agentId ?? ''),
+                name: String(a.name ?? 'Unknown'),
+                specialization: String(a.specialization ?? ''),
+                balance: Number(a.balance) || 0,
+                totalSpent: Number(a.totalSpent) || 0,
+                pnl: Number(a.pnl) || 0,
+                eloRating: Number(a.eloRating) || 1200,
+                isFleet: Boolean(a.isFleet),
+              })),
+            );
+          }
+        }
+      } catch {
+        setPnlAgents([]);
+      }
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/leaderboard?period=${period}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data?.agents) && data.agents.length >= 3) {
-          // Normalize API data to ensure no NaN values
+        if (Array.isArray(data?.agents)) {
           const normalized: RankedAgent[] = data.agents.map((a: Record<string, unknown>) => ({
             id: String(a.id ?? ''),
             name: String(a.name ?? 'Unknown'),
-            emoji: String(a.emoji ?? '🤖'),
+            emoji: String(a.emoji ?? '\uD83E\uDD16'),
             specialization: String(a.specialization ?? ''),
             winRate: Number(a.winRate) || 0,
             wins: Number(a.wins) || 0,
@@ -311,11 +356,11 @@ export default function LeaderboardPage() {
         }
       }
     } catch {
-      /* fall through to mock */
+      /* API error — show empty state */
     }
-    setAgents(generateMockData(period));
+    setAgents([]);
     setLoading(false);
-  }, [period]);
+  }, [period, view]);
 
   useEffect(() => {
     fetchData();
@@ -323,7 +368,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     setVisibleCount(15);
-  }, [period]);
+  }, [period, view]);
 
   const podium = agents.slice(0, 3);
   const rest = agents.slice(3, 3 + visibleCount);
@@ -348,109 +393,187 @@ export default function LeaderboardPage() {
             AI Agent Rankings
           </h1>
           <p className="mt-2 text-sm text-white/40">
-            Powered by debate performance
+            {view === 'pnl' ? 'Ranked by BBAI earnings' : 'Powered by debate performance'}
           </p>
         </div>
 
-        {/* ---- Podium ---- */}
-        {loading ? (
-          <PodiumSkeleton />
-        ) : podium.length >= 3 ? (
-          <div className="flex items-end justify-center gap-2 sm:gap-4 mb-10 px-2">
-            <PodiumBlock agent={podium[1]} place={2} />
-            <PodiumBlock agent={podium[0]} place={1} />
-            <PodiumBlock agent={podium[2]} place={3} />
-          </div>
-        ) : null}
-
-        {/* ---- Podium base line ---- */}
-        {!loading && podium.length >= 3 && (
-          <div className="mx-auto max-w-[540px] h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent mb-8" />
-        )}
-
-        {/* ---- Stats Bar ---- */}
-        {!loading && (
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-xs text-white/50">
-            <span>
-              Total Debates:{' '}
-              <span className="font-bold text-amber-400">{stats.totalDebates.toLocaleString()}</span>
-            </span>
-            <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
-            <span>
-              Avg Win Rate:{' '}
-              <span className="font-bold text-amber-400">{stats.avgWinRate}%</span>
-            </span>
-            <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
-            <span>
-              Most Active:{' '}
-              <span className="font-bold text-amber-400">{stats.mostActive}</span>
-            </span>
-          </div>
-        )}
-
-        {/* ---- Period Tabs ---- */}
+        {/* ---- View Toggle (Win Rate vs P&L) ---- */}
         <Tabs
-          value={period}
-          onValueChange={(v) => setPeriod(v as Period)}
+          value={view}
+          onValueChange={(v) => setView(v as LeaderboardView)}
           className="mb-6 flex justify-center"
         >
           <TabsList className="bg-white/[0.04] border border-white/[0.06] h-9">
             <TabsTrigger
-              value="all"
-              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+              value="winrate"
+              className="text-xs px-5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
             >
-              All Time
+              Win Rate
             </TabsTrigger>
             <TabsTrigger
-              value="month"
-              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+              value="pnl"
+              className="text-xs px-5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300"
             >
-              This Month
-            </TabsTrigger>
-            <TabsTrigger
-              value="week"
-              className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
-            >
-              This Week
+              P&L
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {/* ---- Table header ---- */}
-        {!loading && rest.length > 0 && (
-          <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] text-white/30 uppercase tracking-wider font-medium">
-            <span className="w-8 text-center shrink-0">Rank</span>
-            <span className="w-9 sm:w-10 shrink-0" />
-            <span className="flex-1">Agent</span>
-            <span className="w-14 sm:w-16 text-right shrink-0">Win %</span>
-            <span className="w-16 sm:w-20 text-right shrink-0 hidden sm:block">Record</span>
-            <span className="w-14 sm:w-16 text-right shrink-0 hidden md:block">Trend</span>
-            <span className="w-8 text-center shrink-0">{'\u0394'}</span>
-          </div>
-        )}
+        {view === 'pnl' ? (
+          /* ---- P&L Leaderboard ---- */
+          <>
+            {/* ---- P&L Table Header ---- */}
+            {!loading && pnlAgents.length > 0 && (
+              <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] text-white/30 uppercase tracking-wider font-medium">
+                <span className="w-8 text-center shrink-0">Rank</span>
+                <span className="w-9 sm:w-10 shrink-0" />
+                <span className="flex-1">Agent</span>
+                <span className="w-20 sm:w-24 text-right shrink-0">Balance</span>
+                <span className="w-20 sm:w-24 text-right shrink-0 hidden sm:block">P&L</span>
+                <span className="w-12 text-right shrink-0 hidden md:block">ELO</span>
+              </div>
+            )}
 
-        {/* ---- Rankings List ---- */}
-        <div className="space-y-1.5">
-          {loading ? (
-            Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
-          ) : (
-            rest.map((agent, i) => (
-              <AgentRow key={agent.id} agent={agent} rank={i + 4} />
-            ))
-          )}
-        </div>
+            {/* ---- P&L Rankings List ---- */}
+            <div className="space-y-1.5">
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
+              ) : pnlAgents.length === 0 ? (
+                <div className="text-center py-12 text-white/40 text-sm">
+                  No P&L data available yet. Agents earn BBAI through debates and invocations.
+                </div>
+              ) : (
+                pnlAgents.slice(0, visibleCount).map((agent) => (
+                  <PnlRow key={agent.agentId} agent={agent} />
+                ))
+              )}
+            </div>
 
-        {/* ---- Load More ---- */}
-        {!loading && remaining > 0 && (
-          <div className="flex justify-center mt-6">
-            <Button
-              variant="outline"
-              className="border-white/10 text-white/60 hover:text-white hover:border-white/20"
-              onClick={() => setVisibleCount((c) => c + 15)}
+            {/* ---- Load More ---- */}
+            {!loading && pnlAgents.length > visibleCount && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  className="border-white/10 text-white/60 hover:text-white hover:border-white/20"
+                  onClick={() => setVisibleCount((c) => c + 15)}
+                >
+                  Load More ({pnlAgents.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          /* ---- Win Rate Leaderboard ---- */
+          <>
+            {/* ---- Podium ---- */}
+            {loading ? (
+              <PodiumSkeleton />
+            ) : podium.length >= 3 ? (
+              <div className="flex items-end justify-center gap-2 sm:gap-4 mb-10 px-2">
+                <PodiumBlock agent={podium[1]} place={2} />
+                <PodiumBlock agent={podium[0]} place={1} />
+                <PodiumBlock agent={podium[2]} place={3} />
+              </div>
+            ) : null}
+
+            {/* ---- Podium base line ---- */}
+            {!loading && podium.length >= 3 && (
+              <div className="mx-auto max-w-[540px] h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent mb-8" />
+            )}
+
+            {/* ---- Stats Bar ---- */}
+            {!loading && (
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-xs text-white/50">
+                <span>
+                  Total Debates:{' '}
+                  <span className="font-bold text-amber-400">{stats.totalDebates.toLocaleString()}</span>
+                </span>
+                <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
+                <span>
+                  Avg Win Rate:{' '}
+                  <span className="font-bold text-amber-400">{stats.avgWinRate}%</span>
+                </span>
+                <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
+                <span>
+                  Most Active:{' '}
+                  <span className="font-bold text-amber-400">{stats.mostActive}</span>
+                </span>
+              </div>
+            )}
+
+            {/* ---- Period Tabs ---- */}
+            <Tabs
+              value={period}
+              onValueChange={(v) => setPeriod(v as Period)}
+              className="mb-6 flex justify-center"
             >
-              Load More ({remaining} remaining)
-            </Button>
-          </div>
+              <TabsList className="bg-white/[0.04] border border-white/[0.06] h-9">
+                <TabsTrigger
+                  value="all"
+                  className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+                >
+                  All Time
+                </TabsTrigger>
+                <TabsTrigger
+                  value="month"
+                  className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+                >
+                  This Month
+                </TabsTrigger>
+                <TabsTrigger
+                  value="week"
+                  className="text-xs px-4 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+                >
+                  This Week
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* ---- Table header ---- */}
+            {!loading && rest.length > 0 && (
+              <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] text-white/30 uppercase tracking-wider font-medium">
+                <span className="w-8 text-center shrink-0">Rank</span>
+                <span className="w-9 sm:w-10 shrink-0" />
+                <span className="flex-1">Agent</span>
+                <span className="w-14 sm:w-16 text-right shrink-0">Win %</span>
+                <span className="w-16 sm:w-20 text-right shrink-0 hidden sm:block">Record</span>
+                <span className="w-14 sm:w-16 text-right shrink-0 hidden md:block">Trend</span>
+                <span className="w-8 text-center shrink-0">{'\u0394'}</span>
+              </div>
+            )}
+
+            {/* ---- Rankings List ---- */}
+            <div className="space-y-1.5">
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
+              ) : agents.length === 0 ? (
+                <Card className="border-white/[0.06] bg-white/[0.02]">
+                  <CardContent className="flex flex-col items-center justify-center py-14 px-6 text-center">
+                    <p className="text-sm text-white/50">
+                      Rankings update after debates complete. Check back soon.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                rest.map((agent, i) => (
+                  <AgentRow key={agent.id} agent={agent} rank={i + 4} />
+                ))
+              )}
+            </div>
+
+            {/* ---- Load More ---- */}
+            {!loading && remaining > 0 && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  className="border-white/10 text-white/60 hover:text-white hover:border-white/20"
+                  onClick={() => setVisibleCount((c) => c + 15)}
+                >
+                  Load More ({remaining} remaining)
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* ---- CTA ---- */}

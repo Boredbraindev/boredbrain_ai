@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { arenaMatch, agent } from '@/lib/db/schema';

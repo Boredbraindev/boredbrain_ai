@@ -437,6 +437,10 @@ export const externalAgent = pgTable('external_agent', {
   registeredAt: timestamp('registered_at').defaultNow().notNull(),
   verifiedAt: timestamp('verified_at'),
   metadata: json('metadata').$type<Record<string, any>>(),
+  // Economy: premium invoke cost (0 = free, >0 = BP charged to caller)
+  invokeCost: integer('invoke_cost').notNull().default(0),
+  // Economy: boost visibility in marketplace (null = not boosted)
+  boostedUntil: timestamp('boosted_until'),
 });
 
 // Marketplace listings
@@ -744,8 +748,8 @@ export const pointTransaction = pgTable('point_transaction', {
   id: uuid('id').primaryKey().defaultRandom(),
   walletAddress: text('wallet_address').notNull(),
   amount: integer('amount').notNull(),
-  reason: text('reason').notNull(), // 'prediction_bet', 'arena_watch', 'agent_invoke', 'daily_login', 'streak_bonus', 'agent_register'
-  referenceId: text('reference_id'), // related bet/agent/match ID
+  reason: text('reason').notNull(), // 'forecast_entry', 'arena_watch', 'agent_invoke', 'daily_login', 'streak_bonus', 'agent_register'
+  referenceId: text('reference_id'), // related position/agent/match ID
   season: integer('season').notNull().default(1),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -974,6 +978,12 @@ export const topicDebate = pgTable('topic_debate', {
   totalParticipants: integer('total_participants').notNull().default(0),
   topScore: integer('top_score').default(0),
   topAgentId: text('top_agent_id'),
+  // Polymarket integration for auto-settlement
+  polymarketEventId: text('polymarket_event_id'),      // Polymarket event ID for settlement
+  resolvedOutcome: text('resolved_outcome'),            // winning outcome after settlement
+  totalPool: integer('total_pool').default(0),          // total BBAI wagered (participation fees)
+  // Linked betting market for for/against positions
+  marketId: uuid('market_id'),                          // references betting_market.id
 });
 
 // Debate opinion — an agent's submitted take on a topic debate
@@ -990,13 +1000,45 @@ export const debateOpinion = pgTable('debate_opinion', {
     creativity: number;
   }>(),
   position: text('position').notNull().default('neutral'), // 'for' | 'against' | 'neutral'
+  modelUsed: text('model_used'), // e.g. 'gemini-2.0-flash', 'deepseek-chat', 'llama-3.1-8b'
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Debate stake — user stakes BP on a specific agent winning a debate
+export const debateStake = pgTable('debate_stake', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  debateId: text('debate_id').notNull(),
+  walletAddress: text('wallet_address').notNull(), // user who staked
+  agentId: text('agent_id').notNull(),             // agent they bet on
+  amount: integer('amount').notNull(),             // BP staked (10-100)
+  status: text('status').notNull().default('active'), // 'active' | 'won' | 'lost' | 'refunded'
+  payout: integer('payout').default(0),            // BP received if won
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  settledAt: timestamp('settled_at'),
 });
 
 export type TopicDebate = InferSelectModel<typeof topicDebate>;
 export type DebateOpinion = InferSelectModel<typeof debateOpinion>;
+export type DebateStake = InferSelectModel<typeof debateStake>;
 
 export type BettingMarket = InferSelectModel<typeof bettingMarket>;
 export type BettingOrder = InferSelectModel<typeof bettingOrder>;
 export type BettingTrade = InferSelectModel<typeof bettingTrade>;
 export type BettingPosition = InferSelectModel<typeof bettingPosition>;
+
+// ── BP Purchase (one-time top-up via Polar) ────────────────────────────────
+export const bpPurchase = pgTable('bp_purchase', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  userId: text('user_id').notNull(),
+  walletAddress: text('wallet_address').notNull(),
+  packageId: text('package_id').notNull(),       // 'starter' | 'popular' | 'whale'
+  bpAmount: integer('bp_amount').notNull(),       // BP credited
+  usdAmount: integer('usd_amount').notNull(),     // cents (e.g. 100 = $1.00)
+  polarCheckoutId: text('polar_checkout_id'),     // Polar checkout session ID
+  polarOrderId: text('polar_order_id'),           // Polar order ID after payment
+  status: text('status').notNull().default('pending'), // 'pending' | 'completed' | 'failed'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+});
+
+export type BpPurchase = InferSelectModel<typeof bpPurchase>;

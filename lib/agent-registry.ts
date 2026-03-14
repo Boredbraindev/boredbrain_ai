@@ -196,6 +196,19 @@ export async function getDemoAgentCount(ownerAddress: string): Promise<number> {
 }
 
 /**
+ * Count total agents (demo + staked) for a wallet address.
+ */
+export async function getTotalAgentCount(ownerAddress: string): Promise<number> {
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(externalAgent)
+    .where(
+      sql`lower(${externalAgent.ownerAddress}) = ${ownerAddress.toLowerCase()}`,
+    );
+  return result?.count ?? 0;
+}
+
+/**
  * Register a new external agent on the platform.
  * Supports demo mode: 1 free agent per wallet with no staking, limited to 50 calls/day.
  */

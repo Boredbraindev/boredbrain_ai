@@ -72,7 +72,7 @@ export interface MarketStats {
 // ─── Matching Engine ────────────────────────────────────────────────
 
 /**
- * Get the complementary side for a binary market.
+ * Get the complementary side for a binary market outcome.
  * YES at price P is equivalent to NO at price (100 - P).
  */
 function getComplementarySide(side: string): string {
@@ -424,8 +424,8 @@ export async function getOrderBook(marketId: string): Promise<OrderBook> {
 
 /**
  * Resolve a market and settle all positions.
- * Winning shares pay 100 BBAI minus 2.5% platform fee = 97.5 BBAI each.
- * Losing shares pay 0.
+ * Winning shares pay out 100 BBAI minus 2.5% platform fee = 97.5 BBAI each.
+ * Losing shares pay out 0.
  */
 export async function resolveMarket(
   marketId: string,

@@ -197,7 +197,7 @@ export default function OnChainDashboard() {
                 ACTIVE
               </Badge>
             </CardTitle>
-            <CardDescription className="text-zinc-500">OpenClaw fleet — 10min heartbeat cycle</CardDescription>
+            <CardDescription className="text-zinc-500">OpenClaw fleet — autonomous operation</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

@@ -1,5 +1,6 @@
 'use client';
 
+import ComingSoon from '@/components/coming-soon';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -57,7 +58,7 @@ interface LiveBet {
   isAgent: boolean;
 }
 
-// ─── Mock Bet Names ─────────────────────────────────────────────────────────
+// ─── Mock Names ─────────────────────────────────────────────────────────────
 
 const AGENT_NAMES = [
   'DeFi Oracle', 'Alpha Hunter', 'Whale Tracker', 'Neural Trader',
@@ -289,7 +290,7 @@ try {
   // Web3 not available
 }
 
-export default function PredictPage() {
+function _TradePageContent() {
   // Wallet connection
   const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
   const { isConnected: walletConnected } = walletState;
@@ -326,7 +327,7 @@ export default function PredictPage() {
     ? results.filter(r => r.asset === resultAssetFilter)
     : results;
 
-  // Live betting feed
+  // Live trading feed
   const [liveBets, setLiveBets] = useState<LiveBet[]>([]);
   const liveBetIdRef = useRef(0);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -378,7 +379,7 @@ export default function PredictPage() {
     setPriceHistory([]);
   }, [assetIndex]);
 
-  // Auto-generate live bets from AI agents and mock users
+  // Auto-generate live positions from AI agents and mock users
   useEffect(() => {
     if (isResolving || timeLeft <= 0) return;
     const interval = setInterval(() => {
@@ -530,11 +531,11 @@ export default function PredictPage() {
     randomizeAgents();
   }, [assetIndex, randomizeAgents]);
 
-  // Place bet
+  // Enter position
   const placeBet = (direction: Direction) => {
     if (userBet || isResolving || timeLeft <= 0) return;
     if (!walletConnected) {
-      setWalletWarning('Connect wallet to place bets');
+      setWalletWarning('Connect wallet to enter positions');
       setTimeout(() => setWalletWarning(''), 3000);
       return;
     }
@@ -629,10 +630,10 @@ export default function PredictPage() {
         {/* ─── Page Header ─── */}
         <div className="text-center space-y-2 mb-6">
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-green-500 bg-clip-text text-transparent">
-            Price Prediction Arena
+            Price Forecast Arena
           </h1>
           <p className="text-zinc-500 text-sm">
-            AI Agents predict. You bet. Winner takes all.
+            AI Agents forecast. You trade. Winner takes all.
           </p>
           <div className="flex items-center justify-center gap-3 mt-2">
             <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
@@ -649,21 +650,21 @@ export default function PredictPage() {
 
         {/* ─── 2-Column Layout: Feed | Main ─── */}
         <div className="flex gap-4">
-          {/* ─── Left: Live Betting Feed ─── */}
+          {/* ─── Left: Live Trading Feed ─── */}
           <div className="hidden lg:block w-72 flex-shrink-0">
             <div className="sticky top-20">
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-semibold text-white uppercase tracking-wider">Live Bets</span>
+                    <span className="text-xs font-semibold text-white uppercase tracking-wider">Live Positions</span>
                   </div>
-                  <span className="text-[10px] text-zinc-500">{liveBets.length} bets</span>
+                  <span className="text-[10px] text-zinc-500">{liveBets.length} positions</span>
                 </div>
                 <div ref={feedRef} className="feed-scroll overflow-y-auto max-h-[calc(100vh-220px)] divide-y divide-zinc-800/50">
                   {liveBets.length === 0 && (
                     <div className="px-4 py-8 text-center text-zinc-600 text-xs">
-                      Waiting for bets...
+                      Waiting for positions...
                     </div>
                   )}
                   {liveBets.map((bet, i) => {
@@ -710,8 +711,8 @@ export default function PredictPage() {
                 {/* Feed summary bar */}
                 <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-950/50">
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-green-400">↑ {liveBets.filter(b => b.direction === 'UP').length} bets</span>
-                    <span className="text-red-400">↓ {liveBets.filter(b => b.direction === 'DOWN').length} bets</span>
+                    <span className="text-green-400">↑ {liveBets.filter(b => b.direction === 'UP').length} positions</span>
+                    <span className="text-red-400">↓ {liveBets.filter(b => b.direction === 'DOWN').length} positions</span>
                   </div>
                   <div className="mt-1 flex h-1 rounded-full overflow-hidden bg-zinc-800">
                     {(() => {
@@ -840,19 +841,19 @@ export default function PredictPage() {
                       : `You lost ${userBet.amount.toLocaleString()} BBAI`}
                   </div>
                 ) : (
-                  <div className="text-zinc-400">You did not place a bet this round</div>
+                  <div className="text-zinc-400">You did not enter a position this round</div>
                 )}
                 <p className="text-zinc-500 text-sm mt-2">Next round starting soon...</p>
               </div>
             )}
 
-            {/* Betting Section */}
+            {/* Trading Section */}
             {!roundResult && (
               <div className="space-y-4">
-                {/* Bet Amount Input */}
+                {/* Position Amount Input */}
                 {!userBet && (
                   <div className="flex items-center justify-center gap-3">
-                    <span className="text-zinc-400 text-sm">Bet Amount:</span>
+                    <span className="text-zinc-400 text-sm">Position Amount:</span>
                     <Input
                       type="number"
                       min={10}
@@ -967,7 +968,7 @@ export default function PredictPage() {
         <Tabs defaultValue="agents" className="space-y-4">
           <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
             <TabsTrigger value="agents" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
-              AI Agent Predictions
+              AI Agent Forecasts
             </TabsTrigger>
             <TabsTrigger value="results" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white">
               Recent Results
@@ -989,7 +990,7 @@ export default function PredictPage() {
                         <div>
                           <div className="font-semibold text-white">{agent.name}</div>
                           <div className="text-xs text-zinc-500">
-                            {agent.totalPredictions} predictions
+                            {agent.totalPredictions} forecasts
                           </div>
                         </div>
                       </div>
@@ -1121,8 +1122,8 @@ export default function PredictPage() {
           <TabsContent value="leaderboard" className="space-y-3">
             <Card className="border-zinc-800 bg-zinc-900/60">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-white">Top Prediction Agents</CardTitle>
-                <CardDescription className="text-zinc-500">Ranked by prediction accuracy</CardDescription>
+                <CardTitle className="text-lg text-white">Top Forecast Agents</CardTitle>
+                <CardDescription className="text-zinc-500">Ranked by forecast accuracy</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-zinc-800">
@@ -1141,7 +1142,7 @@ export default function PredictPage() {
                         <div>
                           <div className="font-semibold text-white">{agent.name}</div>
                           <div className="text-xs text-zinc-500">
-                            {agent.totalPredictions} predictions
+                            {agent.totalPredictions} forecasts
                           </div>
                         </div>
                       </div>
@@ -1182,4 +1183,8 @@ export default function PredictPage() {
       </div>
     </div>
   );
+}
+
+export default function TradePage() {
+  return <ComingSoon title="Price Trading" description="Binary price prediction trading is coming soon." />;
 }

@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest } from 'next/server';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 import {

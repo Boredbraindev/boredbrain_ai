@@ -6,9 +6,9 @@ import { eq, desc, sql } from 'drizzle-orm';
 
 export const POINT_VALUES: Record<string, number> = {
   // Core actions
-  prediction_bet: 10,
+  forecast_entry: 10,
   arena_watch: 5,
-  arena_bet_win: 50,
+  arena_stake_win: 50,
   agent_invoke: 20,
   agent_register: 100,
   daily_login: 10,
@@ -39,6 +39,16 @@ export const POINT_VALUES: Record<string, number> = {
   resurrection: 75,
   season_loyalty: 500,
   loyalty_bonus: 15,
+  // Agent registration staking (negative amount passed dynamically)
+  agent_stake: 0,
+  // Paid top-up (dynamic amount from purchase)
+  bp_topup: 0,
+  // Pro subscription daily drip
+  pro_daily_drip: 10,
+  // Economy spending actions (dynamic amounts)
+  debate_stake: 0,          // Stake BP on debate winner
+  agent_invoke_premium: 0,  // Premium agent invocation cost
+  agent_boost: 0,           // Boost agent visibility in marketplace
 };
 
 // ── Level thresholds ─────────────────────────────────────────────────────────

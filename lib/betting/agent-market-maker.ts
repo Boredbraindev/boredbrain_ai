@@ -1,6 +1,6 @@
 /**
  * Agent Market Maker — ensures markets always have liquidity.
- * When a user places a bet and there's no counterparty,
+ * When a user takes a position and there's no counterparty,
  * an agent automatically takes the other side.
  *
  * Currency: BBAI
@@ -47,7 +47,7 @@ const ANALYSIS_TEMPLATES: Record<string, { bullish: string[]; bearish: string[] 
   agent_performance: {
     bullish: [
       "Agent's call volume trending up {pct}% week-over-week.",
-      'Recent accuracy rate of {acc}% across last 50 predictions.',
+      'Recent accuracy rate of {acc}% across last 50 forecasts.',
       'Growing user base — unique callers up 30% this week.',
       'Consistent response times under 2s. Reliability score: 98%.',
     ],
@@ -235,7 +235,7 @@ export async function seedMarketLiquidity(
 // ─── Ensure Agent Liquidity ─────────────────────────────────────────
 
 /**
- * Called when a user bet can't find a counterparty.
+ * Called when a user position can't find a counterparty.
  * A fleet agent steps in to take the other side.
  */
 export async function ensureAgentLiquidity(

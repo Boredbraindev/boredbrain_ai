@@ -1,6 +1,6 @@
 /**
  * GET  /api/predict/settlement — Get settlement stats + recent on-chain rounds
- * POST /api/predict/settlement — Settle a round on-chain (called by heartbeat)
+ * POST /api/predict/settlement — Settle a round on-chain (called by heartbeat cron)
  */
 
 import { NextRequest } from 'next/server';
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       outcome,
       upPool,
       downPool,
-      totalBets,
+      totalEntries,
     } = body;
 
     if (!roundId || !asset || !startPrice || !endPrice || !outcome) {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       outcome,
       upPool ?? 0,
       downPool ?? 0,
-      totalBets ?? 0,
+      totalEntries ?? 0,
     );
 
     if (!result.success) {

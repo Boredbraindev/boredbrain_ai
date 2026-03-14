@@ -2,7 +2,6 @@
 // next/server.js eagerly require()s ALL exports including userAgent -> ua-parser-js -> __dirname
 import { NextResponse } from 'next/dist/server/web/spec-extension/response';
 import type { NextRequest } from 'next/server';
-import { rateLimit } from '@/lib/rate-limit';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 
@@ -57,81 +56,9 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── Rate-limit all /api/* routes: 60 req/min per IP ──────────────
+  // ── API routes: pass through immediately ──────────────────────────
   if (pathname.startsWith('/api/')) {
-    const { success, remaining, resetAt } = rateLimit(request, {
-      maxRequests: 60,
-      windowMs: 60_000,
-    });
-
-    if (!success) {
-      return applySecurityHeaders(
-        NextResponse.json(
-          { success: false, error: 'Too many requests. Please try again later.' },
-          {
-            status: 429,
-            headers: {
-              'Retry-After': String(Math.ceil((resetAt - Date.now()) / 1000)),
-              'X-RateLimit-Limit': '60',
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': String(Math.ceil(resetAt / 1000)),
-            },
-          },
-        ),
-      );
-    }
-
-    // Attach rate-limit + security headers to successful API responses
-    const response = NextResponse.next();
-    applySecurityHeaders(response);
-    response.headers.set('X-RateLimit-Limit', '60');
-    response.headers.set('X-RateLimit-Remaining', String(remaining));
-    response.headers.set('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
-
-    // For public API routes, return early with rate-limit headers
-    if (
-      pathname.startsWith('/api/raycast') ||
-      pathname.startsWith('/api/tools') ||
-      pathname.startsWith('/api/a2a') ||
-      pathname.startsWith('/api/mcp') ||
-      pathname.startsWith('/api/arena') ||
-      pathname.startsWith('/api/agents') ||
-      pathname.startsWith('/api/keys') ||
-      pathname.startsWith('/api/revenue') ||
-      pathname.startsWith('/api/playbooks') ||
-      pathname.startsWith('/api/marketplace') ||
-      pathname.startsWith('/api/network') ||
-      pathname.startsWith('/api/auth')
-    ) {
-      return response;
-    }
-
-    // For other /api/* routes, check auth below but carry rate-limit headers.
-    // Guest-access bypass
-    const allowGuestApi =
-      (process.env.NEXT_PUBLIC_ALLOW_GUEST_ACCESS ?? process.env.ALLOW_GUEST_ACCESS ?? 'false') !== 'false';
-    if (allowGuestApi) return response;
-
-    // Auth check for remaining API routes
-    const apiSessionToken = getSessionToken(request);
-
-    if (!apiSessionToken) {
-      return applySecurityHeaders(
-        NextResponse.json(
-          { success: false, error: 'Unauthorized' },
-          {
-            status: 401,
-            headers: {
-              'X-RateLimit-Limit': '60',
-              'X-RateLimit-Remaining': String(remaining),
-              'X-RateLimit-Reset': String(Math.ceil(resetAt / 1000)),
-            },
-          },
-        ),
-      );
-    }
-
-    return response;
+    return NextResponse.next();
   }
 
   // ── Non-API routes below ─────────────────────────────────────────

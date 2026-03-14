@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllRegisteredAgents } from '@/lib/agent-registry';
 import { apiError } from '@/lib/api-utils';

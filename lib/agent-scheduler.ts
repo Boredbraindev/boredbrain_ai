@@ -447,7 +447,7 @@ export async function generateScenarios(count: number): Promise<AgentScenario[]>
     .select()
     .from(externalAgent)
     .where(
-      sql`${externalAgent.status} IN ('active', 'verified', 'online')`,
+      sql`${externalAgent.status} IN ('active', 'verified')`,
     );
 
   if (agents.length < 2) return [];
@@ -530,7 +530,7 @@ export async function getRebalanceCandidates(): Promise<
     .select()
     .from(externalAgent)
     .where(
-      sql`${externalAgent.status} IN ('active', 'verified', 'online')`,
+      sql`${externalAgent.status} IN ('active', 'verified')`,
     );
 
   // Sample a random subset to avoid 190+ sequential wallet queries

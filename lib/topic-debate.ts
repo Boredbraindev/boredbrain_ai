@@ -11,7 +11,7 @@
 
 import { generateId } from 'ai';
 import { db } from '@/lib/db';
-import { topicDebate, debateOpinion, externalAgent } from '@/lib/db/schema';
+import { topicDebate, debateOpinion, externalAgent, bettingMarket, bettingPosition, debateStake } from '@/lib/db/schema';
 import { eq, sql, desc, and, lt, ne } from 'drizzle-orm';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { awardPoints } from '@/lib/points';
@@ -20,7 +20,7 @@ import { awardPoints } from '@/lib/points';
 // Constants
 // ---------------------------------------------------------------------------
 
-const OPEN_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const OPEN_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours — allows participation across heartbeat cycles
 
 const DEBATE_CATEGORIES = [
   'crypto',
@@ -43,11 +43,37 @@ export type DebateCategory = (typeof DEBATE_CATEGORIES)[number];
 export async function createTopicDebate(
   topic: string,
   category: string = 'general',
-): Promise<{ id: string; topic: string; category: string; closesAt: Date }> {
+  polymarketEventId?: string,
+): Promise<{ id: string; topic: string; category: string; closesAt: Date; marketId?: string }> {
   const id = generateId();
   const now = new Date();
   const closesAt = new Date(now.getTime() + OPEN_DURATION_MS);
+  let marketId: string | undefined;
 
+  // 1. Create a linked betting market for this debate
+  try {
+    const [market] = await db
+      .insert(bettingMarket)
+      .values({
+        title: `Debate: ${topic.slice(0, 200)}`,
+        description: `Linked betting market for topic debate. Agents bet by taking a for/against position.`,
+        category: 'ecosystem',
+        outcomes: ['For', 'Against'],
+        creatorAddress: 'platform-debate',
+        creatorType: 'platform',
+        resolvesAt: closesAt,
+        tags: ['debate', category],
+        metadata: { debateId: id },
+      })
+      .returning();
+
+    marketId = market?.id;
+  } catch (err) {
+    console.error('[topic-debate] createTopicDebate betting market error:', err);
+    // Non-critical — debate can still work without a linked market
+  }
+
+  // 2. Create the topic debate with the linked market ID
   try {
     await db.insert(topicDebate).values({
       id,
@@ -56,13 +82,16 @@ export async function createTopicDebate(
       status: 'open',
       closesAt,
       totalParticipants: 0,
+      polymarketEventId: polymarketEventId ?? null,
+      totalPool: 0,
+      marketId: marketId ?? null,
     });
   } catch (err) {
     console.error('[topic-debate] createTopicDebate DB error:', err);
     // Fall through — return the created debate info even if DB write fails
   }
 
-  return { id, topic, category, closesAt };
+  return { id, topic, category, closesAt, marketId };
 }
 
 /**
@@ -74,6 +103,7 @@ export async function submitAgentOpinion(
   agentId: string,
   opinion: string,
   position: 'for' | 'against' | 'neutral' = 'neutral',
+  modelUsed?: string,
 ): Promise<{ success: boolean; opinionId?: string; error?: string }> {
   try {
     // 1. Check debate exists and is open
@@ -128,6 +158,7 @@ export async function submitAgentOpinion(
       opinion: opinion.slice(0, 2000), // cap at 2000 chars
       position,
       score: 0,
+      modelUsed: modelUsed || null,
     });
 
     // 4. Increment participant count
@@ -137,6 +168,24 @@ export async function submitAgentOpinion(
         totalParticipants: sql`${topicDebate.totalParticipants} + 1`,
       })
       .where(eq(topicDebate.id, debateId));
+
+    // 4b. Create a betting position if the debate has a linked market and agent took a side
+    if (debate.marketId && (position === 'for' || position === 'against')) {
+      try {
+        const outcome = position === 'for' ? 'For' : 'Against';
+        await db.insert(bettingPosition).values({
+          marketId: debate.marketId,
+          userAddress: agentId,
+          outcome,
+          shares: 2, // 2 BP participation fee = 2 shares
+          avgPrice: 50, // 50/50 implied probability at entry
+          realizedPnl: 0,
+        });
+      } catch (err) {
+        console.error('[topic-debate] betting position creation error:', err);
+        // Non-critical — opinion is still recorded
+      }
+    }
 
     // 5. Award BP points for participation (10 BP)
     // Use agent's owner address if it's a fleet agent, otherwise use agentId as wallet
@@ -336,7 +385,40 @@ Return ONLY the JSON array, nothing else.`;
       }
     }
 
-    // 8. Mark debate as completed
+    // 8. Settle user stakes — winners bet on top-scoring agent
+    try {
+      const allStakes = await db
+        .select()
+        .from(debateStake)
+        .where(and(
+          eq(debateStake.debateId, debateId),
+          eq(debateStake.status, 'active'),
+        ));
+
+      if (allStakes.length > 0 && topAgentId) {
+        const totalPool = allStakes.reduce((sum, s) => sum + s.amount, 0);
+        const winStakes = allStakes.filter(s => s.agentId === topAgentId);
+        const loseStakes = allStakes.filter(s => s.agentId !== topAgentId);
+        const winTotal = winStakes.reduce((sum, s) => sum + s.amount, 0);
+
+        for (const stake of winStakes) {
+          const payout = winTotal > 0 ? Math.floor((stake.amount / winTotal) * totalPool) : stake.amount;
+          try {
+            await awardPoints(stake.walletAddress, 'arena_stake_win', debateId, payout);
+            await db.update(debateStake).set({ status: 'won', payout, settledAt: new Date() }).where(eq(debateStake.id, stake.id));
+          } catch { /* non-critical */ }
+        }
+        for (const stake of loseStakes) {
+          try {
+            await db.update(debateStake).set({ status: 'lost', payout: 0, settledAt: new Date() }).where(eq(debateStake.id, stake.id));
+          } catch { /* non-critical */ }
+        }
+      }
+    } catch {
+      // Stake settlement non-critical
+    }
+
+    // 9. Mark debate as completed
     await db
       .update(topicDebate)
       .set({
@@ -398,6 +480,7 @@ export async function getDebateResults(debateId: string): Promise<{
       creativity: number;
     } | null;
     position: string;
+    modelUsed: string | null;
     createdAt: Date;
     rank: number;
   }>;
@@ -430,6 +513,7 @@ export async function getDebateResults(debateId: string): Promise<{
         score: debateOpinion.score,
         scoreBreakdown: debateOpinion.scoreBreakdown,
         position: debateOpinion.position,
+        modelUsed: debateOpinion.modelUsed,
         createdAt: debateOpinion.createdAt,
       })
       .from(debateOpinion)
@@ -469,6 +553,7 @@ export async function getDebateResults(debateId: string): Promise<{
           score: o.score ?? 0,
           scoreBreakdown: o.scoreBreakdown ?? null,
           position: o.position,
+          modelUsed: o.modelUsed ?? null,
           createdAt: o.createdAt,
           rank: index + 1,
         };
@@ -643,7 +728,7 @@ export async function autoParticipateInDebates(
       return { participated: 0, errors: [] };
     }
 
-    // 2. Pick random fleet agents
+    // 2. Pick random active agents
     const agents = await Promise.race([
       db
         .select({
@@ -653,7 +738,7 @@ export async function autoParticipateInDebates(
           description: externalAgent.description,
         })
         .from(externalAgent)
-        .where(eq(externalAgent.ownerAddress, 'platform-fleet'))
+        .where(sql`${externalAgent.status} IN ('active', 'verified')`)
         .orderBy(sql`RANDOM()`)
         .limit(agentCount * 2), // fetch extra for variety
       new Promise<never>((_, reject) =>
@@ -662,7 +747,7 @@ export async function autoParticipateInDebates(
     ]);
 
     if (agents.length === 0) {
-      return { participated: 0, errors: ['No fleet agents found'] };
+      return { participated: 0, errors: ['No active agents found'] };
     }
 
     // 3. For each debate, have agents submit opinions
@@ -693,65 +778,81 @@ export async function autoParticipateInDebates(
 
           if (existing.length > 0) continue;
 
-          // Generate opinion using LLM
-          const opinionPrompt = `You are participating in an open topic debate on the BoredBrain platform.
+          // Generate opinion — try LLM first, fall back to template
+          let opinionText: string | null = null;
+          let position: 'for' | 'against' | 'neutral' = 'neutral';
 
-Topic: "${debate.topic}"
-Category: ${debate.category}
+          try {
+            const agentConfig: AgentConfig = {
+              id: agent.id,
+              name: agent.name,
+              description: agent.description ?? `${agent.specialization} specialist`,
+              preferredProvider: 'google',
+              preferredModel: 'gemini-2.0-flash',
+            };
 
-Your specialization is: ${agent.specialization}
-${agent.description ? `Your background: ${agent.description}` : ''}
+            const stanceHint = Math.random() > 0.5
+              ? 'Argue FIRMLY for one side.'
+              : 'Be contrarian — challenge the popular view.';
 
-Provide your opinion on this topic. Be specific, use data or reasoning from your area of expertise. Take a clear position (for, against, or neutral) and defend it.
+            const result = await Promise.race([
+              executeAgent(
+                agentConfig,
+                `You are "${agent.name}". ${agent.description ?? agent.specialization + ' specialist'}.
 
-Requirements:
-- 2-4 sentences maximum
-- Reference your specialization/expertise
-- Be concrete, not generic
-- Take a clear stance
+DEBATE: "${debate.topic}" [${debate.category}]
 
-Respond with ONLY your opinion text, nothing else.`;
+Write 2-3 sentences. ${stanceHint} Rules:
+- NEVER start with "As a..." or any filler. Jump straight into your argument.
+- NEVER output <think> tags or internal reasoning.
+- Cite a specific number, protocol, event, or trend only a ${agent.specialization} expert would reference.
+- Your tone must match: ${agent.specialization} experts are opinionated and specific.
 
-          const agentConfig: AgentConfig = {
-            id: agent.id,
-            name: agent.name,
-            description: agent.description ?? `${agent.specialization} specialist`,
-            preferredProvider: 'google',
-            preferredModel: 'gemini-2.0-flash',
-          };
+Reply with ONLY your opinion.`,
+              ),
+              new Promise<{ content: null }>((resolve) =>
+                setTimeout(() => resolve({ content: null }), 8000),
+              ),
+            ]);
 
-          const result = await executeAgent(agentConfig, opinionPrompt);
+            if (result.content && !result.content.includes('LLM unavailable')) {
+              // Strip chain-of-thought tags
+              opinionText = result.content
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/<think>[\s\S]*/g, '')
+                .replace(/<\|think\|>[\s\S]*?<\|\/think\|>/g, '')
+                .trim()
+                .slice(0, 2000);
+              if (opinionText.length < 20) opinionText = null;
+            }
+          } catch {
+            // LLM failed — use template
+          }
 
-          if (result.content && !result.content.includes('LLM unavailable')) {
-            // Determine position from content
-            const content = result.content.toLowerCase();
-            let position: 'for' | 'against' | 'neutral' = 'neutral';
-            if (
-              content.includes('strongly support') ||
-              content.includes('i agree') ||
-              content.includes('in favor') ||
-              content.includes('absolutely')
-            ) {
+          // No fallback — if LLM fails, skip this agent
+          if (!opinionText) {
+            continue;
+          }
+
+          // Determine position from LLM content
+          if (position === 'neutral' && opinionText) {
+            const lower = opinionText.toLowerCase();
+            if (lower.includes('support') || lower.includes('agree') || lower.includes('in favor') || lower.includes('positive')) {
               position = 'for';
-            } else if (
-              content.includes('disagree') ||
-              content.includes('against') ||
-              content.includes('skeptical') ||
-              content.includes('unlikely')
-            ) {
+            } else if (lower.includes('disagree') || lower.includes('against') || lower.includes('skeptical') || lower.includes('unlikely')) {
               position = 'against';
             }
+          }
 
-            const submitResult = await submitAgentOpinion(
-              debate.id,
-              agent.id,
-              result.content.slice(0, 2000),
-              position,
-            );
+          const submitResult = await submitAgentOpinion(
+            debate.id,
+            agent.id,
+            opinionText,
+            position,
+          );
 
-            if (submitResult.success) {
-              participated++;
-            }
+          if (submitResult.success) {
+            participated++;
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error';

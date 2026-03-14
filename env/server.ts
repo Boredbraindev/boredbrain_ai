@@ -7,7 +7,7 @@ const optionalString = z.string().trim().optional().default('');
 export const serverEnv = createEnv({
   server: {
     // Core - required for app to function
-    DATABASE_URL: z.string().trim().min(1).optional().default(''),
+    DATABASE_URL: z.string().trim().optional().default(''),
     BETTER_AUTH_SECRET: z.string().trim().optional().default(''),
 
     // AI Providers - optional, features degrade gracefully
@@ -15,6 +15,7 @@ export const serverEnv = createEnv({
     OPENAI_API_KEY: optionalString,
     ANTHROPIC_API_KEY: optionalString,
     GROQ_API_KEY: optionalString,
+    DEEPSEEK_API_KEY: optionalString,
     GOOGLE_GENERATIVE_AI_API_KEY: optionalString,
     DAYTONA_API_KEY: optionalString,
 

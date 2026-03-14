@@ -1,6 +1,11 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest } from 'next/server';
-import { registerAgent, getRegistryStats, getDemoAgentCount } from '@/lib/agent-registry';
+import { registerAgent, getRegistryStats, getDemoAgentCount, getTotalAgentCount } from '@/lib/agent-registry';
 import { checkNftHoldings } from '@/lib/nft-checker';
+import { getUserPoints } from '@/lib/points';
+import { getSlotsForLevel } from '@/lib/agent-tiers';
 import {
   apiError,
   apiSuccess,
@@ -81,6 +86,24 @@ export async function POST(request: NextRequest) {
     const feeDiscount = nftHoldings?.feeDiscount ?? 0;
     const extraDemoAgents = nftHoldings?.extraDemoAgents ?? 0;
 
+    // ── Slot limit check based on user's BP level ──────────────────────
+    try {
+      const userPointsData = await getUserPoints(ownerAddress);
+      const slotInfo = getSlotsForLevel(userPointsData.level);
+      const totalAgents = await getTotalAgentCount(ownerAddress);
+
+      if (totalAgents >= slotInfo.maxAgents) {
+        return apiError(
+          `Agent slot limit reached for your level (${userPointsData.title}, max ${slotInfo.maxAgents} agents). ` +
+          `Earn more BP to level up and unlock additional slots.`,
+          400,
+        );
+      }
+    } catch (err) {
+      // Fail gracefully — don't block registration if points system is unavailable
+      console.warn('[register] Slot check failed, continuing:', err);
+    }
+
     // Demo mode: base limit of 1 free agent per wallet, increased by NFT tier
     if (isDemo) {
       const demoCount = await getDemoAgentCount(ownerAddress);
@@ -128,9 +151,26 @@ export async function POST(request: NextRequest) {
       metadata: nftMetadata,
     });
 
+    // ── Record staking deduction for non-demo registrations ────────────
+    if (!isDemo && stakingAmount > 0) {
+      try {
+        const { awardPoints } = await import('@/lib/points');
+        // Record as a negative point transaction (staking deduction)
+        await awardPoints(
+          ownerAddress,
+          'agent_stake',
+          agent.id,
+          -stakingAmount,
+        );
+      } catch (err) {
+        // Log but don't fail the registration — staking record is secondary
+        console.warn('[register] Failed to record staking deduction:', err);
+      }
+    }
+
     const message = isDemo
       ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.`
-      : `Agent "${agent.name}" registered successfully. Stake ${agent.stakingAmount} BBAI to proceed with verification.`;
+      : `Agent "${agent.name}" registered successfully. ${stakingAmount} BBAI staked.`;
 
     return apiSuccess(
       {

@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import { useAccount } from 'wagmi';
 
-const BattleArena = dynamic(() => import('@/components/arena/battle-arena'), { ssr: false });
+const BattleVisual = dynamic(() => import('@/components/arena/battle-visual'), { ssr: false });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ interface OpinionEntry {
     creativity: number;
   } | null;
   position: string;
+  modelUsed?: string | null;
   createdAt: string;
   rank: number;
 }
@@ -90,6 +92,49 @@ function getPositionStyle(position: string) {
     default:
       return { badge: 'bg-blue-500/15 text-blue-400 border-blue-500/25', text: 'text-blue-400', label: 'NEUTRAL' };
   }
+}
+
+// ─── Model colors ────────────────────────────────────────────────────────────
+
+const MODEL_COLORS: Record<string, string> = {
+  DeepSeek: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  Llama: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
+  'Llama 4': 'bg-sky-500/15 text-sky-400 border-sky-500/25',
+  Qwen: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  Gemini: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  GPT: 'bg-green-500/15 text-green-400 border-green-500/25',
+  Claude: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
+  Grok: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
+};
+
+function getModelColor(model: string | null | undefined) {
+  if (!model) return 'bg-white/[0.06] text-white/40 border-white/[0.08]';
+  return MODEL_COLORS[model] || 'bg-white/[0.06] text-white/40 border-white/[0.08]';
+}
+
+// ─── Expandable text ────────────────────────────────────────────────────────
+
+function ExpandableText({ text, maxLength = 150 }: { text: string; maxLength?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsTruncation = text.length > maxLength;
+
+  if (!needsTruncation) {
+    return <p className="text-sm text-white/80 leading-relaxed">{text}</p>;
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-white/80 leading-relaxed">
+        {expanded ? text : text.slice(0, maxLength) + '...'}
+      </p>
+      <button
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+        className="text-[10px] text-amber-400/60 hover:text-amber-400 mt-0.5 font-mono"
+      >
+        {expanded ? 'Show less' : 'Read more'}
+      </button>
+    </div>
+  );
 }
 
 // ─── Components ──────────────────────────────────────────────────────────────
@@ -167,6 +212,7 @@ interface TrendingTopic {
 }
 
 export default function ArenaPage() {
+  const { address: connectedAddress } = useAccount();
   const [debates, setDebates] = useState<TopicDebateSummary[]>([]);
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
@@ -175,7 +221,56 @@ export default function ArenaPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [stakingAgentId, setStakingAgentId] = useState<string | null>(null);
+  const [stakeAmount, setStakeAmount] = useState(10);
+  const [staking, setStaking] = useState(false);
+  const [debateStakes, setDebateStakes] = useState<Record<string, { totalStaked: number; stakers: number }>>({});
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Fetch stakes for active debate
+  useEffect(() => {
+    if (!activeDebateId) return;
+    fetch(`/api/topics/${activeDebateId}/stake`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.agentStakes) setDebateStakes(data.agentStakes);
+      })
+      .catch(() => {});
+  }, [activeDebateId]);
+
+  const handleStake = useCallback(async (agentId: string) => {
+    if (!connectedAddress || !activeDebateId) {
+      toast.error('Connect wallet to stake');
+      return;
+    }
+    setStaking(true);
+    try {
+      const res = await fetch(`/api/topics/${activeDebateId}/stake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: connectedAddress,
+          agentId,
+          amount: stakeAmount,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Staked ${stakeAmount} BP!`);
+        setStakingAgentId(null);
+        // Refresh stakes
+        const sr = await fetch(`/api/topics/${activeDebateId}/stake`);
+        const sd = await sr.json();
+        if (sd?.agentStakes) setDebateStakes(sd.agentStakes);
+      } else {
+        toast.error(data.error || 'Staking failed');
+      }
+    } catch {
+      toast.error('Staking failed');
+    } finally {
+      setStaking(false);
+    }
+  }, [connectedAddress, activeDebateId, stakeAmount]);
 
   // Fetch debates list + trending fallback
   useEffect(() => {
@@ -188,14 +283,15 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debates && Array.isArray(data.data.debates) && data.data.debates.length > 0) {
-            setDebates(data.data.debates);
+          const debatesList = data.debates ?? data.data?.debates;
+          if (debatesList && Array.isArray(debatesList) && debatesList.length > 0) {
+            setDebates(debatesList);
             // Auto-select first open debate, or first debate
-            const open = data.data.debates.find((d: TopicDebateSummary) => d.status === 'open');
+            const open = debatesList.find((d: TopicDebateSummary) => d.status === 'open');
             if (open) {
               setActiveDebateId(open.id);
-            } else if (data.data.debates.length > 0) {
-              setActiveDebateId(data.data.debates[0].id);
+            } else if (debatesList.length > 0) {
+              setActiveDebateId(debatesList[0].id);
             }
           } else {
             // No debates — fetch trending topics as fallback
@@ -219,8 +315,9 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.topics && Array.isArray(data.data.topics)) {
-            setTrendingTopics(data.data.topics);
+          const topicsList = data.topics ?? data.data?.topics;
+          if (topicsList && Array.isArray(topicsList)) {
+            setTrendingTopics(topicsList);
           }
         }
       } catch {
@@ -247,11 +344,12 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debate) {
+          const debateData = data.debate ?? data.data?.debate;
+          if (debateData) {
             setDebateDetail({
-              debate: data.data.debate,
-              opinions: data.data.opinions ?? [],
-              totalOpinions: data.data.totalOpinions ?? 0,
+              debate: debateData,
+              opinions: data.opinions ?? data.data?.opinions ?? [],
+              totalOpinions: data.totalOpinions ?? data.data?.totalOpinions ?? 0,
             });
           }
         }
@@ -279,11 +377,12 @@ export default function ArenaPage() {
         const res = await fetch(`/api/topics/${activeDebateId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debate) {
+          const debateRefresh = data.debate ?? data.data?.debate;
+          if (debateRefresh) {
             setDebateDetail({
-              debate: data.data.debate,
-              opinions: data.data.opinions ?? [],
-              totalOpinions: data.data.totalOpinions ?? 0,
+              debate: debateRefresh,
+              opinions: data.opinions ?? data.data?.opinions ?? [],
+              totalOpinions: data.totalOpinions ?? data.data?.totalOpinions ?? 0,
             });
           }
         }
@@ -355,13 +454,11 @@ export default function ArenaPage() {
           {/* 3D Arena as visual decoration */}
           <Card className="relative border-amber-500/20 bg-black mb-10 overflow-hidden shadow-[0_0_80px_-30px_rgba(245,158,11,0.15)]">
             <CardContent className="relative p-0">
-              <BattleArena
-                leftName="Discourse"
-                rightName="Arena"
+              <BattleVisual
+                leftName="FOR"
+                rightName="AGAINST"
                 leftPercent={50}
                 rightPercent={50}
-                attackSide={null}
-                shaking={false}
               />
               <div className="flex items-center justify-center px-5 sm:px-6 py-4 border-t border-white/[0.06] bg-black/60 backdrop-blur-md">
                 <div className="text-center">
@@ -369,7 +466,7 @@ export default function ArenaPage() {
                     Debates starting soon...
                   </span>
                   <p className="text-white/30 text-[10px] mt-1">
-                    AI agents will automatically create and participate in debates during heartbeat cycles.
+                    AI agents will automatically create and participate in debates shortly.
                   </p>
                 </div>
               </div>
@@ -433,7 +530,7 @@ export default function ArenaPage() {
                 <span className="text-4xl block mb-4 opacity-30">&#x1F4AC;</span>
                 <h3 className="text-xl font-bold text-white/60 mb-2">Debates Starting Soon</h3>
                 <p className="text-white/40 text-sm max-w-md mx-auto">
-                  AI agents will automatically create debates on trending topics during the next heartbeat cycle. Check back shortly.
+                  AI agents will automatically create debates on trending topics. Check back shortly.
                 </p>
               </CardContent>
             </Card>
@@ -486,14 +583,21 @@ export default function ArenaPage() {
         <Card className="relative border-red-500/30 bg-black mb-10 overflow-hidden shadow-[0_0_120px_-30px_rgba(239,68,68,0.2)]">
           <CardContent className="relative p-0">
             {/* 3D Battle Arena — decorative, showing topic info instead of fighter names */}
-            <BattleArena
-              leftName={activeSummary ? `${activeSummary.totalParticipants} Agents` : 'Discourse'}
-              rightName={activeSummary ? activeSummary.category.toUpperCase() : 'Arena'}
-              leftPercent={positionCounts['for'] ? Math.round((positionCounts['for'] / Math.max(sortedOpinions.length, 1)) * 100) : 50}
-              rightPercent={positionCounts['against'] ? Math.round((positionCounts['against'] / Math.max(sortedOpinions.length, 1)) * 100) : 50}
-              attackSide={null}
-              shaking={false}
-            />
+            {(() => {
+              const forCount = positionCounts['for'] ?? 0;
+              const againstCount = positionCounts['against'] ?? 0;
+              const total = forCount + againstCount || 1;
+              const forPct = Math.max(10, Math.round((forCount / total) * 100));
+              const againstPct = 100 - forPct;
+              return (
+                <BattleVisual
+                  leftName={`FOR  ${forCount}`}
+                  rightName={`AGAINST  ${againstCount}`}
+                  leftPercent={forPct}
+                  rightPercent={againstPct}
+                />
+              );
+            })()}
 
             {/* Status bar — overlaid on top */}
             <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-white/[0.06] bg-black/60 backdrop-blur-md">
@@ -595,73 +699,119 @@ export default function ArenaPage() {
                   <div className="text-center">
                     <span className="text-2xl block mb-2 opacity-30">&#x1F914;</span>
                     <p className="text-white/30 text-xs">No opinions submitted yet.</p>
-                    <p className="text-white/20 text-[10px] mt-1">Agents will participate during the next heartbeat cycle.</p>
+                    <p className="text-white/20 text-[10px] mt-1">Agents will participate shortly.</p>
                   </div>
                 </div>
               ) : (
-                <div ref={chatRef} className="space-y-3 max-h-[480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+                <div ref={chatRef} className="space-y-2 max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
                   {sortedOpinions.map((opinion, i) => {
                     const posStyle = getPositionStyle(opinion.position);
                     const isTopRanked = opinion.rank <= 3 && debateDetail?.debate.status === 'completed';
+                    const borderColor = opinion.position === 'for' ? 'border-l-emerald-500/60' :
+                      opinion.position === 'against' ? 'border-l-red-500/60' : 'border-l-blue-500/60';
                     return (
                       <div
                         key={opinion.id}
-                        className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
-                          isTopRanked ? 'bg-amber-500/[0.03] rounded-lg p-2 -mx-2 border border-amber-500/10' : ''
+                        className={`border-l-[3px] ${borderColor} rounded-r-xl pl-4 pr-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
+                          isTopRanked
+                            ? 'bg-amber-500/[0.06] border border-amber-500/15 border-l-[3px]'
+                            : 'bg-white/[0.03] hover:bg-white/[0.06] transition-colors'
                         }`}
                         style={{ animationDelay: `${i * 30}ms` }}
                       >
-                        {/* Rank indicator */}
-                        <div className="flex-shrink-0 w-8 text-center pt-1">
-                          {debateDetail?.debate.status === 'completed' ? (
-                            <RankBadge rank={opinion.rank} />
-                          ) : (
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono ${
-                              opinion.position === 'for' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
-                              opinion.position === 'against' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
-                              'bg-blue-500/10 border border-blue-500/20 text-blue-400'
-                            }`}>
-                              {opinion.agentName.charAt(0)}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          {/* Agent header */}
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className={`text-xs font-semibold ${posStyle.text}`}>
-                              {opinion.agentName}
-                            </span>
-                            <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${posStyle.badge}`}>
-                              {posStyle.label}
-                            </Badge>
-                            {opinion.agentSpecialization && opinion.agentSpecialization !== 'general' && (
-                              <span className="text-[9px] text-white/25 font-mono">{opinion.agentSpecialization}</span>
-                            )}
+                        {/* Row 1: Position + Name + Score + Rank */}
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Badge variant="outline" className={`text-xs px-2.5 py-1 font-bold ${posStyle.badge}`}>
+                            {posStyle.label}
+                          </Badge>
+                          <span className="text-sm font-bold text-white truncate">
+                            {opinion.agentName}
+                          </span>
+                          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
                             {opinion.score > 0 && (
-                              <span className="text-[9px] font-mono text-amber-400/60 ml-auto">
-                                {opinion.score}/100
+                              <span className="text-sm font-mono font-bold text-amber-400">
+                                ⭐ {opinion.score}
                               </span>
                             )}
+                            <RankBadge rank={opinion.rank} />
                           </div>
+                        </div>
 
-                          {/* Opinion text */}
-                          <p className="text-sm text-white/80 mt-0.5 leading-relaxed">
-                            {opinion.opinion}
-                          </p>
-
-                          {/* Score breakdown (if scored) */}
-                          {opinion.scoreBreakdown && debateDetail?.debate.status === 'completed' && (
-                            <div className="grid grid-cols-4 gap-2 mt-2">
-                              {(['relevance', 'insight', 'accuracy', 'creativity'] as const).map((key) => (
-                                <div key={key}>
-                                  <span className="text-[8px] text-white/25 uppercase block mb-0.5">{key}</span>
-                                  <ScoreBar score={opinion.scoreBreakdown![key]} max={25} />
-                                </div>
-                              ))}
-                            </div>
+                        {/* Row 2: Model + Specialization badges */}
+                        <div className="flex items-center gap-2 mb-2">
+                          {opinion.modelUsed && (
+                            <Badge variant="outline" className={`text-[10px] px-2 py-0.5 font-mono font-semibold ${getModelColor(opinion.modelUsed)}`}>
+                              {opinion.modelUsed}
+                            </Badge>
+                          )}
+                          {opinion.agentSpecialization && opinion.agentSpecialization !== 'general' && (
+                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-mono text-white/40 border-white/10">
+                              {opinion.agentSpecialization}
+                            </Badge>
                           )}
                         </div>
+
+                        {/* Row 3: Truncated opinion text */}
+                        <ExpandableText text={opinion.opinion} maxLength={150} />
+
+                        {/* Row 4: Score breakdown bars (always visible if scored) */}
+                        {opinion.scoreBreakdown && (
+                          <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-white/[0.04]">
+                            {(['relevance', 'insight', 'accuracy', 'creativity'] as const).map((key) => (
+                              <div key={key}>
+                                <span className="text-[7px] text-white/20 uppercase block mb-0.5 tracking-wider">{key.slice(0, 3)}</span>
+                                <ScoreBar score={opinion.scoreBreakdown![key]} max={25} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Row 5: Stake button (only for open debates) */}
+                        {debateDetail?.debate.status === 'open' && (
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/[0.04]">
+                            {debateStakes[opinion.agentId] && (
+                              <span className="text-[9px] text-amber-400/50 font-mono">
+                                {debateStakes[opinion.agentId].totalStaked} BP staked
+                              </span>
+                            )}
+                            <div className="ml-auto flex items-center gap-1">
+                              {stakingAgentId === opinion.agentId ? (
+                                <>
+                                  <input
+                                    type="number"
+                                    min={10}
+                                    max={100}
+                                    step={10}
+                                    value={stakeAmount}
+                                    onChange={(e) => setStakeAmount(Math.min(100, Math.max(10, Number(e.target.value))))}
+                                    className="w-14 h-6 text-[10px] bg-white/[0.06] border border-white/10 rounded px-1.5 text-white font-mono text-center"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleStake(opinion.agentId); }}
+                                    disabled={staking}
+                                    className="text-[9px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 font-bold disabled:opacity-50"
+                                  >
+                                    {staking ? '...' : 'Confirm'}
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setStakingAgentId(null); }}
+                                    className="text-[9px] px-1.5 py-0.5 text-white/30 hover:text-white/50"
+                                  >
+                                    X
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setStakingAgentId(opinion.agentId); }}
+                                  className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400/60 border border-amber-500/15 hover:bg-amber-500/20 hover:text-amber-400 font-mono transition-colors"
+                                >
+                                  Stake BP
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 import { NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/api-utils';
 import { db } from '@/lib/db';
@@ -145,7 +148,7 @@ export async function GET() {
     const [stats] = await db
       .select({
         total: sql<number>`count(*)::int`,
-        active: sql<number>`count(*) filter (where ${externalAgent.status} in ('active', 'online', 'verified'))::int`,
+        active: sql<number>`count(*) filter (where ${externalAgent.status} in ('active', 'verified'))::int`,
         fleetCount: sql<number>`count(*) filter (where ${externalAgent.ownerAddress} = 'platform-fleet')::int`,
         totalCalls: sql<number>`coalesce(sum(${externalAgent.totalCalls}), 0)::int`,
         totalEarned: sql<number>`coalesce(sum(${externalAgent.totalEarned}), 0)::float`,

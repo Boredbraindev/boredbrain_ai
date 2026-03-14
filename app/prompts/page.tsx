@@ -393,3 +393,4 @@ function PromptCard({ prompt: p, featured = false }: { prompt: PromptTemplate; f
     </Link>
   );
 }
+

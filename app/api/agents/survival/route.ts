@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const maxDuration = 10;
+
 /**
  * GET /api/agents/survival
  *
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
         })
         .from(externalAgent)
         .innerJoin(agentWallet, eq(externalAgent.id, agentWallet.agentId))
-        .where(sql`${externalAgent.status} IN ('active', 'verified', 'online', 'suspended')`);
+        .where(sql`${externalAgent.status} IN ('active', 'verified', 'suspended')`);
 
       clearTimeout(timeout);
 

@@ -151,7 +151,7 @@ export async function evaluateAllTiers(): Promise<TierReport> {
       })
       .from(externalAgent)
       .innerJoin(agentWallet, eq(externalAgent.id, agentWallet.agentId))
-      .where(sql`${externalAgent.status} IN ('active', 'verified', 'online')`)
+      .where(sql`${externalAgent.status} IN ('active', 'verified')`)
       .limit(200);
 
     for (const row of rows) {

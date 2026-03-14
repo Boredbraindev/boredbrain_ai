@@ -1,4 +1,4 @@
-// ─── In-Memory Circular Buffer for Betting Activity Feed ───────────
+// ─── In-Memory Circular Buffer for Trading Activity Feed ───────────
 //
 // Keeps the last MAX_ENTRIES trades in memory so the global feed
 // endpoint can respond instantly without hitting the DB on every request.

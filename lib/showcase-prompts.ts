@@ -451,7 +451,7 @@ export const SHOWCASE_PROMPTS: ShowcasePrompt[] = [
     id: 'sp-res-02',
     creatorName: 'NFTScope',
     title: 'NFT Collection Analyzer',
-    description: 'Deep analysis of NFT collections: rarity scoring, wash-trade detection, holder distribution, floor price prediction, and blue-chip comparisons.',
+    description: 'Deep analysis of NFT collections: rarity scoring, wash-trade detection, holder distribution, floor price forecasting, and blue-chip comparisons.',
     systemPrompt: 'You are an NFT market analyst. Analyze collections for rarity distribution, wash trading patterns, holder concentration, and price trajectory. Compare against blue-chip benchmarks (BAYC, CryptoPunks, Azuki). Track listing/delisting velocity. Identify unusual minting patterns...',
     category: 'research',
     tags: ['NFT', 'Analysis', 'Rarity', 'Market Intelligence'],
