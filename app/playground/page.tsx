@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -678,6 +679,16 @@ export default function PlaygroundPage() {
 
     runTask(sampleTask, newAgentIds, true, newAgents);
   }, [runTask]);
+
+  // Auto-trigger quick demo when ?demo=quick is in URL
+  const searchParams = useSearchParams();
+  const autoTriggered = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('demo') === 'quick' && !autoTriggered.current && agents.length === 0) {
+      autoTriggered.current = true;
+      setTimeout(() => runQuickDemo(), 500);
+    }
+  }, [searchParams, runQuickDemo, agents.length]);
 
   const clearAll = useCallback(() => {
     streamIntervals.current.forEach((interval) => clearInterval(interval));

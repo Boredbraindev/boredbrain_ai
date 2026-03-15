@@ -459,6 +459,11 @@ export function AgenticHub() {
                   Marketplace
                 </Button>
               </Link>
+              <Link href="/playground?demo=quick" className="animate-[fadeSlideUp_0.6s_ease-out_0.8s_both]">
+                <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-emerald-500/20 bg-emerald-500/[0.06] hover:bg-emerald-500/15 hover:border-emerald-500/30 text-emerald-400 text-sm backdrop-blur-sm transition-all hover:scale-[1.03]">
+                  <span className="mr-1.5">⚡</span> Quick Demo
+                </Button>
+              </Link>
             </div>
 
             {/* Live Stats Pills — animated counters */}
