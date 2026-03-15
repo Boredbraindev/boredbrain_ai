@@ -1,5 +1,5 @@
 export const runtime = 'nodejs';
-export const maxDuration = 10;
+export const maxDuration = 60;
 
 /**
  * Agent Heartbeat Cron
@@ -428,22 +428,80 @@ export async function GET(request: NextRequest) {
         : 'https://boredbrain.app';
       const secret = serverEnv.CRON_SECRET;
 
-      if (Math.random() < 0.8) {
+      // Create new topic — always try, 60% chance per cycle so topics accumulate naturally
+      if (Math.random() < 0.6) {
         try {
-          const hotTopics = await getHotTopics(10);
-          if (hotTopics.length > 0) {
-            const pick = hotTopics[Math.floor(Math.random() * hotTopics.length)];
-            await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id);
-            topicDebatesCreated++;
-          } else {
-            const fallbackTopics = [
-              { topic: 'Will Bitcoin reach a new all-time high this quarter?', category: 'crypto' },
+          // Try Polymarket hot topics first
+          let created = false;
+          try {
+            const hotTopics = await getHotTopics(10);
+            if (hotTopics.length > 0) {
+              const pick = hotTopics[Math.floor(Math.random() * hotTopics.length)];
+              await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id);
+              topicDebatesCreated++;
+              created = true;
+            }
+          } catch {}
+
+          // Fallback: rich topic pool across many categories
+          if (!created) {
+            const TOPIC_POOL = [
+              // Crypto
+              { topic: 'Will Bitcoin break $100K before Q3 2026?', category: 'crypto' },
+              { topic: 'Is Ethereum still the king of smart contracts?', category: 'crypto' },
+              { topic: 'Will Solana flip Ethereum in daily transactions this year?', category: 'crypto' },
+              { topic: 'Are memecoins a legitimate asset class or pure gambling?', category: 'crypto' },
+              { topic: 'Will a Bitcoin ETF outperform the S&P 500 in 2026?', category: 'crypto' },
+              { topic: 'Is Bitcoin mining still profitable after the 2024 halving?', category: 'crypto' },
+              { topic: 'Will stablecoins replace traditional banking for cross-border payments?', category: 'crypto' },
+              // DeFi
               { topic: 'Is DeFi yield farming still sustainable in the current market?', category: 'defi' },
+              { topic: 'Will real-world asset tokenization dominate DeFi by 2027?', category: 'defi' },
+              { topic: 'Are DEXs safer than centralized exchanges after FTX?', category: 'defi' },
+              { topic: 'Will lending protocols survive without token incentives?', category: 'defi' },
+              { topic: 'Is liquid staking the future of Ethereum DeFi?', category: 'defi' },
+              // AI
               { topic: 'Should AI agents be allowed to trade autonomously without human oversight?', category: 'ai' },
+              { topic: 'Will AI replace 50% of software engineering jobs by 2030?', category: 'ai' },
+              { topic: 'Is open-source AI safer than closed-source models?', category: 'ai' },
+              { topic: 'Should AI-generated content be labeled by law?', category: 'ai' },
+              { topic: 'Will autonomous AI agents manage most crypto portfolios by 2028?', category: 'ai' },
+              { topic: 'Can AI agents be trusted with financial decisions?', category: 'ai' },
+              // Governance
+              { topic: 'Should DAOs replace corporate governance entirely?', category: 'governance' },
+              { topic: 'Is quadratic voting the fairest governance model?', category: 'governance' },
+              { topic: 'Should crypto platforms implement mandatory KYC?', category: 'governance' },
+              { topic: 'Will CBDCs kill financial privacy?', category: 'governance' },
+              { topic: 'Should governments regulate AI more strictly?', category: 'governance' },
+              // Culture & Society
+              { topic: 'Is remote work better for productivity than office work?', category: 'culture' },
+              { topic: 'Will the metaverse ever go mainstream?', category: 'culture' },
+              { topic: 'Are NFTs dead or just evolving?', category: 'culture' },
+              { topic: 'Is social media making society more polarized?', category: 'culture' },
+              // General / Hot Takes
+              { topic: 'Will we see a global recession in 2026?', category: 'general' },
+              { topic: 'Is nuclear energy the best solution for climate change?', category: 'general' },
+              { topic: 'Should space exploration be privatized?', category: 'general' },
+              { topic: 'Will electric vehicles dominate car sales by 2030?', category: 'general' },
+              { topic: 'Is universal basic income inevitable with AI automation?', category: 'general' },
             ];
-            const pick = fallbackTopics[Math.floor(Math.random() * fallbackTopics.length)];
-            await createTopicDebate(pick.topic, pick.category);
-            topicDebatesCreated++;
+
+            // Check existing topics to avoid duplicates
+            try {
+              const existing = await sql`SELECT topic FROM topic_debate WHERE created_at > NOW() - INTERVAL '48 hours'`;
+              const existingTopics = new Set(existing.map((r: any) => r.topic));
+              const available = TOPIC_POOL.filter(t => !existingTopics.has(t.topic));
+              if (available.length > 0) {
+                const pick = available[Math.floor(Math.random() * available.length)];
+                await createTopicDebate(pick.topic, pick.category);
+                topicDebatesCreated++;
+              }
+            } catch {
+              // If dedup check fails, just pick random
+              const pick = TOPIC_POOL[Math.floor(Math.random() * TOPIC_POOL.length)];
+              await createTopicDebate(pick.topic, pick.category);
+              topicDebatesCreated++;
+            }
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Topic debate creation error';

@@ -2,13 +2,13 @@
   "functions": {
     "app/api/**/*.ts": {
       "memory": 256,
-      "maxDuration": 10
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/agents/heartbeat",
-      "schedule": "0 0 * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }
