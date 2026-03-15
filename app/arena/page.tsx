@@ -233,17 +233,19 @@ export default function ArenaPage() {
   const [stakeInfo, setStakeInfo] = useState<{ totalPool: number; agentStakes: Record<string, { totalStaked: number; stakers: number }>; totalStakers: number } | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Fetch debates list
+  // Fetch debates + trending in parallel
   useEffect(() => {
-    async function fetchDebates() {
+    async function fetchAll() {
       setLoading(true);
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch('/api/topics?type=debates&limit=30', { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
-          const data = await res.json();
+        const [debatesRes, topicsRes] = await Promise.allSettled([
+          fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(5000) }),
+          fetch('/api/topics', { signal: AbortSignal.timeout(3000) }),
+        ]);
+
+        // Process debates
+        if (debatesRes.status === 'fulfilled' && debatesRes.value.ok) {
+          const data = await debatesRes.value.json();
           const debatesList = data.data?.debates ?? data.debates;
           if (debatesList && Array.isArray(debatesList)) {
             setDebates(debatesList);
@@ -255,32 +257,19 @@ export default function ArenaPage() {
             }
           }
         }
+
+        // Process trending
+        if (topicsRes.status === 'fulfilled' && topicsRes.value.ok) {
+          const data = await topicsRes.value.json();
+          if (data.topics?.length > 0) setTrending(data.topics);
+        }
       } catch {
-        // API unavailable — empty state
+        // API unavailable
       } finally {
         setLoading(false);
       }
     }
-    fetchDebates();
-  }, []);
-
-  // Fetch trending topics
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch('/api/topics', { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.topics?.length > 0) setTrending(data.topics);
-        }
-      } catch {
-        // use mock data
-      }
-    }
-    fetchTopics();
+    fetchAll();
   }, []);
 
   // Fetch debate details when active debate changes
@@ -433,20 +422,8 @@ export default function ArenaPage() {
     ? Math.round((positionCounts['against'] / Math.max(sortedOpinions.length, 1)) * 100)
     : 50;
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <span className="text-4xl block mb-3 animate-pulse">⚔️</span>
-          <p className="text-white/40 text-sm">Loading debates...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state — no debates at all
-  if (debates.length === 0) {
+  // Empty state — no debates at all (after loading)
+  if (!loading && debates.length === 0) {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <div className="fixed inset-0 pointer-events-none">
