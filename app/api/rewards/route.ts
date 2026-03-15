@@ -52,7 +52,7 @@ export async function GET() {
     const user = await getEdgeUser();
 
     if (!user) {
-      return apiSuccess({ reward: getDefaultRewardState(), source: 'default' });
+      return apiError('Authentication required. Please sign in to access rewards.', 401);
     }
 
     const sql = neon(process.env.DATABASE_URL!);

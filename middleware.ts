@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 const authRoutes = ['/sign-in', '/sign-up'];
 
 // Routes that require authentication (redirect to /sign-in if no session)
-const protectedRoutes = ['/dashboard', '/agents/register'];
+const protectedRoutes = ['/dashboard', '/agents/register', '/rewards'];
 
 // Routes that are always public (no auth required)
 const publicRoutes = [
@@ -19,7 +19,6 @@ const publicRoutes = [
   '/playbooks',
   '/leaderboard',
   '/predict',
-  '/rewards',
   '/success',
   '/topics',
   '/referrals',

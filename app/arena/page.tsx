@@ -216,6 +216,11 @@ export default function ArenaPage() {
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [trending, setTrending] = useState<TrendingTopic[]>(MOCK_TRENDING);
+  const [stakePosition, setStakePosition] = useState<'for' | 'against' | null>(null);
+  const [stakeAmount, setStakeAmount] = useState(10);
+  const [staking, setStaking] = useState(false);
+  const [stakeResult, setStakeResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [stakeInfo, setStakeInfo] = useState<{ totalPool: number; agentStakes: Record<string, { totalStaked: number; stakers: number }>; totalStakers: number } | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
   // Fetch debates list
@@ -328,6 +333,63 @@ export default function ArenaPage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [activeDebateId]);
+
+  // Fetch stake info when debate changes
+  useEffect(() => {
+    if (!activeDebateId) return;
+    async function fetchStakes() {
+      try {
+        const res = await fetch(`/api/topics/${activeDebateId}/stake`);
+        if (res.ok) {
+          const data = await res.json();
+          const info = data.data ?? data;
+          setStakeInfo({ totalPool: info.totalPool ?? 0, agentStakes: info.agentStakes ?? {}, totalStakers: info.totalStakers ?? 0 });
+        }
+      } catch { /* ignore */ }
+    }
+    fetchStakes();
+    setStakePosition(null);
+    setStakeResult(null);
+  }, [activeDebateId]);
+
+  // Handle stake submission
+  async function handleStake() {
+    if (!activeDebateId || !stakePosition || !sortedOpinions.length) return;
+    // Find an agent with the matching position
+    const matchingAgent = sortedOpinions.find(o => o.position === stakePosition);
+    if (!matchingAgent) return;
+
+    setStaking(true);
+    setStakeResult(null);
+    try {
+      const res = await fetch(`/api/topics/${activeDebateId}/stake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: '0x0000000000000000000000000000000000000000', // TODO: use real wallet
+          agentId: matchingAgent.agentId,
+          amount: stakeAmount,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStakeResult({ success: true, message: `${stakeAmount} BBAI staked on ${stakePosition.toUpperCase()}!` });
+        // Refresh stakes
+        const refreshRes = await fetch(`/api/topics/${activeDebateId}/stake`);
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const info = refreshData.data ?? refreshData;
+          setStakeInfo({ totalPool: info.totalPool ?? 0, agentStakes: info.agentStakes ?? {}, totalStakers: info.totalStakers ?? 0 });
+        }
+      } else {
+        setStakeResult({ success: false, message: data.error || 'Staking failed' });
+      }
+    } catch {
+      setStakeResult({ success: false, message: 'Network error' });
+    } finally {
+      setStaking(false);
+    }
+  }
 
   // Filtered debates
   const filteredDebates = statusFilter === 'all'
@@ -661,6 +723,102 @@ export default function ArenaPage() {
                 </div>
               )}
             </div>
+
+            {/* ─── Betting Panel ──────────────────────────────────────────── */}
+            {activeSummary?.status === 'open' && (
+              <>
+                <Separator className="bg-white/[0.06]" />
+                <div className="px-5 sm:px-6 py-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-xs font-mono tracking-widest text-amber-400/70 uppercase">Stake BBAI</span>
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                    {stakeInfo && (
+                      <span className="text-[10px] font-mono text-white/30">
+                        Pool: {stakeInfo.totalPool} BBAI · {stakeInfo.totalStakers} stakers
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Position select */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      onClick={() => setStakePosition('for')}
+                      className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
+                        stakePosition === 'for'
+                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                          : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-300'
+                      }`}
+                    >
+                      FOR ({forPercent}%)
+                    </button>
+                    <button
+                      onClick={() => setStakePosition('against')}
+                      className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
+                        stakePosition === 'against'
+                          ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-1 ring-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                          : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300'
+                      }`}
+                    >
+                      AGAINST ({againstPercent}%)
+                    </button>
+                  </div>
+
+                  {/* Amount + Submit */}
+                  {stakePosition && (
+                    <div className="flex items-center gap-3 animate-in fade-in duration-300">
+                      <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 flex-1">
+                        <span className="text-xs text-white/30">BBAI</span>
+                        <input
+                          type="number"
+                          min={10}
+                          max={100}
+                          value={stakeAmount}
+                          onChange={(e) => setStakeAmount(Math.min(100, Math.max(10, parseInt(e.target.value) || 10)))}
+                          className="bg-transparent text-white text-sm font-mono w-16 outline-none text-center"
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        {[10, 25, 50, 100].map((amt) => (
+                          <button
+                            key={amt}
+                            onClick={() => setStakeAmount(amt)}
+                            className={`text-[10px] px-2 py-1 rounded font-mono transition-colors ${
+                              stakeAmount === amt ? 'bg-amber-500/20 text-amber-400' : 'text-white/30 hover:text-white/50 bg-white/[0.03]'
+                            }`}
+                          >
+                            {amt}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={handleStake}
+                        disabled={staking}
+                        className={`px-6 rounded-xl font-semibold ${
+                          stakePosition === 'for'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                            : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                        }`}
+                      >
+                        {staking ? 'Staking...' : `Stake ${stakeAmount} BBAI`}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Result message */}
+                  {stakeResult && (
+                    <p className={`text-center text-xs mt-3 animate-in fade-in duration-300 ${
+                      stakeResult.success ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {stakeResult.message}
+                    </p>
+                  )}
+
+                  <p className="text-[10px] text-white/20 mt-3 text-center">
+                    Stake 10-100 BBAI on your position. Winners split the pool (2.5% fee). Settlement at debate close.
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { useSession } from '@/lib/auth-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -286,12 +288,16 @@ function TrophyIcon({ className }: { className?: string }) {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function RewardsPage() {
+  const { data: session, isPending: sessionLoading } = useSession();
+  const router = useRouter();
   const [state, setState] = useState<RewardsState>(getDefaultState);
   const [claimAnimation, setClaimAnimation] = useState(false);
   const [lastClaimedAmount, setLastClaimedAmount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [claiming, setClaiming] = useState(false);
+
+  const isAuthenticated = !!session?.user;
 
   // Load state: try API first (DB-backed), fall back to localStorage
   useEffect(() => {
@@ -432,10 +438,37 @@ export default function RewardsPage() {
     completed: state.missions[m.id]?.completed ?? m.completed,
   }));
 
-  if (!mounted) {
+  if (!mounted || sessionLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center">
         <div className="size-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center">
+        <Card className="mx-4 max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur">
+          <CardContent className="flex flex-col items-center gap-6 py-10 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-amber-500/10">
+              <LockIcon className="size-8 text-amber-400" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-white">Sign In Required</h2>
+              <p className="text-zinc-400">
+                You need to sign in to access Daily Rewards and start earning BBAI.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="min-w-[200px] bg-gradient-to-r from-green-500 to-amber-500 text-black font-bold hover:from-green-400 hover:to-amber-400"
+              onClick={() => router.push('/sign-in?callbackUrl=/rewards')}
+            >
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

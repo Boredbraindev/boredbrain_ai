@@ -533,9 +533,10 @@ export default function PlaygroundPage() {
     });
   }, []);
 
-  const runTask = useCallback(async (task: string, targetAgentIds?: string[], parallel = false) => {
+  const runTask = useCallback(async (task: string, targetAgentIds?: string[], parallel = false, agentsOverride?: SpawnedAgent[]) => {
     const ids = targetAgentIds || Array.from(selectedAgentIds);
-    const targetAgents = agents.filter((a) => ids.includes(a.id));
+    const agentSource = agentsOverride || agents;
+    const targetAgents = agentSource.filter((a) => ids.includes(a.id));
     if (targetAgents.length === 0 || !task.trim()) return;
 
     setIsRunning(true);
@@ -675,9 +676,7 @@ export default function PlaygroundPage() {
     const sampleTask = pickRandom(SAMPLE_TASKS);
     setTaskInput(sampleTask);
 
-    setTimeout(() => {
-      runTask(sampleTask, newAgentIds, true);
-    }, 100);
+    runTask(sampleTask, newAgentIds, true, newAgents);
   }, [runTask]);
 
   const clearAll = useCallback(() => {
