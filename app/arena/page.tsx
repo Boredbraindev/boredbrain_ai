@@ -232,11 +232,11 @@ export default function ArenaPage() {
           const debatesList = data.data?.debates ?? data.debates;
           if (debatesList && Array.isArray(debatesList)) {
             setDebates(debatesList);
-            const open = data.data.debates.find((d: TopicDebateSummary) => d.status === 'open');
+            const open = debatesList.find((d: TopicDebateSummary) => d.status === 'open');
             if (open) {
               setActiveDebateId(open.id);
-            } else if (data.data.debates.length > 0) {
-              setActiveDebateId(data.data.debates[0].id);
+            } else if (debatesList.length > 0) {
+              setActiveDebateId(debatesList[0].id);
             }
           }
         }
