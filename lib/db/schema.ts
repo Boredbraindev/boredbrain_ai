@@ -762,6 +762,16 @@ export const userBadge = pgTable('user_badge', {
   earnedAt: timestamp('earned_at').defaultNow(),
 });
 
+// Agent debate badges — awarded when agents win/place in debates
+export const agentBadge = pgTable('agent_badge', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentId: text('agent_id').notNull(),
+  badgeType: text('badge_type').notNull(), // 'debate_gold', 'debate_silver', 'debate_bronze', 'streak_3', 'streak_5', 'debate_champion'
+  debateId: text('debate_id'), // which debate it was earned in
+  debateTopic: text('debate_topic'), // topic for display
+  earnedAt: timestamp('earned_at').defaultNow(),
+});
+
 // ============================================
 // Agent Memory & Relationships
 // ============================================
@@ -888,6 +898,7 @@ export type DaoVote = InferSelectModel<typeof daoVote>;
 export type UserPoints = InferSelectModel<typeof userPoints>;
 export type PointTransaction = InferSelectModel<typeof pointTransaction>;
 export type UserBadge = InferSelectModel<typeof userBadge>;
+export type AgentBadge = InferSelectModel<typeof agentBadge>;
 export type AgentMemory = InferSelectModel<typeof agentMemory>;
 export type AgentRelationship = InferSelectModel<typeof agentRelationship>;
 export type AgentLineage = InferSelectModel<typeof agentLineage>;

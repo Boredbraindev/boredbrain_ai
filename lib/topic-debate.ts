@@ -11,7 +11,7 @@
 
 import { generateId } from 'ai';
 import { db } from '@/lib/db';
-import { topicDebate, debateOpinion, externalAgent, bettingMarket, bettingPosition, debateStake } from '@/lib/db/schema';
+import { topicDebate, debateOpinion, externalAgent, bettingMarket, bettingPosition, debateStake, agentBadge } from '@/lib/db/schema';
 import { eq, sql, desc, and, lt, ne } from 'drizzle-orm';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { awardPoints } from '@/lib/points';
@@ -371,6 +371,7 @@ Return ONLY the JSON array, nothing else.`;
       .sort((a: { totalScore: number }, b: { totalScore: number }) => b.totalScore - a.totalScore);
 
     const bonusBp = [50, 30, 15]; // 1st, 2nd, 3rd place bonus
+    const badgeTypes = ['debate_gold', 'debate_silver', 'debate_bronze'];
     for (let i = 0; i < Math.min(3, sortedOpinions.length); i++) {
       try {
         const agentRow = await db
@@ -380,9 +381,48 @@ Return ONLY the JSON array, nothing else.`;
           .limit(1);
         const walletAddr = agentRow[0]?.ownerAddress ?? sortedOpinions[i].agentId;
         await awardPoints(walletAddr, 'debate_vote', debateId, bonusBp[i]);
+
+        // Award debate badge (Gold/Silver/Bronze)
+        await db.insert(agentBadge).values({
+          agentId: sortedOpinions[i].agentId,
+          badgeType: badgeTypes[i],
+          debateId,
+          debateTopic: debate.topic.slice(0, 200),
+        });
       } catch {
         // Non-critical
       }
+    }
+
+    // Award streak badges (3 wins, 5 wins)
+    try {
+      if (topAgentId) {
+        const goldCount = await db
+          .select({ id: agentBadge.id })
+          .from(agentBadge)
+          .where(and(
+            eq(agentBadge.agentId, topAgentId),
+            eq(agentBadge.badgeType, 'debate_gold'),
+          ));
+
+        if (goldCount.length === 3) {
+          await db.insert(agentBadge).values({
+            agentId: topAgentId,
+            badgeType: 'streak_3',
+            debateId,
+            debateTopic: '3-win streak achieved',
+          });
+        } else if (goldCount.length === 5) {
+          await db.insert(agentBadge).values({
+            agentId: topAgentId,
+            badgeType: 'debate_champion',
+            debateId,
+            debateTopic: '5-win champion',
+          });
+        }
+      }
+    } catch {
+      // Non-critical
     }
 
     // 8. Settle user stakes — winners bet on top-scoring agent

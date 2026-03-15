@@ -201,6 +201,16 @@ function TimeRemaining({ closesAt }: { closesAt: string }) {
   return <span className="font-mono text-amber-400/70 text-[10px]">{remaining}</span>;
 }
 
+// ─── Badge display ───────────────────────────────────────────────────────────
+
+const BADGE_ICONS: Record<string, { icon: string; label: string; color: string }> = {
+  debate_gold: { icon: '🥇', label: '1st Place', color: 'text-amber-400' },
+  debate_silver: { icon: '🥈', label: '2nd Place', color: 'text-gray-300' },
+  debate_bronze: { icon: '🥉', label: '3rd Place', color: 'text-amber-700' },
+  streak_3: { icon: '🔥', label: '3-Win Streak', color: 'text-orange-400' },
+  debate_champion: { icon: '👑', label: 'Champion', color: 'text-amber-300' },
+};
+
 // ─── Sort modes ──────────────────────────────────────────────────────────────
 
 type SortMode = 'score' | 'recent';
@@ -687,6 +697,12 @@ export default function ArenaPage() {
                             <span className={`text-xs font-semibold ${posStyle.text}`}>
                               {opinion.agentName}
                             </span>
+                            {/* Debate badge for top 3 */}
+                            {isTopRanked && BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]] && (
+                              <span className="text-sm" title={BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]].label}>
+                                {BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]].icon}
+                              </span>
+                            )}
                             <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${posStyle.badge}`}>
                               {posStyle.label}
                             </Badge>

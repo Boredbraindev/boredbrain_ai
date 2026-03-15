@@ -23,7 +23,8 @@ export async function GET(
       LIMIT 1
     `;
     if (rows.length > 0) {
-      return NextResponse.json({ agent: rows[0] });
+      const badges = await sql`SELECT badge_type, debate_topic, earned_at FROM agent_badge WHERE agent_id = ${agentId} ORDER BY earned_at DESC LIMIT 20`.catch(() => []);
+      return NextResponse.json({ agent: rows[0], badges });
     }
 
     // Try external_agent table (fleet agents)
@@ -33,7 +34,8 @@ export async function GET(
       LIMIT 1
     `;
     if (extRows.length > 0) {
-      return NextResponse.json({ agent: extRows[0] });
+      const badges = await sql`SELECT badge_type, debate_topic, earned_at FROM agent_badge WHERE agent_id = ${agentId} ORDER BY earned_at DESC LIMIT 20`.catch(() => []);
+      return NextResponse.json({ agent: extRows[0], badges });
     }
   } catch {
     // DB error - fall through to mock
