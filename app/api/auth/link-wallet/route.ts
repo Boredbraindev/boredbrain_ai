@@ -2,10 +2,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 10;
 
 import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import { getUser } from '@/lib/auth-utils';
-import { db } from '@/lib/db';
-import { user } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 
 const BAYC_CONTRACT = '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D';
 const MAYC_CONTRACT = '0x60E4d786628Fea6478F785A6d7e704777c86a7c6';
@@ -86,12 +84,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid Ethereum address' }, { status: 400 });
     }
 
+    const sql = neon(process.env.DATABASE_URL!);
+
     // Check if wallet is already linked to another user
-    const existingUser = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.walletAddress, walletAddress))
-      .limit(1);
+    const existingUser = await sql`
+      SELECT id FROM "user" WHERE wallet_address = ${walletAddress} LIMIT 1
+    `;
 
     if (existingUser.length > 0 && existingUser[0].id !== currentUser.id) {
       return NextResponse.json(
@@ -101,13 +99,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user with wallet address
-    await db
-      .update(user)
-      .set({
-        walletAddress,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, currentUser.id));
+    const now = new Date().toISOString();
+    await sql`
+      UPDATE "user" SET
+        wallet_address = ${walletAddress},
+        updated_at = ${now}
+      WHERE id = ${currentUser.id}
+    `;
 
     // Check for BAYC/MAYC NFT holdings if Alchemy API key is available
     let tier: string | null = null;

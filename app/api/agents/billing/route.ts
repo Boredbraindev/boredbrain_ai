@@ -1,11 +1,8 @@
-export const runtime = 'nodejs';
-export const maxDuration = 10;
+export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { billingRecord, externalAgent, agentWallet, walletTransaction } from '@/lib/db/schema';
-import { eq, or, desc, sql, and } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 /**
  * GET /api/agents/billing - Transparent billing data for DD audit
@@ -24,45 +21,70 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000)
     );
 
     if (agentId) {
       // --- Agent-specific billing history + earnings ---
-      const billingCondition = type === 'caller'
-        ? eq(billingRecord.callerAgentId, agentId)
-        : type === 'provider'
-          ? eq(billingRecord.providerAgentId, agentId)
-          : or(
-              eq(billingRecord.callerAgentId, agentId),
-              eq(billingRecord.providerAgentId, agentId)
-            );
+      let recordsQuery;
+      let earningsQuery;
+
+      if (type === 'caller') {
+        recordsQuery = sql`
+          SELECT * FROM billing_record
+          WHERE caller_agent_id = ${agentId}
+          ORDER BY timestamp DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        earningsQuery = sql`
+          SELECT COALESCE(SUM(total_cost), 0) as total_cost,
+                 COALESCE(SUM(platform_fee), 0) as total_platform_fees,
+                 COALESCE(SUM(provider_earning), 0) as total_provider_earnings,
+                 COUNT(*) as transaction_count
+          FROM billing_record
+          WHERE caller_agent_id = ${agentId}
+        `;
+      } else if (type === 'provider') {
+        recordsQuery = sql`
+          SELECT * FROM billing_record
+          WHERE provider_agent_id = ${agentId}
+          ORDER BY timestamp DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        earningsQuery = sql`
+          SELECT COALESCE(SUM(total_cost), 0) as total_cost,
+                 COALESCE(SUM(platform_fee), 0) as total_platform_fees,
+                 COALESCE(SUM(provider_earning), 0) as total_provider_earnings,
+                 COUNT(*) as transaction_count
+          FROM billing_record
+          WHERE provider_agent_id = ${agentId}
+        `;
+      } else {
+        recordsQuery = sql`
+          SELECT * FROM billing_record
+          WHERE caller_agent_id = ${agentId} OR provider_agent_id = ${agentId}
+          ORDER BY timestamp DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        earningsQuery = sql`
+          SELECT COALESCE(SUM(total_cost), 0) as total_cost,
+                 COALESCE(SUM(platform_fee), 0) as total_platform_fees,
+                 COALESCE(SUM(provider_earning), 0) as total_provider_earnings,
+                 COUNT(*) as transaction_count
+          FROM billing_record
+          WHERE caller_agent_id = ${agentId} OR provider_agent_id = ${agentId}
+        `;
+      }
+
+      const agentInfoQuery = sql`
+        SELECT * FROM external_agent WHERE id = ${agentId} LIMIT 1
+      `;
 
       const [records, earningsSummary, agentInfo] = await Promise.race([
-        Promise.all([
-          db
-            .select()
-            .from(billingRecord)
-            .where(billingCondition)
-            .orderBy(desc(billingRecord.timestamp))
-            .limit(limit)
-            .offset(offset),
-          db
-            .select({
-              totalCost: sql<number>`COALESCE(SUM(${billingRecord.totalCost}), 0)`,
-              totalPlatformFees: sql<number>`COALESCE(SUM(${billingRecord.platformFee}), 0)`,
-              totalProviderEarnings: sql<number>`COALESCE(SUM(${billingRecord.providerEarning}), 0)`,
-              transactionCount: sql<number>`COUNT(*)`,
-            })
-            .from(billingRecord)
-            .where(billingCondition),
-          db
-            .select()
-            .from(externalAgent)
-            .where(eq(externalAgent.id, agentId))
-            .limit(1),
-        ]),
+        Promise.all([recordsQuery, earningsQuery, agentInfoQuery]),
         timeout,
       ]);
 
@@ -80,20 +102,18 @@ export async function GET(request: NextRequest) {
     // --- Platform-wide billing stats ---
     const [recentRecords, platformStats] = await Promise.race([
       Promise.all([
-        db
-          .select()
-          .from(billingRecord)
-          .orderBy(desc(billingRecord.timestamp))
-          .limit(limit)
-          .offset(offset),
-        db
-          .select({
-            totalRevenue: sql<number>`COALESCE(SUM(${billingRecord.totalCost}), 0)`,
-            platformFees: sql<number>`COALESCE(SUM(${billingRecord.platformFee}), 0)`,
-            agentPayouts: sql<number>`COALESCE(SUM(${billingRecord.providerEarning}), 0)`,
-            totalTransactions: sql<number>`COUNT(*)`,
-          })
-          .from(billingRecord),
+        sql`
+          SELECT * FROM billing_record
+          ORDER BY timestamp DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        sql`
+          SELECT COALESCE(SUM(total_cost), 0) as total_revenue,
+                 COALESCE(SUM(platform_fee), 0) as platform_fees,
+                 COALESCE(SUM(provider_earning), 0) as agent_payouts,
+                 COUNT(*) as total_transactions
+          FROM billing_record
+        `,
       ]),
       timeout,
     ]);
@@ -101,10 +121,10 @@ export async function GET(request: NextRequest) {
     const stats = platformStats[0];
     const response = apiSuccess({
       platformRevenue: {
-        totalRevenue: stats?.totalRevenue ?? 0,
-        platformFees: stats?.platformFees ?? 0,
-        agentPayouts: stats?.agentPayouts ?? 0,
-        totalTransactions: stats?.totalTransactions ?? 0,
+        totalRevenue: Number(stats?.total_revenue ?? 0),
+        platformFees: Number(stats?.platform_fees ?? 0),
+        agentPayouts: Number(stats?.agent_payouts ?? 0),
+        totalTransactions: Number(stats?.total_transactions ?? 0),
       },
       records: recentRecords,
       pagination: { limit, offset, total: recentRecords.length },

@@ -1,9 +1,8 @@
+export const runtime = 'edge';
+
 import { apiError, apiSuccess, parseJsonBody, validateBody } from '@/lib/api-utils';
 import { SkillMarketplace } from '@/lib/skill-marketplace';
-import { db } from '@/lib/db';
-import { toolUsage, skill, skillInstallation } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { neon } from '@neondatabase/serverless';
 
 // POST /api/skills/use — use a skill (charges BBAI, returns result, logs to toolUsage)
 export async function POST(request: Request) {
@@ -31,60 +30,45 @@ export async function POST(request: Request) {
 
     // Log usage to DB toolUsage table (fire and forget, don't block response)
     try {
+      const sql = neon(process.env.DATABASE_URL!);
+      const usageId = crypto.randomUUID();
+
       const dbPromise = (async () => {
-        // Insert into toolUsage table
-        await db.insert(toolUsage).values({
-          id: generateId(),
-          agentId,
-          toolName: skillId,
-          inputParams: { query: log.query, skillId },
-          outputSummary: result,
-          tokensUsed: tokensCharged,
-          cost: String(tokensCharged),
-          latencyMs,
-          status: 'success',
-          createdAt: new Date(),
-        });
+        // Insert into tool_usage table
+        await sql`
+          INSERT INTO tool_usage (id, agent_id, tool_name, input_params, output_summary, tokens_used, cost, latency_ms, status, created_at)
+          VALUES (${usageId}, ${agentId}, ${skillId}, ${JSON.stringify({ query: log.query, skillId })}, ${result}, ${tokensCharged}, ${String(tokensCharged)}, ${latencyMs}, 'success', NOW())
+        `;
 
         // Update skill totalCalls/totalRevenue in DB if skill exists
-        const [dbSkill] = await db
-          .select()
-          .from(skill)
-          .where(eq(skill.id, skillId))
-          .limit(1);
+        const dbSkill = await sql`SELECT * FROM skill WHERE id = ${skillId} LIMIT 1`;
 
-        if (dbSkill) {
-          await db
-            .update(skill)
-            .set({
-              totalCalls: dbSkill.totalCalls + 1,
-              totalRevenue: dbSkill.totalRevenue + tokensCharged,
-              updatedAt: new Date(),
-            })
-            .where(eq(skill.id, skillId));
+        if (dbSkill.length > 0) {
+          await sql`
+            UPDATE skill
+            SET total_calls = total_calls + 1,
+                total_revenue = total_revenue + ${tokensCharged},
+                updated_at = NOW()
+            WHERE id = ${skillId}
+          `;
         }
 
-        // Update skillInstallation counters if exists
-        const [installation] = await db
-          .select()
-          .from(skillInstallation)
-          .where(
-            and(
-              eq(skillInstallation.skillId, skillId),
-              eq(skillInstallation.agentId, agentId),
-              eq(skillInstallation.status, 'active'),
-            ),
-          )
-          .limit(1);
+        // Update skill_installation counters if exists
+        const installation = await sql`
+          SELECT * FROM skill_installation
+          WHERE skill_id = ${skillId}
+            AND agent_id = ${agentId}
+            AND status = 'active'
+          LIMIT 1
+        `;
 
-        if (installation) {
-          await db
-            .update(skillInstallation)
-            .set({
-              usageCount: installation.usageCount + 1,
-              totalBilled: installation.totalBilled + tokensCharged,
-            })
-            .where(eq(skillInstallation.id, installation.id));
+        if (installation.length > 0) {
+          await sql`
+            UPDATE skill_installation
+            SET usage_count = usage_count + 1,
+                total_billed = total_billed + ${tokensCharged}
+            WHERE id = ${installation[0].id}
+          `;
         }
       })();
 

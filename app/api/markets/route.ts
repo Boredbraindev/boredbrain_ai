@@ -1,8 +1,8 @@
+export const runtime = 'nodejs';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody, validateBody } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { bettingMarket } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { MARKET_CATEGORIES } from '@/lib/betting/market-templates';
 
 // ─── Mock Markets (fallback when DB unavailable) ────────────────────
@@ -117,20 +117,23 @@ export async function GET(request: NextRequest) {
 
     // Try DB first with 3s timeout
     try {
-      const dbPromise = (() => {
-        let query = db
-          .select()
-          .from(bettingMarket)
-          .orderBy(desc(bettingMarket.createdAt))
-          .limit(limit)
-          .offset(offset);
+      const sql = neon(process.env.DATABASE_URL!);
 
-        if (status !== 'all') {
-          query = query.where(eq(bettingMarket.status, status)) as typeof query;
-        }
-
-        return query;
-      })();
+      let dbPromise;
+      if (status !== 'all') {
+        dbPromise = sql`
+          SELECT * FROM betting_market
+          WHERE status = ${status}
+          ORDER BY created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      } else {
+        dbPromise = sql`
+          SELECT * FROM betting_market
+          ORDER BY created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      }
 
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000),
@@ -138,9 +141,9 @@ export async function GET(request: NextRequest) {
 
       let markets = await Promise.race([dbPromise, timeout]);
 
-      // Filter by category in-memory (simpler than dynamic where)
+      // Filter by category in-memory
       if (category) {
-        markets = markets.filter((m) => m.category === category);
+        markets = markets.filter((m: any) => m.category === category);
       }
 
       return apiSuccess({
@@ -209,23 +212,20 @@ export async function POST(request: NextRequest) {
 
     const resolvesAt = body.resolvesAt
       ? new Date(body.resolvesAt)
-      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // default 1 week
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     try {
-      const [market] = await db
-        .insert(bettingMarket)
-        .values({
-          title: body.title,
-          description: body.description || null,
-          category: body.category,
-          outcomes: body.outcomes,
-          creatorAddress: body.creatorAddress,
-          creatorType: (body.creatorType as 'user' | 'agent' | 'platform') || 'user',
-          resolvesAt,
-          tags: body.tags || [],
-          metadata: body.metadata || {},
-        })
-        .returning();
+      const sql = neon(process.env.DATABASE_URL!);
+      const creatorType = (body.creatorType as string) || 'user';
+      const tags = JSON.stringify(body.tags || []);
+      const metadata = JSON.stringify(body.metadata || {});
+      const outcomes = JSON.stringify(body.outcomes);
+
+      const [market] = await sql`
+        INSERT INTO betting_market (title, description, category, outcomes, creator_address, creator_type, resolves_at, tags, metadata)
+        VALUES (${body.title}, ${body.description || null}, ${body.category}, ${outcomes}::jsonb, ${body.creatorAddress}, ${creatorType}, ${resolvesAt.toISOString()}::timestamptz, ${tags}::jsonb, ${metadata}::jsonb)
+        RETURNING *
+      `;
 
       return apiSuccess({ market }, 201);
     } catch {

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
 import {

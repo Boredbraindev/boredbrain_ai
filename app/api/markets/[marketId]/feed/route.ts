@@ -1,10 +1,8 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { bettingTrade, bettingMarket } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { getAgentMarketAnalysis } from '@/lib/betting/agent-market-maker';
-import { getMarketView } from '@/lib/betting/simple-bet';
+import { neon } from '@neondatabase/serverless';
 
 // ─── Mock Feed ──────────────────────────────────────────────────────
 
@@ -37,6 +35,62 @@ function generateMockFeed(marketId: string, limit: number) {
   return feed;
 }
 
+// Inline getAgentMarketAnalysis (was from agent-market-maker which uses Drizzle)
+async function getAgentMarketAnalysis(marketId: string, sql: ReturnType<typeof neon>): Promise<Array<{
+  agentId: string;
+  agentName: string;
+  side: string;
+  confidence: number;
+  comment: string;
+}>> {
+  let positionedAgents: Array<{ user_address: string; outcome: string; shares: number }> = [];
+  try {
+    positionedAgents = await sql`
+      SELECT user_address, outcome, shares FROM betting_position WHERE market_id = ${marketId}
+    `;
+  } catch {
+    // Use mock
+  }
+
+  if (positionedAgents.length > 0) {
+    const analysis = [];
+    for (const pos of positionedAgents.slice(0, 5)) {
+      if (pos.shares <= 0) continue;
+
+      let agentName = pos.user_address;
+      let specialization = 'crypto_price';
+      try {
+        const agentRows = await sql`
+          SELECT name, specialization FROM external_agent WHERE id = ${pos.user_address} LIMIT 1
+        `;
+        if (agentRows.length > 0) {
+          agentName = agentRows[0].name;
+          specialization = agentRows[0].specialization;
+        }
+      } catch {
+        // keep defaults
+      }
+
+      const confidence = Math.min(95, 50 + Math.floor(pos.shares / 10));
+      analysis.push({
+        agentId: pos.user_address,
+        agentName,
+        side: pos.outcome,
+        confidence,
+        comment: `${specialization} analysis supports ${pos.outcome} position with ${pos.shares} shares.`,
+      });
+    }
+    if (analysis.length > 0) return analysis;
+  }
+
+  // Fallback mock analysis
+  return [
+    { agentId: 'mock-1', agentName: 'DeFi Oracle', side: 'Yes', confidence: 72, comment: 'On-chain data supports bullish thesis.' },
+    { agentId: 'mock-2', agentName: 'Risk Sentinel', side: 'No', confidence: 58, comment: 'Volatility metrics suggest caution.' },
+    { agentId: 'mock-3', agentName: 'Alpha Hunter', side: 'Yes', confidence: 65, comment: 'Momentum indicators are positive.' },
+  ];
+}
+
 // ─── GET /api/markets/[marketId]/feed?limit=20 ─────────────────────
 // Recent activity feed: bets (user + agent), probability changes
 
@@ -49,25 +103,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get('limit') || 20), 100);
 
+    const sql = neon(process.env.DATABASE_URL!);
+
     // Try DB first
     try {
       const dbPromise = (async () => {
         // Verify market exists
-        const [market] = await db
-          .select({ id: bettingMarket.id, title: bettingMarket.title, status: bettingMarket.status })
-          .from(bettingMarket)
-          .where(eq(bettingMarket.id, marketId))
-          .limit(1);
-
-        if (!market) return null;
+        const marketRows = await sql`
+          SELECT id, title, status FROM betting_market WHERE id = ${marketId} LIMIT 1
+        `;
+        if (!marketRows.length) return null;
+        const market = marketRows[0];
 
         // Get recent trades
-        const trades = await db
-          .select()
-          .from(bettingTrade)
-          .where(eq(bettingTrade.marketId, marketId))
-          .orderBy(desc(bettingTrade.createdAt))
-          .limit(limit);
+        const trades = await sql`
+          SELECT * FROM betting_trade WHERE market_id = ${marketId} ORDER BY created_at DESC LIMIT ${limit}
+        `;
 
         return { market, trades };
       })();
@@ -81,19 +132,19 @@ export async function GET(
       if (result && result.market) {
         const feed = result.trades.map((t: any) => ({
           id: t.id,
-          user: t.buyerAddress.length > 10
-            ? `${t.buyerAddress.slice(0, 4)}...${t.buyerAddress.slice(-2)}`
-            : t.buyerAddress,
+          user: t.buyer_address.length > 10
+            ? `${t.buyer_address.slice(0, 4)}...${t.buyer_address.slice(-2)}`
+            : t.buyer_address,
           userType: 'user' as const,
           side: t.outcome,
           shares: t.shares,
           price: t.price,
-          bbaiAmount: t.bbaiAmount,
-          timestamp: t.createdAt?.toISOString() ?? new Date().toISOString(),
+          bbaiAmount: t.bbai_amount,
+          timestamp: t.created_at ? new Date(t.created_at).toISOString() : new Date().toISOString(),
         }));
 
         // Get agent analysis
-        const agentAnalysis = await getAgentMarketAnalysis(marketId);
+        const agentAnalysis = await getAgentMarketAnalysis(marketId, sql);
 
         return apiSuccess({
           marketId,
@@ -109,13 +160,17 @@ export async function GET(
 
     // Fallback: mock feed
     const feed = generateMockFeed(marketId, limit);
-    const agentAnalysis = await getAgentMarketAnalysis(marketId);
+    const agentAnalysis = await getAgentMarketAnalysis(marketId, sql);
 
-    // Try to get market title from MarketView
+    // Try to get market title from DB
     let marketTitle = 'Prediction Market';
     try {
-      const view = await getMarketView(marketId);
-      marketTitle = view.title;
+      const marketRows = await sql`
+        SELECT title FROM betting_market WHERE id = ${marketId} LIMIT 1
+      `;
+      if (marketRows.length > 0) {
+        marketTitle = marketRows[0].title;
+      }
     } catch {
       // use default
     }

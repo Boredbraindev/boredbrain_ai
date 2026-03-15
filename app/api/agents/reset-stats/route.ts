@@ -1,23 +1,21 @@
+export const runtime = 'edge';
+
 // POST /api/agents/reset-stats — Reset all fake seeded stats to zero
 // Only resets platform-fleet agents, not externally registered ones
 
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { externalAgent } from '@/lib/db/schema';
-import { sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 export async function POST() {
   try {
-    const result = await db
-      .update(externalAgent)
-      .set({
-        totalCalls: 0,
-        totalEarned: 0,
-        rating: 0,
-        eloRating: 1200,
-      })
-      .where(sql`${externalAgent.ownerAddress} = 'platform-fleet'`)
-      .returning({ id: externalAgent.id });
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const result = await sql`
+      UPDATE external_agent
+      SET total_calls = 0, total_earned = 0, rating = 0, elo_rating = 1200
+      WHERE owner_address = 'platform-fleet'
+      RETURNING id
+    `;
 
     return apiSuccess({
       message: `Reset stats for ${result.length} platform-fleet agents`,

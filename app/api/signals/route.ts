@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 // /app/api/signals/route.ts
 import { generateTitleFromUserMessage } from '@/app/actions';
 import { convertToModelMessages, streamText, createUIMessageStream, stepCountIs, JsonToSseTransformStream } from 'ai';
@@ -19,9 +21,6 @@ import { createResumableStreamContext, type ResumableStreamContext } from 'resum
 import { after } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { CronExpressionParser } from 'cron-parser';
-// Telegram notification removed
-import { db } from '@/lib/db';
-import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
 // Import extreme search tool
@@ -152,7 +151,7 @@ export async function POST(req: Request) {
     // Check if signal was stopped or deleted before we start
     const preStartSignal = await getSignalById({ id: signalId });
     if (!preStartSignal || preStartSignal.status === 'archived') {
-      logger.debug('🛑 Signal was stopped or deleted before execution started');
+      logger.debug('Signal was stopped or deleted before execution started');
       return new Response('Signal was stopped', { status: 200 });
     }
 
@@ -179,7 +178,7 @@ export async function POST(req: Request) {
   The current date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
 
   ### CRITICAL INSTRUCTION: (MUST FOLLOW AT ALL COSTS!!!)
-  - ⚠️ URGENT: Run extreme_search tool INSTANTLY when user sends ANY message - NO EXCEPTIONS
+  - URGENT: Run extreme_search tool INSTANTLY when user sends ANY message - NO EXCEPTIONS
   - DO NOT WRITE A SINGLE WORD before running the tool
   - Run the tool with the exact user query immediately on receiving it
   - EVEN IF THE USER QUERY IS AMBIGUOUS OR UNCLEAR, YOU MUST STILL RUN THE TOOL IMMEDIATELY
@@ -197,15 +196,15 @@ export async function POST(req: Request) {
     - Parallel web and academic searches
     - Deep analysis of findings
     - Cross-referencing and validation
-  - ⚠️ MANDATORY: You MUST immediately run the tool first as soon as the user asks for it and then write the response with citations!
-  - ⚠️ MANDATORY: You MUST NOT write any analysis before running the tool!
-  - ⚠️ MANDATORY: You should only run the tool 'once and only once' and then write the response with citations!
+  - MANDATORY: You MUST immediately run the tool first as soon as the user asks for it and then write the response with citations!
+  - MANDATORY: You MUST NOT write any analysis before running the tool!
+  - MANDATORY: You should only run the tool 'once and only once' and then write the response with citations!
 
   ### Response Guidelines:
   - You MUST immediately run the tool first as soon as the user asks for it and then write the response with citations!
-  - ⚠️ MANDATORY: Every claim must have an inline citation
-  - ⚠️ MANDATORY: Citations MUST be placed immediately after the sentence containing the information
-  - ⚠️ MANDATORY: You MUST write any equations in latex format
+  - MANDATORY: Every claim must have an inline citation
+  - MANDATORY: Citations MUST be placed immediately after the sentence containing the information
+  - MANDATORY: You MUST write any equations in latex format
   - NEVER group citations at the end of paragraphs or the response
   - Citations are a MUST, do not skip them!
   - Citation format: [Source Title](URL) - use descriptive source titles
@@ -219,17 +218,17 @@ export async function POST(req: Request) {
   - Make the response as long as possible, do not skip any important details
   - All citations must be inline, placed immediately after the relevant information. Do not group citations at the end or in any references/bibliography section.
 
-  ### ⚠️ Latex and Currency Formatting: (MUST FOLLOW AT ALL COSTS!!!)
-  - ⚠️ MANDATORY: Use '$' for ALL inline equations without exception
-  - ⚠️ MANDATORY: Use '$$' for ALL block equations without exception
-  - ⚠️ NEVER use '$' symbol for currency - Always use "USD", "EUR", etc.
-  - ⚠️ MANDATORY: Make sure the latex is properly delimited at all times!!
+  ### Latex and Currency Formatting: (MUST FOLLOW AT ALL COSTS!!!)
+  - MANDATORY: Use '$' for ALL inline equations without exception
+  - MANDATORY: Use '$$' for ALL block equations without exception
+  - NEVER use '$' symbol for currency - Always use "USD", "EUR", etc.
+  - MANDATORY: Make sure the latex is properly delimited at all times!!
   - Mathematical expressions must always be properly delimited
   - Tables must use plain text without any formatting
   - don't use the h1 heading in the markdown response
 
   ### Response Format:
-  - ⚠️ MANDATORY: Always start your response with "Key Points" heading followed by a bulleted list of the main findings
+  - MANDATORY: Always start your response with "Key Points" heading followed by a bulleted list of the main findings
   - After the key points, proceed with detailed sections and finally a conclusion
   - Keep it super detailed and long, do not skip any important details
   - It is very important to have citations for all facts provided
@@ -255,12 +254,12 @@ export async function POST(req: Request) {
             if (event.warnings) {
               logger.debug('Tool warnings', { warnings: event.warnings });
             }
-            
+
             // Check if signal has been stopped/archived/deleted during execution
             try {
               const currentSignal = await getSignalById({ id: signalId });
               if (!currentSignal || currentSignal.status === 'archived') {
-                logger.debug('🛑 Signal has been stopped or deleted, terminating execution');
+                logger.debug('Signal has been stopped or deleted, terminating execution');
                 throw new Error('Signal stopped by user');
               }
             } catch (error) {
@@ -399,7 +398,7 @@ export async function POST(req: Request) {
             // Set signal status appropriately
             try {
               if (isUserStop) {
-                logger.debug('🛑 Signal was stopped by user, keeping archived status');
+                logger.debug('Signal was stopped by user, keeping archived status');
                 // Don't change status - user archived it
               } else {
                 // Only set back to active if it was a real error (not user stop)

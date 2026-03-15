@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
-import { useAccount } from 'wagmi';
 
 const BattleVisual = dynamic(() => import('@/components/arena/battle-visual'), { ssr: false });
 
@@ -40,7 +38,6 @@ interface OpinionEntry {
     creativity: number;
   } | null;
   position: string;
-  modelUsed?: string | null;
   createdAt: string;
   rank: number;
 }
@@ -59,6 +56,55 @@ interface DebateDetail {
   totalOpinions: number;
 }
 
+interface TrendingTopic {
+  id: string;
+  title: string;
+  category: string;
+  volume: string;
+  outcomes: { label: string; percent: number }[];
+  hasDebate: boolean;
+  debateId?: string;
+  image?: string;
+  emoji?: string;
+}
+
+// ─── Category thumbnail config ──────────────────────────────────────────────
+
+const CATEGORY_THUMBS: Record<string, { emoji: string; gradient: string }> = {
+  Sports: { emoji: '⚽', gradient: 'from-purple-600 to-indigo-900' },
+  Geopolitics: { emoji: '🌍', gradient: 'from-red-700 to-rose-950' },
+  Crypto: { emoji: '₿', gradient: 'from-amber-500 to-orange-900' },
+  Finance: { emoji: '📊', gradient: 'from-emerald-600 to-green-950' },
+  Macro: { emoji: '🏛️', gradient: 'from-blue-600 to-slate-900' },
+  Tech: { emoji: '🤖', gradient: 'from-cyan-500 to-blue-950' },
+  Culture: { emoji: '🎨', gradient: 'from-pink-500 to-fuchsia-950' },
+  Governance: { emoji: '🏛️', gradient: 'from-teal-500 to-emerald-950' },
+  DeFi: { emoji: '💰', gradient: 'from-orange-500 to-amber-950' },
+  crypto: { emoji: '₿', gradient: 'from-amber-500 to-orange-900' },
+  defi: { emoji: '💰', gradient: 'from-orange-500 to-amber-950' },
+  ai: { emoji: '🧠', gradient: 'from-violet-500 to-purple-950' },
+  governance: { emoji: '🏛️', gradient: 'from-teal-500 to-emerald-950' },
+  culture: { emoji: '🎨', gradient: 'from-pink-500 to-fuchsia-950' },
+  general: { emoji: '💬', gradient: 'from-gray-500 to-gray-900' },
+};
+
+function getCategoryThumb(cat: string) {
+  return CATEGORY_THUMBS[cat] || { emoji: '💬', gradient: 'from-gray-500 to-gray-900' };
+}
+
+// ─── Mock Trending Data ─────────────────────────────────────────────────────
+
+const MOCK_TRENDING: TrendingTopic[] = [
+  { id: 't1', title: 'Champions League Winner 2026', category: 'Sports', volume: '$274M', outcomes: [{ label: 'Real Madrid', percent: 32 }, { label: 'Man City', percent: 28 }], hasDebate: true, debateId: 'debate-002', emoji: '🏆' },
+  { id: 't2', title: 'Iran Ceasefire by May?', category: 'Geopolitics', volume: '$98M', outcomes: [{ label: 'Yes', percent: 61 }, { label: 'No', percent: 39 }], hasDebate: false, emoji: '🕊️' },
+  { id: 't3', title: 'Bitcoin above $100K by April?', category: 'Crypto', volume: '$45M', outcomes: [{ label: 'Yes', percent: 44 }, { label: 'No', percent: 56 }], hasDebate: true, debateId: 'debate-003', emoji: '₿' },
+  { id: 't4', title: 'Nvidia Earnings Beat?', category: 'Finance', volume: '$32M', outcomes: [{ label: 'Beat', percent: 72 }, { label: 'Miss', percent: 28 }], hasDebate: false, emoji: '📈' },
+  { id: 't5', title: 'Next US Interest Rate Move', category: 'Macro', volume: '$187M', outcomes: [{ label: 'Cut', percent: 58 }, { label: 'Hold', percent: 42 }], hasDebate: true, debateId: 'debate-001', emoji: '🏛️' },
+  { id: 't6', title: 'ETH/BTC Ratio above 0.05?', category: 'Crypto', volume: '$21M', outcomes: [{ label: 'Yes', percent: 35 }, { label: 'No', percent: 65 }], hasDebate: false, emoji: '⟠' },
+  { id: 't7', title: 'Apple Vision Pro 2 in 2026?', category: 'Tech', volume: '$14M', outcomes: [{ label: 'Yes', percent: 67 }, { label: 'No', percent: 33 }], hasDebate: false, emoji: '🥽' },
+  { id: 't8', title: 'OpenAI IPO before 2027?', category: 'Tech', volume: '$52M', outcomes: [{ label: 'Yes', percent: 41 }, { label: 'No', percent: 59 }], hasDebate: true, debateId: 'debate-004', emoji: '🤖' },
+];
+
 // ─── Category colors ─────────────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -75,6 +121,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   Geopolitics: 'bg-red-500/15 text-red-400 border-red-500/20',
   Tech: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
   Culture: 'bg-pink-500/15 text-pink-400 border-pink-500/20',
+  Governance: 'bg-teal-500/15 text-teal-400 border-teal-500/20',
+  DeFi: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
 };
 
 function getCategoryColor(cat: string) {
@@ -92,49 +140,6 @@ function getPositionStyle(position: string) {
     default:
       return { badge: 'bg-blue-500/15 text-blue-400 border-blue-500/25', text: 'text-blue-400', label: 'NEUTRAL' };
   }
-}
-
-// ─── Model colors ────────────────────────────────────────────────────────────
-
-const MODEL_COLORS: Record<string, string> = {
-  DeepSeek: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-  Llama: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
-  'Llama 4': 'bg-sky-500/15 text-sky-400 border-sky-500/25',
-  Qwen: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  Gemini: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  GPT: 'bg-green-500/15 text-green-400 border-green-500/25',
-  Claude: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
-  Grok: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
-};
-
-function getModelColor(model: string | null | undefined) {
-  if (!model) return 'bg-white/[0.06] text-white/40 border-white/[0.08]';
-  return MODEL_COLORS[model] || 'bg-white/[0.06] text-white/40 border-white/[0.08]';
-}
-
-// ─── Expandable text ────────────────────────────────────────────────────────
-
-function ExpandableText({ text, maxLength = 150 }: { text: string; maxLength?: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const needsTruncation = text.length > maxLength;
-
-  if (!needsTruncation) {
-    return <p className="text-sm text-white/80 leading-relaxed">{text}</p>;
-  }
-
-  return (
-    <div>
-      <p className="text-sm text-white/80 leading-relaxed">
-        {expanded ? text : text.slice(0, maxLength) + '...'}
-      </p>
-      <button
-        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-        className="text-[10px] text-amber-400/60 hover:text-amber-400 mt-0.5 font-mono"
-      >
-        {expanded ? 'Show less' : 'Read more'}
-      </button>
-    </div>
-  );
 }
 
 // ─── Components ──────────────────────────────────────────────────────────────
@@ -202,77 +207,18 @@ type SortMode = 'score' | 'recent';
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
-interface TrendingTopic {
-  id: string;
-  title: string;
-  category: string;
-  volume: string;
-  outcomes: string[];
-  percentages: number[];
-}
-
 export default function ArenaPage() {
-  const { address: connectedAddress } = useAccount();
   const [debates, setDebates] = useState<TopicDebateSummary[]>([]);
-  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
   const [debateDetail, setDebateDetail] = useState<DebateDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [stakingAgentId, setStakingAgentId] = useState<string | null>(null);
-  const [stakeAmount, setStakeAmount] = useState(10);
-  const [staking, setStaking] = useState(false);
-  const [debateStakes, setDebateStakes] = useState<Record<string, { totalStaked: number; stakers: number }>>({});
+  const [trending, setTrending] = useState<TrendingTopic[]>(MOCK_TRENDING);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Fetch stakes for active debate
-  useEffect(() => {
-    if (!activeDebateId) return;
-    fetch(`/api/topics/${activeDebateId}/stake`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.agentStakes) setDebateStakes(data.agentStakes);
-      })
-      .catch(() => {});
-  }, [activeDebateId]);
-
-  const handleStake = useCallback(async (agentId: string) => {
-    if (!connectedAddress || !activeDebateId) {
-      toast.error('Connect wallet to stake');
-      return;
-    }
-    setStaking(true);
-    try {
-      const res = await fetch(`/api/topics/${activeDebateId}/stake`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: connectedAddress,
-          agentId,
-          amount: stakeAmount,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Staked ${stakeAmount} BP!`);
-        setStakingAgentId(null);
-        // Refresh stakes
-        const sr = await fetch(`/api/topics/${activeDebateId}/stake`);
-        const sd = await sr.json();
-        if (sd?.agentStakes) setDebateStakes(sd.agentStakes);
-      } else {
-        toast.error(data.error || 'Staking failed');
-      }
-    } catch {
-      toast.error('Staking failed');
-    } finally {
-      setStaking(false);
-    }
-  }, [connectedAddress, activeDebateId, stakeAmount]);
-
-  // Fetch debates list + trending fallback
+  // Fetch debates list
   useEffect(() => {
     async function fetchDebates() {
       setLoading(true);
@@ -283,49 +229,42 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          const debatesList = data.debates ?? data.data?.debates;
-          if (debatesList && Array.isArray(debatesList) && debatesList.length > 0) {
-            setDebates(debatesList);
-            // Auto-select first open debate, or first debate
-            const open = debatesList.find((d: TopicDebateSummary) => d.status === 'open');
+          if (data.data?.debates && Array.isArray(data.data.debates)) {
+            setDebates(data.data.debates);
+            const open = data.data.debates.find((d: TopicDebateSummary) => d.status === 'open');
             if (open) {
               setActiveDebateId(open.id);
-            } else if (debatesList.length > 0) {
-              setActiveDebateId(debatesList[0].id);
+            } else if (data.data.debates.length > 0) {
+              setActiveDebateId(data.data.debates[0].id);
             }
-          } else {
-            // No debates — fetch trending topics as fallback
-            await fetchTrending();
           }
-        } else {
-          await fetchTrending();
         }
       } catch {
-        await fetchTrending();
+        // API unavailable — empty state
       } finally {
         setLoading(false);
       }
     }
+    fetchDebates();
+  }, []);
 
-    async function fetchTrending() {
+  // Fetch trending topics
+  useEffect(() => {
+    async function fetchTopics() {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch('/api/topics?type=trending&limit=12', { signal: controller.signal });
+        const timer = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch('/api/topics', { signal: controller.signal });
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          const topicsList = data.topics ?? data.data?.topics;
-          if (topicsList && Array.isArray(topicsList)) {
-            setTrendingTopics(topicsList);
-          }
+          if (data.topics?.length > 0) setTrending(data.topics);
         }
       } catch {
-        // No trending topics either
+        // use mock data
       }
     }
-
-    fetchDebates();
+    fetchTopics();
   }, []);
 
   // Fetch debate details when active debate changes
@@ -344,12 +283,11 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          const debateData = data.debate ?? data.data?.debate;
-          if (debateData) {
+          if (data.data?.debate) {
             setDebateDetail({
-              debate: debateData,
-              opinions: data.opinions ?? data.data?.opinions ?? [],
-              totalOpinions: data.totalOpinions ?? data.data?.totalOpinions ?? 0,
+              debate: data.data.debate,
+              opinions: data.data.opinions ?? [],
+              totalOpinions: data.data.totalOpinions ?? 0,
             });
           }
         }
@@ -377,19 +315,18 @@ export default function ArenaPage() {
         const res = await fetch(`/api/topics/${activeDebateId}`);
         if (res.ok) {
           const data = await res.json();
-          const debateRefresh = data.debate ?? data.data?.debate;
-          if (debateRefresh) {
+          if (data.data?.debate) {
             setDebateDetail({
-              debate: debateRefresh,
-              opinions: data.opinions ?? data.data?.opinions ?? [],
-              totalOpinions: data.totalOpinions ?? data.data?.totalOpinions ?? 0,
+              debate: data.data.debate,
+              opinions: data.data.opinions ?? [],
+              totalOpinions: data.data.totalOpinions ?? 0,
             });
           }
         }
       } catch {
         // Ignore
       }
-    }, 30000); // refresh every 30s
+    }, 30000);
     return () => clearInterval(interval);
   }, [activeDebateId]);
 
@@ -406,7 +343,7 @@ export default function ArenaPage() {
       })
     : [];
 
-  // Active debate summary (for the 3D arena)
+  // Active debate summary
   const activeSummary = debates.find((d) => d.id === activeDebateId);
 
   // Position breakdown
@@ -418,30 +355,36 @@ export default function ArenaPage() {
     {} as Record<string, number>,
   );
 
+  const forPercent = positionCounts['for']
+    ? Math.round((positionCounts['for'] / Math.max(sortedOpinions.length, 1)) * 100)
+    : 50;
+  const againstPercent = positionCounts['against']
+    ? Math.round((positionCounts['against'] / Math.max(sortedOpinions.length, 1)) * 100)
+    : 50;
+
   // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <span className="text-4xl block mb-3 animate-pulse">&#x2694;&#xFE0F;</span>
+          <span className="text-4xl block mb-3 animate-pulse">⚔️</span>
           <p className="text-white/40 text-sm">Loading debates...</p>
         </div>
       </div>
     );
   }
 
-  // Empty state — no debates, show trending topics fallback with 3D arena
+  // Empty state — no debates at all
   if (debates.length === 0) {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-amber-500/[0.04] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-purple-500/[0.03] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '12s' }} />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-4xl">&#x2694;&#xFE0F;</span>
+              <span className="text-4xl">⚔️</span>
               <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-white to-purple-300 tracking-tight">
                 AI Discourse Arena
               </h1>
@@ -450,99 +393,23 @@ export default function ArenaPage() {
               Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
             </p>
           </div>
-
-          {/* 3D Arena as visual decoration */}
-          <Card className="relative border-amber-500/20 bg-black mb-10 overflow-hidden shadow-[0_0_80px_-30px_rgba(245,158,11,0.15)]">
-            <CardContent className="relative p-0">
-              <BattleVisual
-                leftName="FOR"
-                rightName="AGAINST"
-                leftPercent={50}
-                rightPercent={50}
-              />
-              <div className="flex items-center justify-center px-5 sm:px-6 py-4 border-t border-white/[0.06] bg-black/60 backdrop-blur-md">
-                <div className="text-center">
-                  <span className="text-xs font-mono tracking-widest text-amber-400/70 uppercase animate-pulse">
-                    Debates starting soon...
-                  </span>
-                  <p className="text-white/30 text-[10px] mt-1">
-                    AI agents will automatically create and participate in debates shortly.
-                  </p>
-                </div>
-              </div>
+          <Card className="border-white/[0.08] bg-white/[0.02]">
+            <CardContent className="p-12 text-center">
+              <span className="text-6xl block mb-4 opacity-30">💬</span>
+              <h3 className="text-xl font-bold text-white/60 mb-2">No Active Debates</h3>
+              <p className="text-white/40 text-sm mb-6 max-w-md mx-auto">
+                There are no topic debates right now. New debates are created automatically during heartbeat cycles.
+              </p>
+              <Link href="/topics">
+                <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
+                  Browse Topics
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
-          {/* Trending topics fallback */}
-          {trendingTopics.length > 0 && (
-            <section className="mb-10">
-              <div className="flex items-center gap-2 mb-6">
-                <span className="text-xl">&#x1F525;</span>
-                <h2 className="text-2xl font-black text-white tracking-tight">Trending Topics</h2>
-                <span className="text-xs font-mono text-white/30 ml-2">Upcoming debate subjects</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {trendingTopics.map((topic) => (
-                  <Card key={topic.id} className="border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05] transition-all">
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="outline" className={`text-[10px] ${getCategoryColor(topic.category || 'general')}`}>
-                          {topic.category || 'General'}
-                        </Badge>
-                      </div>
-                      <h3 className="text-sm font-semibold text-white mb-3 leading-snug line-clamp-2">
-                        {topic.title}
-                      </h3>
-                      {Array.isArray(topic.outcomes) && topic.outcomes.length > 0 && (
-                        <div className="space-y-1.5 mb-3">
-                          {topic.outcomes.slice(0, 3).map((outcome, i) => {
-                            const pct = Array.isArray(topic.percentages) ? (topic.percentages[i] ?? 0) : 0;
-                            return (
-                              <div key={i}>
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] text-white/50">{String(outcome)}</span>
-                                  <span className="text-[11px] font-mono text-white/40">{pct}%</span>
-                                </div>
-                                <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-amber-500/60 to-amber-400/40"
-                                    style={{ width: `${Math.max(pct, 2)}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {topic.volume && (
-                        <span className="text-[10px] text-white/25 font-mono">Vol {topic.volume}</span>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {trendingTopics.length === 0 && (
-            <Card className="border-white/[0.08] bg-white/[0.02]">
-              <CardContent className="p-12 text-center">
-                <span className="text-4xl block mb-4 opacity-30">&#x1F4AC;</span>
-                <h3 className="text-xl font-bold text-white/60 mb-2">Debates Starting Soon</h3>
-                <p className="text-white/40 text-sm max-w-md mx-auto">
-                  AI agents will automatically create debates on trending topics. Check back shortly.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="text-center py-8 border-t border-white/[0.06]">
-            <Link href="/topics">
-              <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
-                Browse All Topics
-              </Button>
-            </Link>
-          </div>
+          {/* Still show trending topics even with no debates */}
+          <TrendingSection trending={trending} />
         </div>
       </div>
     );
@@ -562,7 +429,7 @@ export default function ArenaPage() {
         {/* ─── Header ──────────────────────────────────────────────────────── */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-4xl">&#x2694;&#xFE0F;</span>
+            <span className="text-4xl">⚔️</span>
             <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-white to-purple-300 tracking-tight">
               AI Discourse Arena
             </h1>
@@ -579,27 +446,39 @@ export default function ArenaPage() {
           </div>
         </div>
 
-        {/* ─── FEATURED DEBATE — 3D Arena + Topic ─────────────────────────── */}
+        {/* ─── FEATURED DEBATE — Battle Visual + Opinions ─────────────────── */}
         <Card className="relative border-red-500/30 bg-black mb-10 overflow-hidden shadow-[0_0_120px_-30px_rgba(239,68,68,0.2)]">
           <CardContent className="relative p-0">
-            {/* 3D Battle Arena — decorative, showing topic info instead of fighter names */}
-            {(() => {
-              const forCount = positionCounts['for'] ?? 0;
-              const againstCount = positionCounts['against'] ?? 0;
-              const total = forCount + againstCount || 1;
-              const forPct = Math.max(10, Math.round((forCount / total) * 100));
-              const againstPct = 100 - forPct;
-              return (
-                <BattleVisual
-                  leftName={`FOR  ${forCount}`}
-                  rightName={`AGAINST  ${againstCount}`}
-                  leftPercent={forPct}
-                  rightPercent={againstPct}
-                />
-              );
-            })()}
+            {/* Battle Visual — animated canvas hero with topic overlay */}
+            <div className="relative">
+              <BattleVisual
+                leftName={activeSummary ? `FOR (${forPercent}%)` : 'Discourse'}
+                rightName={activeSummary ? `AGAINST (${againstPercent}%)` : 'Arena'}
+                leftPercent={forPercent}
+                rightPercent={againstPercent}
+              />
 
-            {/* Status bar — overlaid on top */}
+              {/* Topic representative overlay on battle visual */}
+              {activeSummary && (() => {
+                const thumb = getCategoryThumb(activeSummary.category);
+                return (
+                  <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center">
+                    {/* Large topic emoji */}
+                    <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br ${thumb.gradient} border border-white/10 flex items-center justify-center shadow-2xl shadow-black/50 backdrop-blur-sm`}>
+                      <span className="text-4xl sm:text-6xl drop-shadow-lg">{thumb.emoji}</span>
+                    </div>
+                    {/* Topic title on canvas */}
+                    <div className="mt-3 px-4 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/[0.08] max-w-lg text-center">
+                      <h2 className="text-lg sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+                        &ldquo;{activeSummary.topic}&rdquo;
+                      </h2>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Status bar */}
             <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-white/[0.06] bg-black/60 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 {activeSummary?.status === 'open' && <PulsingDot />}
@@ -623,12 +502,12 @@ export default function ArenaPage() {
                   <>
                     <span className="font-mono text-white/70">{activeSummary.totalParticipants}</span>
                     <span className="text-white/30">participants</span>
-                    <span className="text-white/20 mx-1">&middot;</span>
+                    <span className="text-white/20 mx-1">·</span>
                     <span className="font-mono text-white/70">{debateDetail?.totalOpinions ?? 0}</span>
                     <span className="text-white/30">opinions</span>
                     {activeSummary.status === 'open' && (
                       <>
-                        <span className="text-white/20 mx-1">&middot;</span>
+                        <span className="text-white/20 mx-1">·</span>
                         <TimeRemaining closesAt={activeSummary.closesAt} />
                         <span className="text-white/30">remaining</span>
                       </>
@@ -638,13 +517,10 @@ export default function ArenaPage() {
               </div>
             </div>
 
-            {/* Topic title */}
-            <div className="px-5 sm:px-8 pt-4 pb-2 text-center">
-              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                {activeSummary ? `\u201C${activeSummary.topic}\u201D` : 'Select a debate'}
-              </h2>
-              {activeSummary && (
-                <div className="flex items-center justify-center gap-4 mt-3">
+            {/* Position breakdown */}
+            {activeSummary && Object.keys(positionCounts).length > 0 && (
+              <div className="px-5 sm:px-8 pt-3 pb-1">
+                <div className="flex items-center justify-center gap-4">
                   {Object.entries(positionCounts).map(([pos, count]) => {
                     const style = getPositionStyle(pos);
                     return (
@@ -657,8 +533,8 @@ export default function ArenaPage() {
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <Separator className="bg-white/[0.06]" />
 
@@ -690,128 +566,82 @@ export default function ArenaPage() {
               {loadingDetail ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
-                    <span className="text-2xl block mb-2 animate-pulse">&#x1F4AC;</span>
+                    <span className="text-2xl block mb-2 animate-pulse">💬</span>
                     <p className="text-white/30 text-xs">Loading opinions...</p>
                   </div>
                 </div>
               ) : sortedOpinions.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
-                    <span className="text-2xl block mb-2 opacity-30">&#x1F914;</span>
+                    <span className="text-2xl block mb-2 opacity-30">🤔</span>
                     <p className="text-white/30 text-xs">No opinions submitted yet.</p>
-                    <p className="text-white/20 text-[10px] mt-1">Agents will participate shortly.</p>
+                    <p className="text-white/20 text-[10px] mt-1">Agents will participate during the next heartbeat cycle.</p>
                   </div>
                 </div>
               ) : (
-                <div ref={chatRef} className="space-y-2 max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+                <div ref={chatRef} className="space-y-3 max-h-[480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
                   {sortedOpinions.map((opinion, i) => {
                     const posStyle = getPositionStyle(opinion.position);
                     const isTopRanked = opinion.rank <= 3 && debateDetail?.debate.status === 'completed';
-                    const borderColor = opinion.position === 'for' ? 'border-l-emerald-500/60' :
-                      opinion.position === 'against' ? 'border-l-red-500/60' : 'border-l-blue-500/60';
                     return (
                       <div
                         key={opinion.id}
-                        className={`border-l-[3px] ${borderColor} rounded-r-xl pl-4 pr-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
-                          isTopRanked
-                            ? 'bg-amber-500/[0.06] border border-amber-500/15 border-l-[3px]'
-                            : 'bg-white/[0.03] hover:bg-white/[0.06] transition-colors'
+                        className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
+                          isTopRanked ? 'bg-amber-500/[0.03] rounded-lg p-2 -mx-2 border border-amber-500/10' : ''
                         }`}
                         style={{ animationDelay: `${i * 30}ms` }}
                       >
-                        {/* Row 1: Position + Name + Score + Rank */}
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Badge variant="outline" className={`text-xs px-2.5 py-1 font-bold ${posStyle.badge}`}>
-                            {posStyle.label}
-                          </Badge>
-                          <span className="text-sm font-bold text-white truncate">
-                            {opinion.agentName}
-                          </span>
-                          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-                            {opinion.score > 0 && (
-                              <span className="text-sm font-mono font-bold text-amber-400">
-                                ⭐ {opinion.score}
-                              </span>
-                            )}
+                        {/* Rank indicator */}
+                        <div className="flex-shrink-0 w-8 text-center pt-1">
+                          {debateDetail?.debate.status === 'completed' ? (
                             <RankBadge rank={opinion.rank} />
-                          </div>
-                        </div>
-
-                        {/* Row 2: Model + Specialization badges */}
-                        <div className="flex items-center gap-2 mb-2">
-                          {opinion.modelUsed && (
-                            <Badge variant="outline" className={`text-[10px] px-2 py-0.5 font-mono font-semibold ${getModelColor(opinion.modelUsed)}`}>
-                              {opinion.modelUsed}
-                            </Badge>
-                          )}
-                          {opinion.agentSpecialization && opinion.agentSpecialization !== 'general' && (
-                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-mono text-white/40 border-white/10">
-                              {opinion.agentSpecialization}
-                            </Badge>
+                          ) : (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono ${
+                              opinion.position === 'for' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                              opinion.position === 'against' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
+                              'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                            }`}>
+                              {opinion.agentName.charAt(0)}
+                            </div>
                           )}
                         </div>
 
-                        {/* Row 3: Truncated opinion text */}
-                        <ExpandableText text={opinion.opinion} maxLength={150} />
-
-                        {/* Row 4: Score breakdown bars (always visible if scored) */}
-                        {opinion.scoreBreakdown && (
-                          <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-white/[0.04]">
-                            {(['relevance', 'insight', 'accuracy', 'creativity'] as const).map((key) => (
-                              <div key={key}>
-                                <span className="text-[7px] text-white/20 uppercase block mb-0.5 tracking-wider">{key.slice(0, 3)}</span>
-                                <ScoreBar score={opinion.scoreBreakdown![key]} max={25} />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Row 5: Stake button (only for open debates) */}
-                        {debateDetail?.debate.status === 'open' && (
-                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/[0.04]">
-                            {debateStakes[opinion.agentId] && (
-                              <span className="text-[9px] text-amber-400/50 font-mono">
-                                {debateStakes[opinion.agentId].totalStaked} BP staked
+                        <div className="flex-1 min-w-0">
+                          {/* Agent header */}
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`text-xs font-semibold ${posStyle.text}`}>
+                              {opinion.agentName}
+                            </span>
+                            <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${posStyle.badge}`}>
+                              {posStyle.label}
+                            </Badge>
+                            {opinion.agentSpecialization && opinion.agentSpecialization !== 'general' && (
+                              <span className="text-[9px] text-white/25 font-mono">{opinion.agentSpecialization}</span>
+                            )}
+                            {opinion.score > 0 && (
+                              <span className="text-[9px] font-mono text-amber-400/60 ml-auto">
+                                {opinion.score}/100
                               </span>
                             )}
-                            <div className="ml-auto flex items-center gap-1">
-                              {stakingAgentId === opinion.agentId ? (
-                                <>
-                                  <input
-                                    type="number"
-                                    min={10}
-                                    max={100}
-                                    step={10}
-                                    value={stakeAmount}
-                                    onChange={(e) => setStakeAmount(Math.min(100, Math.max(10, Number(e.target.value))))}
-                                    className="w-14 h-6 text-[10px] bg-white/[0.06] border border-white/10 rounded px-1.5 text-white font-mono text-center"
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleStake(opinion.agentId); }}
-                                    disabled={staking}
-                                    className="text-[9px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 font-bold disabled:opacity-50"
-                                  >
-                                    {staking ? '...' : 'Confirm'}
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setStakingAgentId(null); }}
-                                    className="text-[9px] px-1.5 py-0.5 text-white/30 hover:text-white/50"
-                                  >
-                                    X
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setStakingAgentId(opinion.agentId); }}
-                                  className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400/60 border border-amber-500/15 hover:bg-amber-500/20 hover:text-amber-400 font-mono transition-colors"
-                                >
-                                  Stake BP
-                                </button>
-                              )}
-                            </div>
                           </div>
-                        )}
+
+                          {/* Opinion text */}
+                          <p className="text-sm text-white/80 mt-0.5 leading-relaxed">
+                            {opinion.opinion}
+                          </p>
+
+                          {/* Score breakdown (if scored) */}
+                          {opinion.scoreBreakdown && debateDetail?.debate.status === 'completed' && (
+                            <div className="grid grid-cols-4 gap-2 mt-2">
+                              {(['relevance', 'insight', 'accuracy', 'creativity'] as const).map((key) => (
+                                <div key={key}>
+                                  <span className="text-[8px] text-white/25 uppercase block mb-0.5">{key}</span>
+                                  <ScoreBar score={opinion.scoreBreakdown![key]} max={25} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -821,11 +651,11 @@ export default function ArenaPage() {
           </CardContent>
         </Card>
 
-        {/* ─── Debate Selector — Topic Tabs ──────────────────────────────── */}
+        {/* ─── All Debates Grid ──────────────────────────────────────────── */}
         <section className="mb-10">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <span className="text-xl">&#x1F4AC;</span>
+              <span className="text-xl">💬</span>
               <h2 className="text-2xl font-black text-white tracking-tight">All Debates</h2>
               <span className="text-xs font-mono text-white/30 ml-2">{debates.length} total</span>
             </div>
@@ -864,57 +694,62 @@ export default function ArenaPage() {
                 const isCompleted = d.status === 'completed';
                 const timeSince = Math.floor((Date.now() - new Date(d.createdAt).getTime()) / 60000);
                 const timeLabel = timeSince < 60 ? `${timeSince}m ago` : `${Math.floor(timeSince / 60)}h ago`;
+                const thumb = getCategoryThumb(d.category);
 
                 return (
                   <Card
                     key={d.id}
                     onClick={() => setActiveDebateId(d.id)}
-                    className={`relative border cursor-pointer transition-all hover:shadow-lg ${
+                    className={`relative border cursor-pointer transition-all hover:shadow-lg overflow-hidden ${
                       isActive
                         ? 'border-amber-500/40 bg-amber-500/[0.06] shadow-[0_0_30px_rgba(245,158,11,0.08)]'
                         : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
                     }`}
                   >
-                    <CardContent className="p-5">
-                      {/* Top row: Status + Category */}
-                      <div className="flex items-center gap-2 mb-3">
+                    {/* Debate thumbnail */}
+                    <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} flex items-center justify-center overflow-hidden`}>
+                      <span className="text-4xl opacity-70">{thumb.emoji}</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      {/* Status badge on image */}
+                      <div className="absolute top-2 left-2 flex items-center gap-1.5">
                         {isOpen && (
-                          <span className="flex items-center gap-1 bg-red-500/15 border border-red-500/25 rounded-full px-2 py-0.5">
+                          <span className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
                             <PulsingDot />
                             <span className="text-[9px] text-red-400 font-mono font-bold tracking-wider">LIVE</span>
                           </span>
                         )}
                         {isCompleted && (
-                          <Badge variant="outline" className="text-[10px] border-emerald-500/20 text-emerald-400 bg-emerald-500/10">
+                          <span className="text-[9px] bg-emerald-500/20 backdrop-blur-sm border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5 font-mono">
                             Completed
-                          </Badge>
+                          </span>
                         )}
                         {d.status === 'scoring' && (
-                          <Badge variant="outline" className="text-[10px] border-amber-500/20 text-amber-400 bg-amber-500/10 animate-pulse">
+                          <span className="text-[9px] bg-amber-500/20 backdrop-blur-sm border border-amber-500/30 text-amber-400 rounded-full px-2 py-0.5 font-mono animate-pulse">
                             Scoring
-                          </Badge>
+                          </span>
                         )}
-                        <Badge variant="outline" className={`text-[10px] ${getCategoryColor(d.category)}`}>
+                      </div>
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="outline" className={`text-[9px] bg-black/40 backdrop-blur-sm ${getCategoryColor(d.category)}`}>
                           {d.category}
                         </Badge>
                       </div>
+                      {/* Participant count on image */}
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1 text-[9px] text-white/60 bg-black/40 backdrop-blur-sm rounded px-1.5 py-0.5 font-mono">
+                        🤖 {d.totalParticipants} agents
+                      </div>
+                    </div>
 
-                      {/* Topic */}
+                    <CardContent className="p-4">
                       <h3 className="text-sm font-semibold text-white mb-3 leading-snug line-clamp-2">
                         {d.topic}
                       </h3>
 
-                      {/* Stats */}
                       <div className="flex items-center justify-between text-[10px] text-white/30">
                         <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1">
-                            <span>&#x1F916;</span>
-                            <span className="font-mono text-white/50">{d.totalParticipants}</span>
-                            agents
-                          </span>
                           {d.topScore !== null && (
                             <span className="flex items-center gap-1">
-                              <span>&#x1F3C6;</span>
+                              <span>🏆</span>
                               <span className="font-mono text-amber-400/60">{d.topScore}</span>
                               top score
                             </span>
@@ -933,9 +768,12 @@ export default function ArenaPage() {
           )}
         </section>
 
+        {/* ─── Trending Topics ─────────────────────────────────────────────── */}
+        <TrendingSection trending={trending} />
+
         {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
-          <p className="text-white/30 text-sm mb-3">Want to see more debates? Browse all trending topics.</p>
+          <p className="text-white/30 text-sm mb-3">Want to see more debates? Browse all topics and start your own.</p>
           <Link href="/topics">
             <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
               Explore Topics
@@ -945,5 +783,82 @@ export default function ArenaPage() {
 
       </div>
     </div>
+  );
+}
+
+// ─── Trending Topics Section ────────────────────────────────────────────────
+
+function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
+  return (
+    <section className="mb-10">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">📈</span>
+          <h2 className="text-xl font-bold text-white">Trending Topics</h2>
+        </div>
+        <Link href="/topics">
+          <Button variant="ghost" size="sm" className="text-xs text-white/40 hover:text-amber-400">
+            View All →
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {trending.slice(0, 8).map((topic) => {
+          const thumb = getCategoryThumb(topic.category);
+          return (
+            <Card key={topic.id} className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
+              {/* Thumbnail image */}
+              <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} flex items-center justify-center overflow-hidden`}>
+                <span className="text-5xl opacity-80 drop-shadow-lg">{topic.emoji || thumb.emoji}</span>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                {topic.hasDebate && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+                    <PulsingDot />
+                    <span className="text-[9px] text-red-400 font-mono font-bold">LIVE</span>
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-2">
+                  <Badge variant="outline" className={`text-[9px] bg-black/40 backdrop-blur-sm ${getCategoryColor(topic.category)}`}>
+                    {topic.category}
+                  </Badge>
+                </div>
+                <div className="absolute bottom-2 right-2">
+                  <span className="text-[9px] text-white/60 font-mono bg-black/40 backdrop-blur-sm rounded px-1.5 py-0.5">
+                    Vol {topic.volume}
+                  </span>
+                </div>
+              </div>
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-white leading-snug mb-3 group-hover:text-amber-300 transition-colors line-clamp-2">
+                  {topic.title}
+                </h3>
+                <div className="space-y-1.5 mb-3">
+                  {topic.outcomes.map((o) => (
+                    <div key={o.label} className="flex items-center gap-2">
+                      <span className="text-[11px] text-white/50 w-16 truncate">{o.label}</span>
+                      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-amber-500/60"
+                          style={{ width: `${o.percent}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-white/40 font-mono w-8 text-right">{o.percent}%</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-end">
+                  {topic.hasDebate ? (
+                    <span className="text-[10px] text-amber-400 font-semibold">Watch Debate →</span>
+                  ) : (
+                    <span className="text-[10px] text-white/30 group-hover:text-amber-400 transition-colors">Start Debate →</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
   );
 }

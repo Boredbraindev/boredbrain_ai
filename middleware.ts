@@ -28,6 +28,8 @@ const publicRoutes = [
   '/fleet',
   '/onchain',
   '/docs',
+  '/register',
+  '/admin',
 ];
 
 /** Check if a pathname matches one of the route prefixes */
@@ -55,6 +57,22 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get('host') ?? '';
+
+  // ── Subdomain routing: register.boredbrain.app → /register ────────
+  if (hostname.startsWith('register.')) {
+    // Allow API calls and static assets through
+    if (pathname.startsWith('/api/') || pathname.startsWith('/_next')) {
+      return NextResponse.next();
+    }
+    // Rewrite all pages to /register
+    if (pathname !== '/register') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/register';
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
+  }
 
   // ── API routes: pass through immediately ──────────────────────────
   if (pathname.startsWith('/api/')) {

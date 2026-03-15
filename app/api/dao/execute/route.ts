@@ -1,9 +1,9 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import { agentDAO } from '@/lib/agent-dao';
 import { apiError, apiSuccess, parseJsonBody, validateBody, type Schema } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { daoProposal } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,27 +29,31 @@ export async function POST(request: NextRequest) {
 
     // Try DB first
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('DB timeout')), 3000),
-      );
+      const sql = neon(process.env.DATABASE_URL!);
 
-      const [proposal] = await Promise.race([
-        db.select().from(daoProposal).where(eq(daoProposal.id, proposalId)).limit(1),
-        timeout,
+      const proposalRows = await Promise.race([
+        sql`SELECT * FROM dao_proposal WHERE id = ${proposalId} LIMIT 1`,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
-      if (!proposal) return apiError('Proposal not found', 404);
+      if (proposalRows.length === 0) return apiError('Proposal not found', 404);
+      const proposal = proposalRows[0];
+
       if (proposal.status !== 'passed') return apiError('Proposal must be passed to execute');
 
+      const now = new Date().toISOString();
       await Promise.race([
-        db
-          .update(daoProposal)
-          .set({
-            status: 'executed',
-            executedAt: new Date(),
-          })
-          .where(eq(daoProposal.id, proposalId)),
-        timeout,
+        sql`
+          UPDATE dao_proposal SET
+            status = 'executed',
+            executed_at = ${now}
+          WHERE id = ${proposalId}
+        `,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
       return apiSuccess({ executed: true, proposalId });

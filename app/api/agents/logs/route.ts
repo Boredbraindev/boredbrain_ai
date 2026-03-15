@@ -1,8 +1,8 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { walletTransaction, agentWallet, externalAgent } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 /**
  * GET /api/agents/logs - Real-time call logs and wallet transactions
@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000)
     );
@@ -27,23 +29,14 @@ export async function GET(request: NextRequest) {
       // --- Agent-specific wallet, transactions, and info ---
       const [wallet, transactions, agentInfo] = await Promise.race([
         Promise.all([
-          db
-            .select()
-            .from(agentWallet)
-            .where(eq(agentWallet.agentId, agentId))
-            .limit(1),
-          db
-            .select()
-            .from(walletTransaction)
-            .where(eq(walletTransaction.agentId, agentId))
-            .orderBy(desc(walletTransaction.timestamp))
-            .limit(limit)
-            .offset(offset),
-          db
-            .select()
-            .from(externalAgent)
-            .where(eq(externalAgent.id, agentId))
-            .limit(1),
+          sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`,
+          sql`
+            SELECT * FROM wallet_transaction
+            WHERE agent_id = ${agentId}
+            ORDER BY timestamp DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `,
+          sql`SELECT * FROM external_agent WHERE id = ${agentId} LIMIT 1`,
         ]),
         timeout,
       ]);
@@ -62,19 +55,17 @@ export async function GET(request: NextRequest) {
     // --- Platform-wide summary + recent transactions ---
     const [summaryStats, recentTransactions] = await Promise.race([
       Promise.all([
-        db
-          .select({
-            totalWallets: sql<number>`COUNT(*)`,
-            totalBalance: sql<number>`COALESCE(SUM(${agentWallet.balance}), 0)`,
-            totalTransactions: sql<number>`(SELECT COUNT(*) FROM wallet_transaction)`,
-          })
-          .from(agentWallet),
-        db
-          .select()
-          .from(walletTransaction)
-          .orderBy(desc(walletTransaction.timestamp))
-          .limit(Math.min(limit, 50))
-          .offset(offset),
+        sql`
+          SELECT COUNT(*) as total_wallets,
+                 COALESCE(SUM(balance), 0) as total_balance,
+                 (SELECT COUNT(*) FROM wallet_transaction) as total_transactions
+          FROM agent_wallet
+        `,
+        sql`
+          SELECT * FROM wallet_transaction
+          ORDER BY timestamp DESC
+          LIMIT ${Math.min(limit, 50)} OFFSET ${offset}
+        `,
       ]),
       timeout,
     ]);
@@ -82,9 +73,9 @@ export async function GET(request: NextRequest) {
     const stats = summaryStats[0];
     const response = apiSuccess({
       summary: {
-        totalWallets: stats?.totalWallets ?? 0,
-        totalBalance: stats?.totalBalance ?? 0,
-        totalTransactions: stats?.totalTransactions ?? 0,
+        totalWallets: Number(stats?.total_wallets ?? 0),
+        totalBalance: Number(stats?.total_balance ?? 0),
+        totalTransactions: Number(stats?.total_transactions ?? 0),
       },
       recentTransactions,
       pagination: { limit: Math.min(limit, 50), offset, total: recentTransactions.length },

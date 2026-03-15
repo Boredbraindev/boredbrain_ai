@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { webSearchTool } from '@/lib/tools/web-search';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { groq } from '@ai-sdk/groq';

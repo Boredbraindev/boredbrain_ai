@@ -1,4 +1,4 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const maxDuration = 10;
 
 /**
@@ -15,11 +15,7 @@ export const maxDuration = 10;
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 import { serverEnv } from '@/env/server';
-import { db } from '@/lib/db';
-import { topicDebate, debateOpinion, debateStake } from '@/lib/db/schema';
-import { eq, sql, and, isNotNull } from 'drizzle-orm';
-import { topUpWallet, getAgentWallet, createAgentWallet } from '@/lib/agent-wallet';
-import { awardPoints } from '@/lib/points';
+import { neon } from '@neondatabase/serverless';
 
 const GAMMA_API = 'https://gamma-api.polymarket.com';
 
@@ -48,17 +44,14 @@ async function checkPolymarketResolution(eventId: string): Promise<string | null
     if (!res.ok) return null;
 
     const event = await res.json();
-    // Check if event is closed/resolved
     if (!event.closed && event.active !== false) return null;
 
     const markets = event.markets ?? [];
     if (markets.length === 0) return null;
 
-    // Binary market: check which outcome won
     if (markets.length === 1) {
       const m = markets[0];
       if (m.resolved) {
-        // outcomePrices after resolution: winner = "1.0", loser = "0.0"
         const prices = typeof m.outcomePrices === 'string'
           ? JSON.parse(m.outcomePrices)
           : m.outcomePrices;
@@ -70,7 +63,6 @@ async function checkPolymarketResolution(eventId: string): Promise<string | null
       return null;
     }
 
-    // Multi-outcome: find the resolved winner
     for (const m of markets) {
       if (m.resolved) {
         const prices = typeof m.outcomePrices === 'string'
@@ -90,7 +82,6 @@ async function checkPolymarketResolution(eventId: string): Promise<string | null
 
 /**
  * Map Polymarket outcome to debate position.
- * "Yes" → "for", "No" → "against"
  */
 function outcomeToPosition(outcome: string): 'for' | 'against' | 'neutral' {
   const lower = outcome.toLowerCase();
@@ -99,39 +90,144 @@ function outcomeToPosition(outcome: string): 'for' | 'against' | 'neutral' {
   return 'neutral';
 }
 
+// ── Inline helper: generate deterministic wallet address ──────────────────
+function generateWalletAddress(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    const char = agentId.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  let hex = '';
+  let seed = Math.abs(hash);
+  while (hex.length < 40) {
+    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) >>> 0;
+    hex += seed.toString(16);
+  }
+  return '0x' + hex.slice(0, 40);
+}
+
+// ── Inline: topUpWallet via raw SQL ─────────────────────────────────────────
+async function topUpWalletEdge(sql: any, agentId: string, amount: number): Promise<void> {
+  const wallets = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  if (wallets.length === 0) throw new Error(`Wallet not found for agent: ${agentId}`);
+  if (amount <= 0) throw new Error('Top-up amount must be positive');
+
+  const newBalance = wallets[0].balance + amount;
+  await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${agentId}`;
+  await sql`
+    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+    VALUES (${agentId}, ${amount}, 'credit', 'Wallet top-up', ${newBalance})
+  `;
+}
+
+// ── Inline: getAgentWallet via raw SQL ──────────────────────────────────────
+async function getAgentWalletEdge(sql: any, agentId: string) {
+  const rows = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  return rows.length > 0 ? rows[0] : null;
+}
+
+// ── Inline: createAgentWallet via raw SQL ───────────────────────────────────
+async function createAgentWalletEdge(
+  sql: any,
+  agentId: string,
+  dailyLimit: number = 50,
+  initialBalance: number = 50,
+) {
+  const existing = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  if (existing.length > 0) return existing[0];
+
+  const address = generateWalletAddress(agentId);
+  const rows = await sql`
+    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
+    RETURNING *
+  `;
+  await sql`
+    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+  `;
+  return rows[0];
+}
+
+// ── Inline: awardPoints via raw SQL ─────────────────────────────────────────
+function getLevelFromBp(bp: number): number {
+  if (bp >= 200000) return 50;
+  if (bp >= 50000) return 30;
+  if (bp >= 10000) return 20;
+  if (bp >= 2000) return 10;
+  if (bp >= 500) return 5;
+  return 1;
+}
+
+async function awardPointsEdge(
+  sql: any,
+  walletAddress: string,
+  reason: string,
+  referenceId?: string,
+  customAmount?: number,
+): Promise<void> {
+  try {
+    const bp = customAmount ?? 0;
+    if (bp === 0) return;
+
+    await sql`
+      INSERT INTO point_transaction (wallet_address, amount, reason, reference_id)
+      VALUES (${walletAddress}, ${bp}, ${reason}, ${referenceId ?? null})
+    `;
+
+    const existing = await sql`
+      SELECT * FROM user_points WHERE wallet_address = ${walletAddress} LIMIT 1
+    `;
+
+    if (existing.length === 0) {
+      const level = getLevelFromBp(bp);
+      await sql`
+        INSERT INTO user_points (wallet_address, total_bp, level)
+        VALUES (${walletAddress}, ${bp}, ${level})
+      `;
+    } else {
+      const newTotal = existing[0].total_bp + bp;
+      const level = getLevelFromBp(newTotal);
+      await sql`
+        UPDATE user_points SET total_bp = ${newTotal}, level = ${level}
+        WHERE wallet_address = ${walletAddress}
+      `;
+    }
+  } catch (err) {
+    console.error('[points] awardPoints error:', err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!verifyCron(request)) {
     return apiError('Unauthorized', 401);
   }
 
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     // Find debates that are completed/scoring AND have a Polymarket link but no resolved outcome yet
-    const unsettledDebates = await db
-      .select()
-      .from(topicDebate)
-      .where(
-        and(
-          isNotNull(topicDebate.polymarketEventId),
-          sql`${topicDebate.resolvedOutcome} IS NULL`,
-          sql`${topicDebate.status} IN ('open', 'scoring', 'completed')`,
-        ),
-      )
-      .limit(10);
+    const unsettledDebates = await sql`
+      SELECT * FROM topic_debate
+      WHERE polymarket_event_id IS NOT NULL
+        AND resolved_outcome IS NULL
+        AND status IN ('open', 'scoring', 'completed')
+      LIMIT 10
+    `;
 
     let settled = 0;
     const results: { debateId: string; topic: string; outcome: string; winnersCount: number; poolDistributed: number; stakesSettled?: number }[] = [];
 
     for (const debate of unsettledDebates) {
-      if (!debate.polymarketEventId) continue;
+      if (!debate.polymarket_event_id) continue;
 
-      const outcome = await checkPolymarketResolution(debate.polymarketEventId);
-      if (!outcome) continue; // Not yet resolved on Polymarket
+      const outcome = await checkPolymarketResolution(debate.polymarket_event_id);
+      if (!outcome) continue;
 
       // Get all opinions for this debate
-      const opinions = await db
-        .select()
-        .from(debateOpinion)
-        .where(eq(debateOpinion.debateId, debate.id));
+      const opinions = await sql`
+        SELECT * FROM debate_opinion WHERE debate_id = ${debate.id}
+      `;
 
       if (opinions.length === 0) continue;
 
@@ -139,11 +235,11 @@ export async function POST(request: NextRequest) {
       const winningPosition = outcomeToPosition(outcome);
 
       // Find winners (agents who picked the right side)
-      const winners = opinions.filter((o) => o.position === winningPosition);
-      const losers = opinions.filter((o) => o.position !== winningPosition);
+      const winners = opinions.filter((o: any) => o.position === winningPosition);
+      const losers = opinions.filter((o: any) => o.position !== winningPosition);
 
-      // Calculate pool: totalPool from debate, or participation count * 2 BBAI
-      const pool = debate.totalPool ?? (opinions.length * 2);
+      // Calculate pool
+      const pool = debate.total_pool ?? (opinions.length * 2);
 
       // Distribute pool to winners
       let distributed = 0;
@@ -153,16 +249,17 @@ export async function POST(request: NextRequest) {
         for (const winner of winners) {
           try {
             // Ensure wallet exists
-            let wallet = await getAgentWallet(winner.agentId);
+            let wallet = await getAgentWalletEdge(sql, winner.agent_id);
             if (!wallet) {
-              wallet = await createAgentWallet(winner.agentId, 500, 0);
+              wallet = await createAgentWalletEdge(sql, winner.agent_id, 500, 0);
             }
-            await topUpWallet(winner.agentId, sharePerWinner);
+            await topUpWalletEdge(sql, winner.agent_id, sharePerWinner);
             distributed += sharePerWinner;
 
             // Award bonus BP
-            await awardPoints(
-              winner.agentId,
+            await awardPointsEdge(
+              sql,
+              winner.agent_id,
               'arena_stake_win',
               debate.id,
               sharePerWinner,
@@ -174,37 +271,33 @@ export async function POST(request: NextRequest) {
       }
 
       // ── Settle user stakes ──────────────────────────────────────────
-      // Winners = users who staked on the #1 agent (top scorer or winning side)
       let stakesSettled = 0;
       try {
-        const allStakes = await db
-          .select()
-          .from(debateStake)
-          .where(and(
-            eq(debateStake.debateId, debate.id),
-            eq(debateStake.status, 'active'),
-          ));
+        const allStakes = await sql`
+          SELECT * FROM debate_stake
+          WHERE debate_id = ${debate.id} AND status = 'active'
+        `;
 
         if (allStakes.length > 0) {
-          // Determine winning agents: those on the winning position
-          const winnerAgentIds = new Set(winners.map(w => w.agentId));
-          const totalStakePool = allStakes.reduce((sum, s) => sum + s.amount, 0);
-          const winningStakes = allStakes.filter(s => winnerAgentIds.has(s.agentId));
-          const losingStakes = allStakes.filter(s => !winnerAgentIds.has(s.agentId));
+          const winnerAgentIds = new Set(winners.map((w: any) => w.agent_id));
+          const totalStakePool = allStakes.reduce((sum: number, s: any) => sum + s.amount, 0);
+          const winningStakes = allStakes.filter((s: any) => winnerAgentIds.has(s.agent_id));
+          const losingStakes = allStakes.filter((s: any) => !winnerAgentIds.has(s.agent_id));
 
-          const winningTotal = winningStakes.reduce((sum, s) => sum + s.amount, 0);
+          const winningTotal = winningStakes.reduce((sum: number, s: any) => sum + s.amount, 0);
 
           // Distribute pool to winning stakers proportionally
           for (const stake of winningStakes) {
             const share = winningTotal > 0
               ? Math.floor((stake.amount / winningTotal) * totalStakePool)
-              : stake.amount; // refund if no total
+              : stake.amount;
             try {
-              await awardPoints(stake.walletAddress, 'arena_stake_win', debate.id, share);
-              await db
-                .update(debateStake)
-                .set({ status: 'won', payout: share, settledAt: new Date() })
-                .where(eq(debateStake.id, stake.id));
+              await awardPointsEdge(sql, stake.wallet_address, 'arena_stake_win', debate.id, share);
+              await sql`
+                UPDATE debate_stake
+                SET status = 'won', payout = ${share}, settled_at = NOW()
+                WHERE id = ${stake.id}
+              `;
               stakesSettled++;
             } catch {
               // Non-critical
@@ -214,10 +307,11 @@ export async function POST(request: NextRequest) {
           // Mark losing stakes
           for (const stake of losingStakes) {
             try {
-              await db
-                .update(debateStake)
-                .set({ status: 'lost', payout: 0, settledAt: new Date() })
-                .where(eq(debateStake.id, stake.id));
+              await sql`
+                UPDATE debate_stake
+                SET status = 'lost', payout = 0, settled_at = NOW()
+                WHERE id = ${stake.id}
+              `;
             } catch {
               // Non-critical
             }
@@ -228,13 +322,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Update debate record
-      await db
-        .update(topicDebate)
-        .set({
-          resolvedOutcome: outcome,
-          status: 'completed',
-        })
-        .where(eq(topicDebate.id, debate.id));
+      await sql`
+        UPDATE topic_debate
+        SET resolved_outcome = ${outcome}, status = 'completed'
+        WHERE id = ${debate.id}
+      `;
 
       settled++;
       results.push({

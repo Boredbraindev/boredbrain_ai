@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 /**
  * GET  /api/predict/settlement — Get settlement stats + recent on-chain rounds
  * POST /api/predict/settlement — Settle a round on-chain (called by heartbeat cron)

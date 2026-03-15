@@ -2,32 +2,16 @@ export const runtime = 'nodejs';
 export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { externalAgent, userPoints } from '@/lib/db/schema';
-import { awardPoints } from '@/lib/points';
+import { neon } from '@neondatabase/serverless';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 import { getToolPrice } from '@/lib/tool-pricing';
-import {
-  getAgentWallet,
-  createAgentWallet,
-} from '@/lib/agent-wallet';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
-import { settleBilling } from '@/lib/inter-agent-billing';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 
 /**
  * POST /api/agents/[agentId]/invoke
  *
  * Invoke a BoredBrain agent with real LLM execution and inter-agent billing.
- *
- * Request body:
- * {
- *   "query": "Analyze Bitcoin DeFi ecosystem",
- *   "callerAgentId": "external-agent-123",   // optional — for inter-agent billing
- *   "maxBudget": 50,                          // max BBAI to spend
- *   "tools": ["coin_data", "web_search"]      // optional — restrict to specific tools
- * }
  */
 
 // ---------------------------------------------------------------------------
@@ -42,74 +26,187 @@ interface AgentRecord {
   pricePerQuery: number;
   specialization?: string;
   isFleetAgent?: boolean;
-  invokeCost?: number;  // premium BP cost for user invocations
+  invokeCost?: number;
   eloRating?: number;
 }
 
 const DISCOVERY_AGENTS: AgentRecord[] = [
-  {
-    id: 'agent-defi-oracle',
-    name: 'DeFi Oracle',
-    description: 'Analyzes DeFi protocols, yield farming, and liquidity data.',
-    tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'],
-    pricePerQuery: 40,
-    specialization: 'defi',
-  },
-  {
-    id: 'agent-alpha-hunter',
-    name: 'Alpha Hunter',
-    description: 'Hunts market opportunities via whale monitoring and signals.',
-    tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'],
-    pricePerQuery: 35,
-    specialization: 'trading',
-  },
-  {
-    id: 'agent-research-bot',
-    name: 'Research Bot',
-    description: 'Academic and deep-web research with code execution.',
-    tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'],
-    pricePerQuery: 30,
-    specialization: 'research',
-  },
-  {
-    id: 'agent-news-aggregator',
-    name: 'News Aggregator',
-    description: 'Compiles news from web, Reddit, YouTube, and X/Twitter.',
-    tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'],
-    pricePerQuery: 20,
-    specialization: 'news',
-  },
-  {
-    id: 'agent-code-auditor',
-    name: 'Code Auditor',
-    description: 'Smart contract vulnerability and gas auditing.',
-    tools: ['code_interpreter', 'smart_contract_audit', 'web_search'],
-    pricePerQuery: 45,
-    specialization: 'security',
-  },
-  {
-    id: 'agent-nft-analyst',
-    name: 'NFT Analyst',
-    description: 'NFT market analysis, collection tracking, and social buzz.',
-    tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'],
-    pricePerQuery: 30,
-    specialization: 'nft',
-  },
+  { id: 'agent-defi-oracle', name: 'DeFi Oracle', description: 'Analyzes DeFi protocols, yield farming, and liquidity data.', tools: ['coin_data', 'coin_ohlc', 'wallet_analyzer', 'token_retrieval'], pricePerQuery: 40, specialization: 'defi' },
+  { id: 'agent-alpha-hunter', name: 'Alpha Hunter', description: 'Hunts market opportunities via whale monitoring and signals.', tools: ['web_search', 'x_search', 'coin_data', 'whale_alert'], pricePerQuery: 35, specialization: 'trading' },
+  { id: 'agent-research-bot', name: 'Research Bot', description: 'Academic and deep-web research with code execution.', tools: ['academic_search', 'web_search', 'retrieve', 'code_interpreter'], pricePerQuery: 30, specialization: 'research' },
+  { id: 'agent-news-aggregator', name: 'News Aggregator', description: 'Compiles news from web, Reddit, YouTube, and X/Twitter.', tools: ['web_search', 'reddit_search', 'youtube_search', 'x_search'], pricePerQuery: 20, specialization: 'news' },
+  { id: 'agent-code-auditor', name: 'Code Auditor', description: 'Smart contract vulnerability and gas auditing.', tools: ['code_interpreter', 'smart_contract_audit', 'web_search'], pricePerQuery: 45, specialization: 'security' },
+  { id: 'agent-nft-analyst', name: 'NFT Analyst', description: 'NFT market analysis, collection tracking, and social buzz.', tools: ['nft_retrieval', 'wallet_analyzer', 'web_search', 'x_search'], pricePerQuery: 30, specialization: 'nft' },
 ];
+
+// ---------------------------------------------------------------------------
+// Inline helpers for wallet/billing/points (raw SQL)
+// ---------------------------------------------------------------------------
+
+function generateWalletAddress(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    const char = agentId.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  let hex = '';
+  let seed = Math.abs(hash);
+  while (hex.length < 40) {
+    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) >>> 0;
+    hex += seed.toString(16);
+  }
+  return '0x' + hex.slice(0, 40);
+}
+
+async function getAgentWalletEdge(sql: any, agentId: string) {
+  const rows = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  return rows.length > 0 ? rows[0] : null;
+}
+
+async function createAgentWalletEdge(sql: any, agentId: string, dailyLimit: number = 50, initialBalance: number = 50) {
+  const existing = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  if (existing.length > 0) return existing[0];
+
+  const address = generateWalletAddress(agentId);
+  const created = await sql`
+    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
+    RETURNING *
+  `;
+  await sql`
+    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+  `;
+  return created[0];
+}
+
+async function settleBillingEdge(
+  sql: any,
+  callerAgentId: string,
+  providerAgentId: string,
+  toolsUsed: string[],
+  totalCost: number,
+) {
+  const platformFee = Number(((totalCost * 15) / 100).toFixed(4));
+  const providerEarning = Number(((totalCost * 85) / 100).toFixed(4));
+
+  // Ensure both agents have wallets
+  if (!(await getAgentWalletEdge(sql, callerAgentId))) {
+    await createAgentWalletEdge(sql, callerAgentId);
+  }
+  if (!(await getAgentWalletEdge(sql, providerAgentId))) {
+    await createAgentWalletEdge(sql, providerAgentId);
+  }
+
+  // Deduct from caller
+  const callerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${callerAgentId} LIMIT 1`;
+  let deductSuccess = false;
+  if (callerWallet.length > 0 && callerWallet[0].balance >= totalCost) {
+    const newBalance = callerWallet[0].balance - totalCost;
+    const updated = await sql`
+      UPDATE agent_wallet SET balance = ${newBalance}, total_spent = total_spent + ${totalCost}
+      WHERE agent_id = ${callerAgentId} AND balance >= ${totalCost}
+      RETURNING *
+    `;
+    if (updated.length > 0) {
+      deductSuccess = true;
+      await sql`
+        INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+        VALUES (${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
+      `;
+    }
+  }
+
+  if (!deductSuccess) {
+    // Record failed billing
+    const failedRows = await sql`
+      INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+      VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'failed')
+      RETURNING *
+    `;
+    return {
+      success: false,
+      billingId: failedRows[0]?.id ?? '',
+      breakdown: { totalCost, platformFee, providerEarning, callerAgentId, providerAgentId, toolsUsed },
+    };
+  }
+
+  // Credit provider
+  const providerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${providerAgentId} LIMIT 1`;
+  if (providerWallet.length > 0) {
+    const newBalance = providerWallet[0].balance + providerEarning;
+    await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${providerAgentId}`;
+    await sql`
+      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+      VALUES (${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
+    `;
+  }
+
+  // Record billing
+  const rows = await sql`
+    INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+    VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'completed')
+    RETURNING *
+  `;
+
+  return {
+    success: true,
+    billingId: rows[0]?.id ?? '',
+    breakdown: { totalCost, platformFee, providerEarning, callerAgentId, providerAgentId, toolsUsed },
+  };
+}
+
+function getLevelFromBp(bp: number): number {
+  if (bp >= 200000) return 50;
+  if (bp >= 50000) return 30;
+  if (bp >= 10000) return 20;
+  if (bp >= 2000) return 10;
+  if (bp >= 500) return 5;
+  return 1;
+}
+
+async function awardPointsEdge(
+  sql: any,
+  walletAddress: string,
+  reason: string,
+  referenceId?: string,
+  customAmount?: number,
+): Promise<void> {
+  try {
+    const bp = customAmount ?? 0;
+    if (bp === 0) return;
+
+    await sql`
+      INSERT INTO point_transaction (wallet_address, amount, reason, reference_id)
+      VALUES (${walletAddress}, ${bp}, ${reason}, ${referenceId ?? null})
+    `;
+
+    const existing = await sql`SELECT * FROM user_points WHERE wallet_address = ${walletAddress} LIMIT 1`;
+    if (existing.length === 0) {
+      const level = getLevelFromBp(bp);
+      await sql`INSERT INTO user_points (wallet_address, total_bp, level) VALUES (${walletAddress}, ${bp}, ${level})`;
+    } else {
+      const newTotal = existing[0].total_bp + bp;
+      const level = getLevelFromBp(newTotal);
+      await sql`UPDATE user_points SET total_bp = ${newTotal}, level = ${level} WHERE wallet_address = ${walletAddress}`;
+    }
+  } catch (err) {
+    console.error('[points] awardPoints error:', err);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Agent lookup — DB first, then hardcoded fallbacks
 // ---------------------------------------------------------------------------
 
-async function findAgent(agentId: string): Promise<AgentRecord | null> {
+async function findAgent(sql: any, agentId: string): Promise<AgentRecord | null> {
   // 1. Check DB externalAgent table (with timeout)
   try {
-    const dbResult = await Promise.race([
-      db.select().from(externalAgent).where(eq(externalAgent.id, agentId)).limit(1),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('DB timeout')), 3000),
-      ),
-    ]);
+    const dbPromise = sql`SELECT * FROM external_agent WHERE id = ${agentId} LIMIT 1`;
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('DB timeout')), 3000),
+    );
+    const dbResult = await Promise.race([dbPromise, timeout]);
 
     if (dbResult.length > 0) {
       const agent = dbResult[0];
@@ -118,22 +215,22 @@ async function findAgent(agentId: string): Promise<AgentRecord | null> {
         name: agent.name,
         description: agent.description ?? '',
         tools: (agent.tools as string[]) || [],
-        pricePerQuery: 10, // default for fleet agents
+        pricePerQuery: 10,
         specialization: agent.specialization ?? 'general',
         isFleetAgent: true,
-        invokeCost: agent.invokeCost ?? 0,
-        eloRating: agent.eloRating ?? 1200,
+        invokeCost: agent.invoke_cost ?? 0,
+        eloRating: agent.elo_rating ?? 1200,
       };
     }
   } catch {
-    // DB lookup failed — fall through to hardcoded agents
+    // DB lookup failed
   }
 
   // 2. Check canonical discovery agents
   const discovery = DISCOVERY_AGENTS.find((a) => a.id === agentId);
   if (discovery) return discovery;
 
-  // 3. Fallback to MOCK_AGENTS from the marketplace
+  // 3. Fallback to MOCK_AGENTS
   const mock = MOCK_AGENTS.find((a) => a.id === agentId);
   if (mock) {
     return {
@@ -157,11 +254,10 @@ export async function POST(
   { params }: { params: Promise<{ agentId: string }> },
 ) {
   const { agentId } = await params;
+  const sql = neon(process.env.DATABASE_URL!);
 
-  // -------------------------------------------------------------------------
   // 1. Validate agent exists
-  // -------------------------------------------------------------------------
-  const agentRecord = await findAgent(agentId);
+  const agentRecord = await findAgent(sql, agentId);
   if (!agentRecord) {
     return apiError(
       `No agent with id "${agentId}" exists. Use GET /api/agents/discover to list available agents.`,
@@ -169,15 +265,13 @@ export async function POST(
     );
   }
 
-  // -------------------------------------------------------------------------
   // 2. Parse body
-  // -------------------------------------------------------------------------
   let body: {
     query?: string;
     callerAgentId?: string;
     maxBudget?: number;
     tools?: string[];
-    walletAddress?: string; // user wallet for premium invoke BP deduction
+    walletAddress?: string;
   };
 
   try {
@@ -196,21 +290,16 @@ export async function POST(
   const requestedTools = body.tools ?? null;
   const walletAddress = body.walletAddress ?? null;
 
-  // -------------------------------------------------------------------------
   // 2b. Premium invoke cost — charge BP if agent has invokeCost > 0
-  // -------------------------------------------------------------------------
   const premiumCost = agentRecord.invokeCost ?? 0;
   let premiumCharged = 0;
 
   if (premiumCost > 0 && walletAddress) {
-    // Check user BP balance
-    const [userRow] = await db
-      .select({ totalBp: userPoints.totalBp })
-      .from(userPoints)
-      .where(eq(userPoints.walletAddress, walletAddress))
-      .limit(1);
+    const userRows = await sql`
+      SELECT total_bp FROM user_points WHERE wallet_address = ${walletAddress} LIMIT 1
+    `;
 
-    const userBp = userRow?.totalBp ?? 0;
+    const userBp = userRows.length > 0 ? userRows[0].total_bp : 0;
     if (userBp < premiumCost) {
       return apiError(
         `This is a premium agent (${premiumCost} BP per call). You have ${userBp} BP.`,
@@ -219,13 +308,11 @@ export async function POST(
     }
 
     // Deduct BP
-    await awardPoints(walletAddress, 'agent_invoke_premium', agentId, -premiumCost);
+    await awardPointsEdge(sql, walletAddress, 'agent_invoke_premium', agentId, -premiumCost);
     premiumCharged = premiumCost;
   }
 
-  // -------------------------------------------------------------------------
   // 3. Resolve tools to execute
-  // -------------------------------------------------------------------------
   let toolsToRun = agentRecord.tools;
 
   if (requestedTools && requestedTools.length > 0) {
@@ -240,9 +327,7 @@ export async function POST(
     }
   }
 
-  // -------------------------------------------------------------------------
   // 4. Estimate cost up-front
-  // -------------------------------------------------------------------------
   const estimatedCost = toolsToRun.reduce(
     (sum, t) => sum + (getToolPrice(t) ?? 5),
     0,
@@ -255,13 +340,11 @@ export async function POST(
     );
   }
 
-  // -------------------------------------------------------------------------
   // 5. If callerAgentId provided, validate wallet balance
-  // -------------------------------------------------------------------------
   if (callerAgentId) {
-    let wallet = await getAgentWallet(callerAgentId);
+    let wallet = await getAgentWalletEdge(sql, callerAgentId);
     if (!wallet) {
-      wallet = await createAgentWallet(callerAgentId, 500);
+      wallet = await createAgentWalletEdge(sql, callerAgentId, 500);
     }
 
     if (wallet.balance < estimatedCost) {
@@ -272,9 +355,7 @@ export async function POST(
     }
   }
 
-  // -------------------------------------------------------------------------
   // 6. Execute agent via real LLM
-  // -------------------------------------------------------------------------
   const agentConfig: AgentConfig = {
     id: agentRecord.id,
     name: agentRecord.name,
@@ -294,23 +375,19 @@ export async function POST(
     0,
   );
 
-  // -------------------------------------------------------------------------
   // 7. Billing — settle between caller and provider
-  // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
-  // Calculate quality score (0-5 scale) for rating update
-  // -------------------------------------------------------------------------
-  const latencyScore = Math.max(0, 5 - (latencyMs / 2000)); // <2s = 5, >10s = 0
+  const latencyScore = Math.max(0, 5 - (latencyMs / 2000));
   const tokenEfficiency = execution.tokensUsed > 0 ? Math.min(5, 5000 / execution.tokensUsed) : 2.5;
   const toolSuccess = execution.toolCalls?.length
-    ? (execution.toolCalls.filter((t: Record<string, unknown>) => !('error' in ((t.output as Record<string, unknown>) ?? {}))).length / execution.toolCalls.length) * 5
+    ? (execution.toolCalls.filter((t: any) => !('error' in ((t.output as Record<string, unknown>) ?? {}))).length / execution.toolCalls.length) * 5
     : 3;
   const callQuality = (latencyScore + tokenEfficiency + toolSuccess) / 3;
 
   let billingInfo: Record<string, unknown>;
 
   if (callerAgentId) {
-    const settlement = await settleBilling(
+    const settlement = await settleBillingEdge(
+      sql,
       callerAgentId,
       agentId,
       toolsToRun,
@@ -324,27 +401,24 @@ export async function POST(
       breakdown: settlement.breakdown,
     };
 
-    // -----------------------------------------------------------------------
     // 8. Update fleet agent stats in DB
-    // -----------------------------------------------------------------------
     if (agentRecord.isFleetAgent) {
       const providerEarning = settlement.breakdown?.providerEarning ?? totalCost * 0.85;
       try {
         await Promise.race([
-          db
-            .update(externalAgent)
-            .set({
-              totalCalls: sql`${externalAgent.totalCalls} + 1`,
-              totalEarned: sql`${externalAgent.totalEarned} + ${providerEarning}`,
-              rating: sql`CASE WHEN ${externalAgent.rating} > 0 THEN ${externalAgent.rating} * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END`,
-            })
-            .where(eq(externalAgent.id, agentId)),
+          sql`
+            UPDATE external_agent
+            SET total_calls = total_calls + 1,
+                total_earned = total_earned + ${providerEarning},
+                rating = CASE WHEN rating > 0 THEN rating * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END
+            WHERE id = ${agentId}
+          `,
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('DB update timeout')), 3000),
           ),
         ]);
       } catch {
-        // Non-critical — stats update failed but invocation succeeded
+        // Non-critical
       }
     }
   } else {
@@ -357,13 +431,12 @@ export async function POST(
     if (agentRecord.isFleetAgent) {
       try {
         await Promise.race([
-          db
-            .update(externalAgent)
-            .set({
-              totalCalls: sql`${externalAgent.totalCalls} + 1`,
-              rating: sql`CASE WHEN ${externalAgent.rating} > 0 THEN ${externalAgent.rating} * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END`,
-            })
-            .where(eq(externalAgent.id, agentId)),
+          sql`
+            UPDATE external_agent
+            SET total_calls = total_calls + 1,
+                rating = CASE WHEN rating > 0 THEN rating * 0.95 + ${callQuality} * 0.05 ELSE ${callQuality} END
+            WHERE id = ${agentId}
+          `,
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('DB update timeout')), 3000),
           ),
@@ -374,14 +447,12 @@ export async function POST(
     }
   }
 
-  // -------------------------------------------------------------------------
   // 9. Return response
-  // -------------------------------------------------------------------------
   return apiSuccess({
     agentId: agentRecord.id,
     agentName: agentRecord.name,
     response: execution.content,
-    toolsUsed: (execution.toolCalls ?? []).map(tc => tc.tool),
+    toolsUsed: (execution.toolCalls ?? []).map((tc: any) => tc.tool),
     cost: totalCost,
     costUnit: 'BBAI',
     llmModel: execution.model,

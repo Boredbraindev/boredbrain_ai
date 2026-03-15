@@ -1,9 +1,10 @@
+export const runtime = 'nodejs';
+
 import { NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import { userReward } from '@/lib/db/schema';
-import { getUser } from '@/lib/auth-utils';
+import { neon } from '@neondatabase/serverless';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
-import { eq } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 // ── Constants (mirror the client-side config) ──────────────────────────────
 
@@ -34,25 +35,33 @@ function getDefaultRewardState() {
   };
 }
 
+// Helper to get current user in Edge
+async function getEdgeUser() {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    return session?.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── GET /api/rewards ───────────────────────────────────────────────────────
 
 export async function GET() {
   try {
-    const user = await getUser();
+    const user = await getEdgeUser();
 
     if (!user) {
-      // Not logged in — return empty default (client will use localStorage)
       return apiSuccess({ reward: getDefaultRewardState(), source: 'default' });
     }
 
-    const existing = await db
-      .select()
-      .from(userReward)
-      .where(eq(userReward.userId, user.id))
-      .limit(1);
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const existing = await sql`
+      SELECT * FROM user_reward WHERE user_id = ${user.id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
-      // Logged in but no row yet — return default (will be created on first claim)
       return apiSuccess({ reward: getDefaultRewardState(), source: 'default' });
     }
 
@@ -62,10 +71,10 @@ export async function GET() {
     let state = {
       balance: row.balance,
       streak: row.streak,
-      currentDay: row.currentDay,
-      lastClaimDate: row.lastClaimDate,
-      weeklyStreaksCompleted: row.weeklyStreaksCompleted,
-      claimedDays: (row.claimedDays ?? []) as number[],
+      currentDay: row.current_day,
+      lastClaimDate: row.last_claim_date,
+      weeklyStreaksCompleted: row.weekly_streaks_completed,
+      claimedDays: (row.claimed_days ?? []) as number[],
       missions: (row.missions ?? {}) as Record<string, { progress: number; completed: boolean }>,
       history: (row.history ?? []) as Array<{ id: string; date: string; amount: number; type: string }>,
     };
@@ -80,15 +89,10 @@ export async function GET() {
         // Streak broken — reset day cycle but keep balance and history
         state = { ...state, currentDay: 1, streak: 0, claimedDays: [] };
         // Persist the streak reset
-        await db
-          .update(userReward)
-          .set({
-            currentDay: 1,
-            streak: 0,
-            claimedDays: [],
-            updatedAt: new Date(),
-          })
-          .where(eq(userReward.userId, user.id));
+        await sql`
+          UPDATE user_reward SET current_day = 1, streak = 0, claimed_days = '[]'::jsonb, updated_at = NOW()
+          WHERE user_id = ${user.id}
+        `;
       }
     }
 
@@ -103,7 +107,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUser();
+    const user = await getEdgeUser();
     if (!user) {
       return apiError('Authentication required', 401);
     }
@@ -120,13 +124,12 @@ export async function POST(request: NextRequest) {
     // ── Claim daily reward ─────────────────────────────────────────────
 
     const today = getToday();
+    const sql = neon(process.env.DATABASE_URL!);
 
     // Get or create reward row
-    const existing = await db
-      .select()
-      .from(userReward)
-      .where(eq(userReward.userId, user.id))
-      .limit(1);
+    const existing = await sql`
+      SELECT * FROM user_reward WHERE user_id = ${user.id} LIMIT 1
+    `;
 
     let state = getDefaultRewardState();
 
@@ -135,10 +138,10 @@ export async function POST(request: NextRequest) {
       state = {
         balance: row.balance,
         streak: row.streak,
-        currentDay: row.currentDay,
-        lastClaimDate: row.lastClaimDate,
-        weeklyStreaksCompleted: row.weeklyStreaksCompleted,
-        claimedDays: (row.claimedDays ?? []) as number[],
+        currentDay: row.current_day,
+        lastClaimDate: row.last_claim_date,
+        weeklyStreaksCompleted: row.weekly_streaks_completed,
+        claimedDays: (row.claimed_days ?? []) as number[],
         missions: (row.missions ?? {}) as Record<string, { progress: number; completed: boolean }>,
         history: (row.history ?? []) as Array<{ id: string; date: string; amount: number; type: string }>,
       };
@@ -212,20 +215,24 @@ export async function POST(request: NextRequest) {
 
     // Upsert into DB
     if (existing.length === 0) {
-      await db.insert(userReward).values({
-        userId: user.id,
-        ...updatedState,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await sql`
+        INSERT INTO user_reward (user_id, balance, current_day, streak, last_claim_date, weekly_streaks_completed, claimed_days, missions, history, created_at, updated_at)
+        VALUES (${user.id}, ${updatedState.balance}, ${updatedState.currentDay}, ${updatedState.streak}, ${updatedState.lastClaimDate}, ${updatedState.weeklyStreaksCompleted}, ${JSON.stringify(updatedState.claimedDays)}::jsonb, ${JSON.stringify(updatedState.missions)}::jsonb, ${JSON.stringify(updatedState.history)}::jsonb, NOW(), NOW())
+      `;
     } else {
-      await db
-        .update(userReward)
-        .set({
-          ...updatedState,
-          updatedAt: new Date(),
-        })
-        .where(eq(userReward.userId, user.id));
+      await sql`
+        UPDATE user_reward SET
+          balance = ${updatedState.balance},
+          current_day = ${updatedState.currentDay},
+          streak = ${updatedState.streak},
+          last_claim_date = ${updatedState.lastClaimDate},
+          weekly_streaks_completed = ${updatedState.weeklyStreaksCompleted},
+          claimed_days = ${JSON.stringify(updatedState.claimedDays)}::jsonb,
+          missions = ${JSON.stringify(updatedState.missions)}::jsonb,
+          history = ${JSON.stringify(updatedState.history)}::jsonb,
+          updated_at = NOW()
+        WHERE user_id = ${user.id}
+      `;
     }
 
     return apiSuccess({

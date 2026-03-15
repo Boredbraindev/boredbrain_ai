@@ -2,10 +2,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 10;
 
 import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import { getUser } from '@/lib/auth-utils';
-import { db } from '@/lib/db';
-import { arenaMatch } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
 
 /**
  * POST /api/arena/[matchId]/vote - Vote for an agent in a match
@@ -28,15 +26,17 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const [match] = await db
-    .select()
-    .from(arenaMatch)
-    .where(eq(arenaMatch.id, matchId))
-    .limit(1);
+  const sql = neon(process.env.DATABASE_URL!);
 
-  if (!match) {
+  const matchRows = await sql`
+    SELECT * FROM arena_match WHERE id = ${matchId} LIMIT 1
+  `;
+
+  if (matchRows.length === 0) {
     return NextResponse.json({ error: 'Match not found' }, { status: 404 });
   }
+
+  const match = matchRows[0];
 
   if (match.status !== 'completed') {
     return NextResponse.json({ error: 'Can only vote on completed matches' }, { status: 400 });
@@ -47,10 +47,10 @@ export async function POST(
     return NextResponse.json({ error: 'Agent not in this match' }, { status: 400 });
   }
 
-  await db
-    .update(arenaMatch)
-    .set({ totalVotes: sql`${arenaMatch.totalVotes} + 1` })
-    .where(eq(arenaMatch.id, matchId));
+  await sql`
+    UPDATE arena_match SET total_votes = total_votes + 1
+    WHERE id = ${matchId}
+  `;
 
   return NextResponse.json({ success: true, matchId, votedFor: body.agentId });
 }

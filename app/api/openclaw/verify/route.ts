@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import { apiSuccess, apiError, parseJsonBody, validateBody } from '@/lib/api-utils';
 import { generateProof, verifyProof } from '@/lib/openclaw';
 

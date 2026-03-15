@@ -1,11 +1,21 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth-utils';
-import { db } from '@/lib/db';
-import { promptTemplate, promptPurchase, user, agent } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { neon } from '@neondatabase/serverless';
 import { MOCK_PROMPTS } from '../route';
 import { SHOWCASE_PROMPTS } from '@/lib/showcase-prompts';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+// Helper to get current user in Edge
+async function getEdgeUser() {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    return session?.user ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/prompts/[promptId] - Get prompt template details
@@ -17,54 +27,39 @@ export async function GET(
   const { promptId } = await params;
 
   try {
-    const dbPromise = db
-      .select({
-        id: promptTemplate.id,
-        creatorId: promptTemplate.creatorId,
-        creatorName: user.name,
-        title: promptTemplate.title,
-        description: promptTemplate.description,
-        systemPrompt: promptTemplate.systemPrompt,
-        category: promptTemplate.category,
-        tags: promptTemplate.tags,
-        previewMessages: promptTemplate.previewMessages,
-        tools: promptTemplate.tools,
-        price: promptTemplate.price,
-        totalSales: promptTemplate.totalSales,
-        totalRevenue: promptTemplate.totalRevenue,
-        rating: promptTemplate.rating,
-        ratingCount: promptTemplate.ratingCount,
-        status: promptTemplate.status,
-        featured: promptTemplate.featured,
-        createdAt: promptTemplate.createdAt,
-        updatedAt: promptTemplate.updatedAt,
-      })
-      .from(promptTemplate)
-      .leftJoin(user, eq(promptTemplate.creatorId, user.id))
-      .where(eq(promptTemplate.id, promptId))
-      .limit(1);
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const dbPromise = sql`
+      SELECT
+        pt.id, pt.creator_id, u.name AS creator_name,
+        pt.title, pt.description, pt.system_prompt,
+        pt.category, pt.tags, pt.preview_messages, pt.tools,
+        pt.price, pt.total_sales, pt.total_revenue,
+        pt.rating, pt.rating_count, pt.status, pt.featured,
+        pt.created_at, pt.updated_at
+      FROM prompt_template pt
+      LEFT JOIN "user" u ON pt.creator_id = u.id
+      WHERE pt.id = ${promptId}
+      LIMIT 1
+    `;
 
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000)
     );
-    const [prompt] = await Promise.race([dbPromise, timeout]);
+    const rows = await Promise.race([dbPromise, timeout]);
+    const prompt = rows[0];
 
     if (prompt) {
       // Check if current user has purchased
-      const currentUser = await getUser();
+      const currentUser = await getEdgeUser();
       let purchased = false;
       if (currentUser) {
-        const [purchase] = await db
-          .select()
-          .from(promptPurchase)
-          .where(
-            and(
-              eq(promptPurchase.promptId, promptId),
-              eq(promptPurchase.buyerId, currentUser.id)
-            )
-          )
-          .limit(1);
-        purchased = !!purchase || prompt.creatorId === currentUser.id;
+        const purchaseRows = await sql`
+          SELECT id FROM prompt_purchase
+          WHERE prompt_id = ${promptId} AND buyer_id = ${currentUser.id}
+          LIMIT 1
+        `;
+        purchased = purchaseRows.length > 0 || prompt.creator_id === currentUser.id;
       }
 
       return NextResponse.json({ prompt, purchased });
@@ -91,7 +86,7 @@ export async function POST(
   { params }: { params: Promise<{ promptId: string }> }
 ) {
   const { promptId } = await params;
-  const currentUser = await getUser();
+  const currentUser = await getEdgeUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
@@ -103,12 +98,13 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  const sql = neon(process.env.DATABASE_URL!);
+
   // Get prompt
-  const [prompt] = await db
-    .select()
-    .from(promptTemplate)
-    .where(eq(promptTemplate.id, promptId))
-    .limit(1);
+  const promptRows = await sql`
+    SELECT * FROM prompt_template WHERE id = ${promptId} LIMIT 1
+  `;
+  const prompt = promptRows[0];
 
   if (!prompt) {
     return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
@@ -116,65 +112,49 @@ export async function POST(
 
   if (body.action === 'purchase') {
     // Check if already purchased
-    const [existing] = await db
-      .select()
-      .from(promptPurchase)
-      .where(
-        and(
-          eq(promptPurchase.promptId, promptId),
-          eq(promptPurchase.buyerId, currentUser.id)
-        )
-      )
-      .limit(1);
+    const existingRows = await sql`
+      SELECT id FROM prompt_purchase
+      WHERE prompt_id = ${promptId} AND buyer_id = ${currentUser.id}
+      LIMIT 1
+    `;
 
-    if (existing || prompt.creatorId === currentUser.id) {
+    if (existingRows.length > 0 || prompt.creator_id === currentUser.id) {
       return NextResponse.json({ error: 'Already owned' }, { status: 400 });
     }
 
+    // Generate a unique ID
+    const purchaseId = crypto.randomUUID();
+
     // Record purchase
-    const [purchase] = await db
-      .insert(promptPurchase)
-      .values({
-        id: generateId(),
-        promptId,
-        buyerId: currentUser.id,
-        price: prompt.price,
-        createdAt: new Date(),
-      })
-      .returning();
+    const [purchase] = await sql`
+      INSERT INTO prompt_purchase (id, prompt_id, buyer_id, price, created_at)
+      VALUES (${purchaseId}, ${promptId}, ${currentUser.id}, ${prompt.price}, NOW())
+      RETURNING *
+    `;
 
     // Update sales stats
-    const newSales = (prompt.totalSales || 0) + 1;
+    const newSales = (prompt.total_sales || 0) + 1;
     const newRevenue = (
-      parseFloat(prompt.totalRevenue || '0') + parseFloat(prompt.price)
+      parseFloat(prompt.total_revenue || '0') + parseFloat(prompt.price)
     ).toString();
 
-    await db
-      .update(promptTemplate)
-      .set({
-        totalSales: newSales,
-        totalRevenue: newRevenue,
-        updatedAt: new Date(),
-      })
-      .where(eq(promptTemplate.id, promptId));
+    await sql`
+      UPDATE prompt_template SET total_sales = ${newSales}, total_revenue = ${newRevenue}, updated_at = NOW()
+      WHERE id = ${promptId}
+    `;
 
     return NextResponse.json({ purchase, success: true }, { status: 201 });
   }
 
   if (body.action === 'convert_to_agent') {
     // Check ownership (purchased or creator)
-    const [purchase] = await db
-      .select()
-      .from(promptPurchase)
-      .where(
-        and(
-          eq(promptPurchase.promptId, promptId),
-          eq(promptPurchase.buyerId, currentUser.id)
-        )
-      )
-      .limit(1);
+    const purchaseRows = await sql`
+      SELECT id FROM prompt_purchase
+      WHERE prompt_id = ${promptId} AND buyer_id = ${currentUser.id}
+      LIMIT 1
+    `;
 
-    if (!purchase && prompt.creatorId !== currentUser.id) {
+    if (purchaseRows.length === 0 && prompt.creator_id !== currentUser.id) {
       return NextResponse.json(
         { error: 'You must purchase this prompt first' },
         { status: 403 }
@@ -182,26 +162,15 @@ export async function POST(
     }
 
     // Create agent from prompt template
-    const [newAgent] = await db
-      .insert(agent)
-      .values({
-        id: generateId(),
-        ownerId: currentUser.id,
-        name: prompt.title,
-        description: prompt.description || '',
-        capabilities: (prompt.tags as string[]) || [],
-        systemPrompt: prompt.systemPrompt,
-        tools: (prompt.tools as string[]) || [],
-        pricePerQuery: '10',
-        chainId: 8453,
-        totalExecutions: 0,
-        totalRevenue: '0',
-        rating: 0,
-        status: 'active',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
+    const agentId = crypto.randomUUID();
+    const tags = prompt.tags || [];
+    const tools = prompt.tools || [];
+
+    const [newAgent] = await sql`
+      INSERT INTO agent (id, owner_id, name, description, capabilities, system_prompt, tools, price_per_query, chain_id, total_executions, total_revenue, rating, status, created_at, updated_at)
+      VALUES (${agentId}, ${currentUser.id}, ${prompt.title}, ${prompt.description || ''}, ${JSON.stringify(tags)}::jsonb, ${prompt.system_prompt}, ${JSON.stringify(tools)}::jsonb, '10', 8453, 0, '0', 0, 'active', NOW(), NOW())
+      RETURNING *
+    `;
 
     return NextResponse.json({ agent: newAgent, success: true }, { status: 201 });
   }

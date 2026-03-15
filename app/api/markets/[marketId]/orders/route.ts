@@ -1,9 +1,8 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { bettingOrder } from '@/lib/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
-import { cancelOrder } from '@/lib/betting/matching-engine';
+import { neon } from '@neondatabase/serverless';
 
 // ─── GET /api/markets/[marketId]/orders ─────────────────────────────
 
@@ -19,27 +18,40 @@ export async function GET(
     const limit = Math.min(Number(searchParams.get('limit') || 100), 500);
 
     try {
-      const conditions = [eq(bettingOrder.marketId, marketId)];
-
-      if (status) {
-        conditions.push(eq(bettingOrder.status, status));
-      }
-      if (wallet) {
-        conditions.push(eq(bettingOrder.userAddress, wallet));
-      }
-
-      const dbPromise = db
-        .select()
-        .from(bettingOrder)
-        .where(and(...conditions))
-        .orderBy(desc(bettingOrder.createdAt))
-        .limit(limit);
+      const sql = neon(process.env.DATABASE_URL!);
 
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000),
       );
 
-      const orders = await Promise.race([dbPromise, timeout]);
+      let ordersPromise;
+      if (status && wallet) {
+        ordersPromise = sql`
+          SELECT * FROM betting_order
+          WHERE market_id = ${marketId} AND status = ${status} AND user_address = ${wallet}
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      } else if (status) {
+        ordersPromise = sql`
+          SELECT * FROM betting_order
+          WHERE market_id = ${marketId} AND status = ${status}
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      } else if (wallet) {
+        ordersPromise = sql`
+          SELECT * FROM betting_order
+          WHERE market_id = ${marketId} AND user_address = ${wallet}
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      } else {
+        ordersPromise = sql`
+          SELECT * FROM betting_order
+          WHERE market_id = ${marketId}
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      }
+
+      const orders = await Promise.race([ordersPromise, timeout]);
 
       return apiSuccess({
         orders,
@@ -75,10 +87,31 @@ export async function DELETE(
     if (!body.userAddress) return apiError('userAddress is required');
 
     try {
-      const cancelled = await cancelOrder(body.orderId, body.userAddress);
+      const sql = neon(process.env.DATABASE_URL!);
+
+      // Inline cancelOrder logic (was from matching-engine which uses Drizzle)
+      const orderRows = await sql`
+        SELECT * FROM betting_order WHERE id = ${body.orderId} LIMIT 1
+      `;
+
+      if (!orderRows.length) {
+        return apiError('Order not found', 400);
+      }
+
+      const order = orderRows[0];
+      if (order.user_address !== body.userAddress) {
+        return apiError('Not authorized', 400);
+      }
+      if (order.status !== 'open' && order.status !== 'partial') {
+        return apiError('Order cannot be cancelled', 400);
+      }
+
+      await sql`
+        UPDATE betting_order SET status = 'cancelled', updated_at = now() WHERE id = ${body.orderId}
+      `;
 
       return apiSuccess({
-        cancelled,
+        cancelled: true,
         orderId: body.orderId,
       });
     } catch (err: any) {

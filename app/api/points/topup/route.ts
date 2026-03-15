@@ -1,5 +1,4 @@
 export const runtime = 'nodejs';
-export const maxDuration = 10;
 
 /**
  * /api/points/topup
@@ -17,12 +16,30 @@ export const maxDuration = 10;
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
 import { BP_RATES, calculateBpFromUsdt, PLATFORM_DEPOSIT_ADDRESS } from '@/lib/bp-packages';
-import { db } from '@/lib/db';
-import { bpPurchase } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { awardPoints } from '@/lib/points';
+
+// ── Level thresholds (inlined from lib/points) ────────────────────────
+const LEVELS = [
+  { level: 1, minBp: 0, title: 'Newbie' },
+  { level: 5, minBp: 500, title: 'Trader' },
+  { level: 10, minBp: 2000, title: 'Analyst' },
+  { level: 20, minBp: 10000, title: 'Strategist' },
+  { level: 30, minBp: 50000, title: 'Whale' },
+  { level: 50, minBp: 200000, title: 'OG' },
+];
+
+function getLevelInfo(bp: number) {
+  let current = LEVELS[0];
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (bp >= LEVELS[i].minBp) {
+      current = LEVELS[i];
+      break;
+    }
+  }
+  return current;
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/points/topup — Deposit info + BP rates
@@ -72,20 +89,21 @@ export async function POST(request: NextRequest) {
       return apiError('Invalid transaction hash format');
     }
 
-    // Check if this tx hash was already processed
-    const [existing] = await db
-      .select()
-      .from(bpPurchase)
-      .where(eq(bpPurchase.polarOrderId, txHash));
+    const sql = neon(process.env.DATABASE_URL!);
 
-    if (existing) {
-      if (existing.status === 'completed') {
+    // Check if this tx hash was already processed
+    const existing = await sql`
+      SELECT * FROM bp_purchase WHERE polar_order_id = ${txHash} LIMIT 1
+    `;
+
+    if (existing.length > 0) {
+      if (existing[0].status === 'completed') {
         return apiError('This transaction has already been processed');
       }
       return apiSuccess({
         status: 'pending',
         message: 'This transaction is already being verified',
-        purchaseId: existing.id,
+        purchaseId: existing[0].id,
       });
     }
 
@@ -106,22 +124,42 @@ export async function POST(request: NextRequest) {
     const { bp, bonusPercent, tier } = calculateBpFromUsdt(usdtAmount);
 
     // Create purchase record and mark as completed
-    const [purchase] = await db
-      .insert(bpPurchase)
-      .values({
-        userId: session.user.id,
-        walletAddress,
-        packageId: tier,
-        bpAmount: bp,
-        usdAmount: Math.round(usdtAmount * 100),
-        polarOrderId: txHash, // stores BSC tx hash
-        status: 'completed',
-        completedAt: new Date(),
-      })
-      .returning();
+    const [purchase] = await sql`
+      INSERT INTO bp_purchase (user_id, wallet_address, package_id, bp_amount, usd_amount, polar_order_id, status, completed_at)
+      VALUES (${session.user.id}, ${walletAddress}, ${tier}, ${bp}, ${Math.round(usdtAmount * 100)}, ${txHash}, 'completed', NOW())
+      RETURNING *
+    `;
 
-    // Credit BP to user
-    await awardPoints(walletAddress, 'bp_topup', purchase.id, bp);
+    // Credit BP to user (inlined awardPoints logic)
+    try {
+      // Insert point transaction
+      await sql`
+        INSERT INTO point_transaction (wallet_address, amount, reason, reference_id)
+        VALUES (${walletAddress}, ${bp}, 'bp_topup', ${purchase.id})
+      `;
+
+      // Upsert user points
+      const existingPoints = await sql`
+        SELECT * FROM user_points WHERE wallet_address = ${walletAddress} LIMIT 1
+      `;
+
+      if (existingPoints.length === 0) {
+        const levelInfo = getLevelInfo(bp);
+        await sql`
+          INSERT INTO user_points (wallet_address, total_bp, level)
+          VALUES (${walletAddress}, ${bp}, ${levelInfo.level})
+        `;
+      } else {
+        const newTotal = existingPoints[0].total_bp + bp;
+        const levelInfo = getLevelInfo(newTotal);
+        await sql`
+          UPDATE user_points SET total_bp = ${newTotal}, level = ${levelInfo.level}
+          WHERE wallet_address = ${walletAddress}
+        `;
+      }
+    } catch (err) {
+      console.error('[points/topup] awardPoints error:', err);
+    }
 
     return apiSuccess({
       status: 'completed',

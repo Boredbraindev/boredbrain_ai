@@ -1,5 +1,4 @@
-export const runtime = 'nodejs';
-export const maxDuration = 10;
+export const runtime = 'edge';
 
 /**
  * POST /api/agents/[agentId]/boost — Boost agent visibility in marketplace.
@@ -11,10 +10,7 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { externalAgent, userPoints } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { awardPoints } from '@/lib/points';
+import { neon } from '@neondatabase/serverless';
 
 const BOOST_COST = 200; // BP
 const BOOST_DURATION_HOURS = 24;
@@ -38,44 +34,64 @@ export async function POST(
   }
 
   try {
-    // 1. Verify agent exists
-    const [agent] = await db
-      .select({ id: externalAgent.id, name: externalAgent.name, ownerAddress: externalAgent.ownerAddress, boostedUntil: externalAgent.boostedUntil })
-      .from(externalAgent)
-      .where(eq(externalAgent.id, agentId))
-      .limit(1);
+    const sql = neon(process.env.DATABASE_URL!);
 
-    if (!agent) {
+    // 1. Verify agent exists
+    const agents = await sql`
+      SELECT id, name, owner_address, boosted_until
+      FROM external_agent
+      WHERE id = ${agentId}
+      LIMIT 1
+    `;
+
+    if (agents.length === 0) {
       return apiError('Agent not found', 404);
     }
 
+    const agent = agents[0];
+
     // 2. Check if already boosted
-    if (agent.boostedUntil && agent.boostedUntil.getTime() > Date.now()) {
-      const remainingHours = Math.ceil((agent.boostedUntil.getTime() - Date.now()) / (1000 * 60 * 60));
+    if (agent.boosted_until && new Date(agent.boosted_until).getTime() > Date.now()) {
+      const remainingHours = Math.ceil((new Date(agent.boosted_until).getTime() - Date.now()) / (1000 * 60 * 60));
       return apiError(`Agent is already boosted for ${remainingHours} more hours`, 400);
     }
 
     // 3. Check user has enough BP
-    const [userRow] = await db
-      .select({ totalBp: userPoints.totalBp })
-      .from(userPoints)
-      .where(eq(userPoints.walletAddress, walletAddress))
-      .limit(1);
+    const userRows = await sql`
+      SELECT total_bp FROM user_points
+      WHERE wallet_address = ${walletAddress}
+      LIMIT 1
+    `;
 
-    const userBp = userRow?.totalBp ?? 0;
+    const userBp = userRows.length > 0 ? Number(userRows[0].total_bp) : 0;
     if (userBp < BOOST_COST) {
       return apiError(`Insufficient BP. You have ${userBp} BP but need ${BOOST_COST} BP`, 400);
     }
 
-    // 4. Deduct BP
-    await awardPoints(walletAddress, 'agent_boost', agentId, -BOOST_COST);
+    // 4. Deduct BP (inline awardPoints logic)
+    const bp = -BOOST_COST;
+    await sql`
+      INSERT INTO point_transaction (wallet_address, amount, reason, reference_id)
+      VALUES (${walletAddress}, ${bp}, 'agent_boost', ${agentId})
+    `;
+
+    const newTotal = userBp + bp;
+    // Determine level from BP thresholds
+    const level = newTotal >= 200000 ? 50 : newTotal >= 50000 ? 30 : newTotal >= 10000 ? 20 : newTotal >= 2000 ? 10 : newTotal >= 500 ? 5 : 1;
+
+    await sql`
+      UPDATE user_points
+      SET total_bp = ${newTotal}, level = ${level}
+      WHERE wallet_address = ${walletAddress}
+    `;
 
     // 5. Set boostedUntil
     const boostedUntil = new Date(Date.now() + BOOST_DURATION_HOURS * 60 * 60 * 1000);
-    await db
-      .update(externalAgent)
-      .set({ boostedUntil })
-      .where(eq(externalAgent.id, agentId));
+    await sql`
+      UPDATE external_agent
+      SET boosted_until = ${boostedUntil.toISOString()}
+      WHERE id = ${agentId}
+    `;
 
     return apiSuccess({
       boosted: true,

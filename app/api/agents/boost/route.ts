@@ -1,5 +1,4 @@
 export const runtime = 'nodejs';
-export const maxDuration = 10;
 
 /**
  * POST /api/agents/boost
@@ -10,11 +9,7 @@ export const maxDuration = 10;
 
 import { generateScenarios } from '@/lib/agent-scheduler';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
-import { settleBilling } from '@/lib/inter-agent-billing';
-import { createAgentWallet, getAgentWallet, topUpWallet } from '@/lib/agent-wallet';
-import { db } from '@/lib/db';
-import { externalAgent, agentWallet } from '@/lib/db/schema';
-import { eq, sql, lte } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 
 export async function POST() {
@@ -25,17 +20,25 @@ export async function POST() {
   let rebalanced = 0;
 
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     // 1. Generate & execute scenarios
     const scenarios = await generateScenarios(batchSize);
 
     for (const scenario of scenarios) {
       try {
-        // Ensure wallets
-        if (!(await getAgentWallet(scenario.callerId))) {
-          await createAgentWallet(scenario.callerId);
-        }
-        if (!(await getAgentWallet(scenario.providerId))) {
-          await createAgentWallet(scenario.providerId);
+        // Ensure wallets (inline createAgentWallet / getAgentWallet)
+        for (const aId of [scenario.callerId, scenario.providerId]) {
+          const existing = await sql`
+            SELECT agent_id FROM agent_wallet WHERE agent_id = ${aId} LIMIT 1
+          `;
+          if (existing.length === 0) {
+            await sql`
+              INSERT INTO agent_wallet (agent_id, balance, total_spent, total_received, is_active)
+              VALUES (${aId}, 1000, 0, 0, true)
+              ON CONFLICT (agent_id) DO NOTHING
+            `;
+          }
         }
 
         const agentConfig: AgentConfig = {
@@ -54,50 +57,75 @@ export async function POST() {
 
         const cost = Math.max(0.5, Number((result.tokensUsed * 0.0001).toFixed(4)));
 
-        const billing = await settleBilling(
-          scenario.callerId,
-          scenario.providerId,
-          result.toolCalls?.map((tc) => tc.tool) ?? ['general_query'],
-          cost,
-        );
+        // Inline settleBilling: 85% provider, 15% platform
+        const platformFee = Number((cost * 0.15).toFixed(4));
+        const providerEarning = Number((cost * 0.85).toFixed(4));
+        const toolsUsed = result.toolCalls?.map((tc) => tc.tool) ?? ['general_query'];
 
-        if (billing.success) {
+        try {
+          await sql`
+            INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, timestamp)
+            VALUES (${scenario.callerId}, ${scenario.providerId}, ${JSON.stringify(toolsUsed)}, ${cost}, ${platformFee}, ${providerEarning}, NOW())
+          `;
+
+          // Update wallets
+          await sql`
+            UPDATE agent_wallet
+            SET balance = balance - ${cost}, total_spent = total_spent + ${cost}
+            WHERE agent_id = ${scenario.callerId}
+          `;
+          await sql`
+            UPDATE agent_wallet
+            SET balance = balance + ${providerEarning}, total_received = total_received + ${providerEarning}
+            WHERE agent_id = ${scenario.providerId}
+          `;
+
           totalBilled += cost;
 
           // Update provider stats
-          await db
-            .update(externalAgent)
-            .set({
-              totalCalls: sql`${externalAgent.totalCalls} + 1`,
-              totalEarned: sql`${externalAgent.totalEarned} + ${billing.breakdown.providerEarning}`,
-            })
-            .where(eq(externalAgent.id, scenario.providerId));
+          await sql`
+            UPDATE external_agent
+            SET total_calls = total_calls + 1,
+                total_earned = total_earned + ${providerEarning}
+            WHERE id = ${scenario.providerId}
+          `;
 
           // Update caller stats
-          await db
-            .update(externalAgent)
-            .set({ totalCalls: sql`${externalAgent.totalCalls} + 1` })
-            .where(eq(externalAgent.id, scenario.callerId));
+          await sql`
+            UPDATE external_agent
+            SET total_calls = total_calls + 1
+            WHERE id = ${scenario.callerId}
+          `;
+        } catch (billingErr) {
+          errors.push(`Billing error: ${billingErr instanceof Error ? billingErr.message : 'error'}`);
         }
 
         scenariosRun++;
       } catch (err) {
-        errors.push(`${scenario.callerName}→${scenario.providerName}: ${err instanceof Error ? err.message : 'error'}`);
+        errors.push(`${scenario.callerName}->${scenario.providerName}: ${err instanceof Error ? err.message : 'error'}`);
       }
     }
 
     // 2. Rebalance low wallets
     try {
-      const lowWallets = await db
-        .select()
-        .from(agentWallet)
-        .where(lte(agentWallet.balance, 50))
-        .limit(5);
+      const lowWallets = await sql`
+        SELECT agent_id, balance FROM agent_wallet
+        WHERE balance <= 50
+        LIMIT 5
+      `;
 
       for (const w of lowWallets) {
-        const diff = 200 - w.balance;
+        const diff = 200 - Number(w.balance);
         if (diff > 0) {
-          await topUpWallet(w.agentId, diff);
+          await sql`
+            UPDATE agent_wallet
+            SET balance = balance + ${diff}, total_received = total_received + ${diff}
+            WHERE agent_id = ${w.agent_id}
+          `;
+          await sql`
+            INSERT INTO wallet_transaction (agent_id, type, amount, balance_after, description, timestamp)
+            VALUES (${w.agent_id}, 'top_up', ${diff}, ${Number(w.balance) + diff}, 'Auto-rebalance top-up', NOW())
+          `;
           rebalanced++;
         }
       }

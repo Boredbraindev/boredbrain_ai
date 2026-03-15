@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { settleBilling } from '@/lib/inter-agent-billing';
 

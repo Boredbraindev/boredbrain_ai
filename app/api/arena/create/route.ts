@@ -1,12 +1,9 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import { MOCK_AGENTS } from '@/lib/mock-data';
-import { db } from '@/lib/db';
-import { arenaMatch, agent, arenaEscrow } from '@/lib/db/schema';
-import { generateId } from 'ai';
-import { inArray } from 'drizzle-orm';
 import {
   apiError,
   apiSuccess,
@@ -15,6 +12,12 @@ import {
   sanitizeString,
   type Schema,
 } from '@/lib/api-utils';
+
+function generateId(): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${ts}-${rand}`;
+}
 
 const createMatchSchema: Schema = {
   topic: { type: 'string', required: true, maxLength: 500 },
@@ -63,11 +66,12 @@ export async function POST(request: NextRequest) {
   const mockAgentIds = MOCK_AGENTS.map((a: any) => a.id);
 
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     // Check DB agents
-    const dbAgents = await db
-      .select({ id: agent.id })
-      .from(agent)
-      .where(inArray(agent.id, sanitizedAgentIds));
+    const dbAgents = await sql`
+      SELECT id FROM agent WHERE id = ANY(${sanitizedAgentIds})
+    `;
     const dbAgentIds = new Set(dbAgents.map((a: any) => a.id));
 
     // Validate all agent IDs exist somewhere
@@ -87,46 +91,46 @@ export async function POST(request: NextRequest) {
     for (const mockId of missingMockIds) {
       const mockAgent = MOCK_AGENTS.find((a) => a.id === mockId);
       if (mockAgent) {
-        await db.insert(agent).values({
-          id: mockAgent.id,
-          name: mockAgent.name,
-          description: mockAgent.description,
-          capabilities: mockAgent.capabilities,
-          tools: mockAgent.tools,
-          pricePerQuery: mockAgent.pricePerQuery,
-          totalExecutions: mockAgent.totalExecutions ?? 0,
-          totalRevenue: mockAgent.totalRevenue ?? '0',
-          rating: mockAgent.rating ?? 0,
-          status: mockAgent.status ?? 'active',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }).onConflictDoNothing();
+        const now = new Date().toISOString();
+        await sql`
+          INSERT INTO agent (
+            id, name, description, capabilities, tools,
+            price_per_query, total_executions, total_revenue,
+            rating, status, created_at, updated_at
+          ) VALUES (
+            ${mockAgent.id}, ${mockAgent.name}, ${mockAgent.description},
+            ${JSON.stringify(mockAgent.capabilities)}, ${JSON.stringify(mockAgent.tools)},
+            ${mockAgent.pricePerQuery}, ${mockAgent.totalExecutions ?? 0},
+            ${mockAgent.totalRevenue ?? '0'}, ${mockAgent.rating ?? 0},
+            ${mockAgent.status ?? 'active'}, ${now}, ${now}
+          )
+          ON CONFLICT (id) DO NOTHING
+        `;
       }
     }
 
     // Generate match ID and persist
     const matchId = generateId();
+    const now = new Date().toISOString();
 
-    await db.insert(arenaMatch).values({
-      id: matchId,
-      topic,
-      matchType,
-      agents: sanitizedAgentIds,
-      status: 'pending',
-      prizePool,
-      createdAt: new Date(),
-    });
+    await sql`
+      INSERT INTO arena_match (
+        id, topic, match_type, agents, status, prize_pool, created_at
+      ) VALUES (
+        ${matchId}, ${topic}, ${matchType},
+        ${JSON.stringify(sanitizedAgentIds)}, 'pending', ${prizePool}, ${now}
+      )
+    `;
 
     // Create escrow pool for wagering
-    await db.insert(arenaEscrow).values({
-      id: generateId(),
-      matchId,
-      totalPool: 0,
-      platformRake: 0,
-      winnerPayout: 0,
-      status: 'open',
-      createdAt: new Date(),
-    });
+    const escrowId = generateId();
+    await sql`
+      INSERT INTO arena_escrow (
+        id, match_id, total_pool, platform_rake, winner_payout, status, created_at
+      ) VALUES (
+        ${escrowId}, ${matchId}, ${0}, ${0}, ${0}, 'open', ${now}
+      )
+    `;
 
     const match = {
       id: matchId,
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
       resultTxHash: null,
       prizePool,
       status: 'pending',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       completedAt: null,
     };
 

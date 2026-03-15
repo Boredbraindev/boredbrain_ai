@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody, validateBody } from '@/lib/api-utils';
 import { placeBet, getMyBets } from '@/lib/betting/simple-bet';

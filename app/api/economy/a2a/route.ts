@@ -1,9 +1,9 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody, validateBody, type Schema } from '@/lib/api-utils';
 import { agentEconomy } from '@/lib/agent-economy';
-import { db } from '@/lib/db';
-import { billingRecord, walletTransaction, agentWallet } from '@/lib/db/schema';
-import { eq, or, desc } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 /**
  * GET /api/economy/a2a - List all A2A contracts / billing records
@@ -16,35 +16,30 @@ export async function GET(request: NextRequest) {
 
     // Try DB first
     try {
+      const sql = neon(process.env.DATABASE_URL!);
+
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('DB timeout')), 3000),
       );
 
-      let query = db.select().from(billingRecord).$dynamic();
-      if (agentId) {
-        query = query.where(
-          or(
-            eq(billingRecord.callerAgentId, agentId),
-            eq(billingRecord.providerAgentId, agentId),
-          ),
-        );
-      }
-      query = query.orderBy(desc(billingRecord.timestamp)).limit(50);
+      const rowsPromise = agentId
+        ? sql`SELECT * FROM billing_record WHERE caller_agent_id = ${agentId} OR provider_agent_id = ${agentId} ORDER BY timestamp DESC LIMIT 50`
+        : sql`SELECT * FROM billing_record ORDER BY timestamp DESC LIMIT 50`;
 
-      const rows = await Promise.race([query, timeout]);
+      const rows = await Promise.race([rowsPromise, timeout]);
 
       if (rows.length > 0) {
         const contracts = rows.map((b: any) => ({
           id: b.id,
-          hiringAgentId: b.callerAgentId,
-          hiredAgentId: b.providerAgentId,
-          task: `Billing: ${(b.toolsUsed as string[]).join(', ') || 'agent call'}`,
-          budget: b.totalCost,
+          hiringAgentId: b.caller_agent_id,
+          hiredAgentId: b.provider_agent_id,
+          task: `Billing: ${(b.tools_used as string[])?.join(', ') || 'agent call'}`,
+          budget: b.total_cost,
           status: b.status,
           result: b.status === 'completed' ? 'Completed' : null,
-          cost: b.totalCost,
-          createdAt: b.timestamp.toISOString(),
-          completedAt: b.status === 'completed' ? b.timestamp.toISOString() : null,
+          cost: b.total_cost,
+          createdAt: new Date(b.timestamp).toISOString(),
+          completedAt: b.status === 'completed' ? new Date(b.timestamp).toISOString() : null,
         }));
 
         return apiSuccess({ contracts });
@@ -101,81 +96,63 @@ export async function POST(request: NextRequest) {
   try {
     // Try DB first
     try {
+      const sql = neon(process.env.DATABASE_URL!);
+
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('DB timeout')), 3000),
       );
 
       const platformFee = +(budget * 0.2).toFixed(2);
       const providerEarning = +(budget - platformFee).toFixed(2);
+      const toolsUsed = JSON.stringify([task]);
 
       const [record] = await Promise.race([
-        db
-          .insert(billingRecord)
-          .values({
-            callerAgentId: hiringAgentId,
-            providerAgentId: hiredAgentId,
-            toolsUsed: [task],
-            totalCost: budget,
-            platformFee,
-            providerEarning,
-            status: 'completed',
-          })
-          .returning(),
+        sql`
+          INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+          VALUES (${hiringAgentId}, ${hiredAgentId}, ${toolsUsed}::jsonb, ${budget}, ${platformFee}, ${providerEarning}, 'completed')
+          RETURNING *
+        `,
         timeout,
       ]);
 
       // Also record wallet transactions for both parties
       try {
         // Debit hiring agent
-        const hiringWalletRows = await db
-          .select()
-          .from(agentWallet)
-          .where(eq(agentWallet.agentId, hiringAgentId));
-
+        const hiringWalletRows = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${hiringAgentId}`;
         const hiringBalance = hiringWalletRows.length > 0
           ? hiringWalletRows[0].balance - budget
           : -budget;
 
-        await db.insert(walletTransaction).values({
-          agentId: hiringAgentId,
-          amount: budget,
-          type: 'debit',
-          reason: `A2A hire: ${task}`,
-          balanceAfter: hiringBalance,
-        });
+        await sql`
+          INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+          VALUES (${hiringAgentId}, ${budget}, 'debit', ${'A2A hire: ' + task}, ${hiringBalance})
+        `;
 
         // Credit hired agent
-        const hiredWalletRows = await db
-          .select()
-          .from(agentWallet)
-          .where(eq(agentWallet.agentId, hiredAgentId));
-
+        const hiredWalletRows = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${hiredAgentId}`;
         const hiredBalance = hiredWalletRows.length > 0
           ? hiredWalletRows[0].balance + providerEarning
           : providerEarning;
 
-        await db.insert(walletTransaction).values({
-          agentId: hiredAgentId,
-          amount: providerEarning,
-          type: 'credit',
-          reason: `A2A payment for: ${task}`,
-          balanceAfter: hiredBalance,
-        });
+        await sql`
+          INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+          VALUES (${hiredAgentId}, ${providerEarning}, 'credit', ${'A2A payment for: ' + task}, ${hiredBalance})
+        `;
       } catch {
         // Wallet tx logging failed, billing record was still created
       }
 
       const contract = {
         id: record.id,
-        hiringAgentId: record.callerAgentId,
-        hiredAgentId: record.providerAgentId,
+        hiringAgentId: record.caller_agent_id,
+        hiredAgentId: record.provider_agent_id,
         task,
-        budget: record.totalCost,
+        budget: record.total_cost,
         status: record.status,
         result: 'Completed',
-        cost: record.totalCost,
-        createdAt: record.timestamp.toISOString(),
-        completedAt: record.timestamp.toISOString(),
+        cost: record.total_cost,
+        createdAt: new Date(record.timestamp).toISOString(),
+        completedAt: new Date(record.timestamp).toISOString(),
       };
 
       return apiSuccess({ contract }, 201);

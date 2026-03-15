@@ -1,10 +1,7 @@
-export const runtime = 'nodejs';
-export const maxDuration = 10;
+export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { agent } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { MOCK_AGENTS } from '@/lib/mock-data';
 
 /**
@@ -17,14 +14,15 @@ export async function GET(
   const { agentId } = await params;
 
   try {
-    const [agentData] = await db
-      .select()
-      .from(agent)
-      .where(eq(agent.id, agentId))
-      .limit(1);
+    const sql = neon(process.env.DATABASE_URL!);
+    const rows = await sql`
+      SELECT * FROM agent
+      WHERE id = ${agentId}
+      LIMIT 1
+    `;
 
-    if (agentData) {
-      return NextResponse.json({ agent: agentData });
+    if (rows.length > 0) {
+      return NextResponse.json({ agent: rows[0] });
     }
   } catch {
     // DB error - fall through to mock

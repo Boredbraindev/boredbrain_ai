@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
 
     const fleetAgents = await sql`
       SELECT id, name, description, specialization, tools, status,
-             owner_address, total_executions, total_earned, rating, elo_rating,
+             owner_address, total_calls, total_earned, rating, elo_rating,
              staking_amount, registered_at
       FROM external_agent
       WHERE status IN ('active', 'verified')
-      ORDER BY total_executions DESC
+      ORDER BY total_calls DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       capabilities: [ea.specialization],
       tools: ea.tools || [],
       pricePerQuery: String(Math.round(ea.staking_amount || 30)),
-      totalExecutions: ea.total_executions || 0,
+      totalExecutions: ea.total_calls || 0,
       totalRevenue: String(ea.total_earned || 0),
       rating: ea.rating || 0,
       eloRating: ea.elo_rating || 1200,

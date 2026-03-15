@@ -1,15 +1,8 @@
-import { NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import {
-  bettingTrade,
-  bettingMarket,
-  bettingPosition,
-} from '@/lib/db/schema';
-import { eq, desc, gt, and, sql } from 'drizzle-orm';
-
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+
+import { NextRequest } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -35,7 +28,7 @@ export async function GET(
   const { marketId } = await params;
   const encoder = new TextEncoder();
   let isActive = true;
-  let lastTradeTimestamp: Date | null = null;
+  let lastTradeTimestamp: string | null = null;
   let lastMarketStatus: string | null = null;
 
   const stream = new ReadableStream({
@@ -44,13 +37,14 @@ export async function GET(
         if (isActive) controller.enqueue(encoder.encode(text));
       };
 
+      const sql = neon(process.env.DATABASE_URL!);
+
       // ── 1. Send initial market state ──────────────────────────────
       try {
-        const [market] = await db
-          .select()
-          .from(bettingMarket)
-          .where(eq(bettingMarket.id, marketId))
-          .limit(1);
+        const marketRows = await sql`
+          SELECT * FROM betting_market WHERE id = ${marketId} LIMIT 1
+        `;
+        const market = marketRows[0];
 
         if (!market) {
           enqueue(
@@ -62,14 +56,11 @@ export async function GET(
 
         lastMarketStatus = market.status;
 
-        // Count unique participants (distinct addresses with positions)
-        const participantResult = await db
-          .select({
-            count: sql<number>`COUNT(DISTINCT ${bettingPosition.userAddress})`,
-          })
-          .from(bettingPosition)
-          .where(eq(bettingPosition.marketId, marketId));
-
+        // Count unique participants
+        const participantResult = await sql`
+          SELECT COUNT(DISTINCT user_address) as count FROM betting_position
+          WHERE market_id = ${marketId}
+        `;
         const participants = Number(participantResult[0]?.count ?? 0);
 
         enqueue(
@@ -80,10 +71,10 @@ export async function GET(
             category: market.category,
             outcomes: market.outcomes,
             status: market.status,
-            totalVolume: market.totalVolume,
-            totalOrders: market.totalOrders,
-            resolvedOutcome: market.resolvedOutcome,
-            resolvesAt: market.resolvesAt?.toISOString() ?? null,
+            totalVolume: market.total_volume,
+            totalOrders: market.total_orders,
+            resolvedOutcome: market.resolved_outcome,
+            resolvesAt: market.resolves_at ? new Date(market.resolves_at).toISOString() : null,
             participants,
           }),
         );
@@ -93,8 +84,8 @@ export async function GET(
           enqueue(
             sseEvent('market_resolved', {
               status: market.status,
-              resolvedOutcome: market.resolvedOutcome,
-              resolvedAt: market.resolvedAt?.toISOString() ?? null,
+              resolvedOutcome: market.resolved_outcome,
+              resolvedAt: market.resolved_at ? new Date(market.resolved_at).toISOString() : null,
             }),
           );
           controller.close();
@@ -102,15 +93,14 @@ export async function GET(
         }
 
         // Send initial probability from last trade
-        const [lastTrade] = await db
-          .select()
-          .from(bettingTrade)
-          .where(eq(bettingTrade.marketId, marketId))
-          .orderBy(desc(bettingTrade.createdAt))
-          .limit(1);
+        const lastTradeRows = await sql`
+          SELECT * FROM betting_trade WHERE market_id = ${marketId}
+          ORDER BY created_at DESC LIMIT 1
+        `;
 
-        if (lastTrade) {
-          lastTradeTimestamp = lastTrade.createdAt;
+        if (lastTradeRows.length > 0) {
+          const lastTrade = lastTradeRows[0];
+          lastTradeTimestamp = lastTrade.created_at;
           const yesProb =
             lastTrade.outcome === 'Yes' || lastTrade.outcome === 'YES'
               ? lastTrade.price
@@ -144,12 +134,13 @@ export async function GET(
         }
 
         try {
-          // Check market status changes (e.g. resolved while streaming)
-          const [market] = await db
-            .select()
-            .from(bettingMarket)
-            .where(eq(bettingMarket.id, marketId))
-            .limit(1);
+          const pollSql = neon(process.env.DATABASE_URL!);
+
+          // Check market status changes
+          const marketRows = await pollSql`
+            SELECT * FROM betting_market WHERE id = ${marketId} LIMIT 1
+          `;
+          const market = marketRows[0];
 
           if (!market) {
             enqueue(
@@ -165,15 +156,12 @@ export async function GET(
           if (market.status !== lastMarketStatus) {
             lastMarketStatus = market.status;
 
-            if (
-              market.status === 'resolved' ||
-              market.status === 'cancelled'
-            ) {
+            if (market.status === 'resolved' || market.status === 'cancelled') {
               enqueue(
                 sseEvent('market_resolved', {
                   status: market.status,
-                  resolvedOutcome: market.resolvedOutcome,
-                  resolvedAt: market.resolvedAt?.toISOString() ?? null,
+                  resolvedOutcome: market.resolved_outcome,
+                  resolvedAt: market.resolved_at ? new Date(market.resolved_at).toISOString() : null,
                 }),
               );
               isActive = false;
@@ -193,57 +181,53 @@ export async function GET(
           }
 
           // Fetch new trades since last check
-          const tradeQuery = db
-            .select()
-            .from(bettingTrade)
-            .where(
-              lastTradeTimestamp
-                ? and(
-                    eq(bettingTrade.marketId, marketId),
-                    gt(bettingTrade.createdAt, lastTradeTimestamp),
-                  )
-                : eq(bettingTrade.marketId, marketId),
-            )
-            .orderBy(desc(bettingTrade.createdAt))
-            .limit(10);
-
-          const newTrades = await tradeQuery;
+          let newTrades;
+          if (lastTradeTimestamp) {
+            newTrades = await pollSql`
+              SELECT * FROM betting_trade
+              WHERE market_id = ${marketId} AND created_at > ${lastTradeTimestamp}::timestamptz
+              ORDER BY created_at DESC LIMIT 10
+            `;
+          } else {
+            newTrades = await pollSql`
+              SELECT * FROM betting_trade
+              WHERE market_id = ${marketId}
+              ORDER BY created_at DESC LIMIT 10
+            `;
+          }
 
           if (newTrades.length > 0) {
-            // Update watermark to the newest trade
-            lastTradeTimestamp = newTrades[0].createdAt;
+            // Update watermark
+            lastTradeTimestamp = newTrades[0].created_at;
 
-            // Send trades oldest-first so the client receives them in order
-            for (const trade of newTrades.reverse()) {
+            // Send trades oldest-first
+            for (const trade of [...newTrades].reverse()) {
               enqueue(
                 sseEvent('new_trade', {
                   id: trade.id,
                   side: trade.outcome,
                   price: trade.price,
                   shares: trade.shares,
-                  amount: trade.bbaiAmount,
-                  buyer: truncateAddress(trade.buyerAddress),
-                  seller: truncateAddress(trade.sellerAddress),
-                  timestamp: trade.createdAt?.toISOString(),
+                  amount: trade.bbai_amount,
+                  buyer: truncateAddress(trade.buyer_address),
+                  seller: truncateAddress(trade.seller_address),
+                  timestamp: trade.created_at ? new Date(trade.created_at).toISOString() : undefined,
                 }),
               );
             }
 
             // Recalculate probability from latest trade
-            const latest = newTrades[0]; // newest
+            const latest = newTrades[0];
             const yesProb =
               latest.outcome === 'Yes' || latest.outcome === 'YES'
                 ? latest.price
                 : 100 - latest.price;
 
             // Participant count
-            const participantResult = await db
-              .select({
-                count: sql<number>`COUNT(DISTINCT ${bettingPosition.userAddress})`,
-              })
-              .from(bettingPosition)
-              .where(eq(bettingPosition.marketId, marketId));
-
+            const participantResult = await pollSql`
+              SELECT COUNT(DISTINCT user_address) as count FROM betting_position
+              WHERE market_id = ${marketId}
+            `;
             const participants = Number(participantResult[0]?.count ?? 0);
 
             enqueue(
@@ -257,10 +241,9 @@ export async function GET(
             );
           }
 
-          // Heartbeat to keep the connection alive
+          // Heartbeat
           enqueue(sseComment('heartbeat'));
         } catch {
-          // Don't crash the stream on transient DB errors
           enqueue(sseComment('poll-error'));
         }
       }, 3000);

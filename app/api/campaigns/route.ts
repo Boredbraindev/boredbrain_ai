@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { apiSuccess } from '@/lib/api-utils';
 import {
   CURRENT_SEASON,

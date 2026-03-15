@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 /**
  * GET /api/predict/feed — Returns recent forecast entries (live feed)
  * POST /api/predict/feed — Auto-generate forecast entries (called by heartbeat)

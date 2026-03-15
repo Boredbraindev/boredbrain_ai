@@ -1,12 +1,7 @@
 export const runtime = 'nodejs';
-export const maxDuration = 10;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/agent-api/auth';
-import { db } from '@/lib/db';
-import { agent, toolUsage } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { neon } from '@neondatabase/serverless';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,23 +14,47 @@ export async function POST(
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
+  const sql = neon(process.env.DATABASE_URL!);
 
-  // Authenticate
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
-    return NextResponse.json(authResult.body, { status: authResult.status });
+  // Authenticate — inline API key validation
+  const authHeader = request.headers.get('authorization');
+  const apiKeyHeader = request.headers.get('x-api-key');
+  const key = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : apiKeyHeader;
+
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Missing API key. Include it as Bearer token or x-api-key header.' },
+      { status: 401 },
+    );
   }
 
-  // Get agent
-  const [agentData] = await db
-    .select()
-    .from(agent)
-    .where(eq(agent.id, agentId))
-    .limit(1);
+  const apiKeyRows = await sql`
+    SELECT id, rate_limit, status FROM api_key
+    WHERE key = ${key} AND status = 'active'
+    LIMIT 1
+  `;
 
-  if (!agentData || agentData.status !== 'active') {
+  if (apiKeyRows.length === 0) {
+    return NextResponse.json({ error: 'Invalid or revoked API key.' }, { status: 401 });
+  }
+
+  const apiKeyRecord = apiKeyRows[0];
+
+  // Update last used
+  await sql`UPDATE api_key SET last_used_at = NOW() WHERE id = ${apiKeyRecord.id}`;
+
+  // Get agent from the `agent` table (not external_agent)
+  const agentRows = await sql`
+    SELECT * FROM agent
+    WHERE id = ${agentId}
+    LIMIT 1
+  `;
+
+  if (agentRows.length === 0 || agentRows[0].status !== 'active') {
     return NextResponse.json({ error: 'Agent not found or inactive' }, { status: 404 });
   }
+
+  const agentData = agentRows[0];
 
   let body: { query: string; toolOverrides?: Record<string, any> };
   try {
@@ -61,7 +80,6 @@ export async function POST(
     if (!toolMeta) continue;
 
     try {
-      // Simple execution: pass query as input
       const toolInput = body.toolOverrides?.[toolName] || { query: body.query };
       const result = await toolMeta.tool.execute(toolInput);
       results.push({ tool: toolName, success: true, result });
@@ -78,28 +96,20 @@ export async function POST(
   const latencyMs = Date.now() - startTime;
 
   // Update agent stats
-  await db
-    .update(agent)
-    .set({
-      totalExecutions: sql`${agent.totalExecutions} + 1`,
-      totalRevenue: sql`CAST(CAST(${agent.totalRevenue} AS NUMERIC) + ${totalCost} AS TEXT)`,
-      updatedAt: new Date(),
-    })
-    .where(eq(agent.id, agentId));
+  await sql`
+    UPDATE agent
+    SET total_executions = total_executions + 1,
+        total_revenue = CAST(CAST(total_revenue AS NUMERIC) + ${totalCost} AS TEXT),
+        updated_at = NOW()
+    WHERE id = ${agentId}
+  `;
 
   // Log usage
-  await db.insert(toolUsage).values({
-    id: generateId(),
-    apiKeyId: authResult.apiKey.id,
-    agentId,
-    toolName: 'agent_execution',
-    inputParams: { query: body.query },
-    outputSummary: `Executed ${results.length} tools`,
-    cost: String(totalCost),
-    latencyMs,
-    status: results.some((r) => r.success) ? 'success' : 'error',
-    createdAt: new Date(),
-  });
+  const usageId = crypto.randomUUID();
+  await sql`
+    INSERT INTO tool_usage (id, api_key_id, agent_id, tool_name, input_params, output_summary, cost, latency_ms, status, created_at)
+    VALUES (${usageId}, ${apiKeyRecord.id}, ${agentId}, 'agent_execution', ${JSON.stringify({ query: body.query })}, ${`Executed ${results.length} tools`}, ${String(totalCost)}, ${latencyMs}, ${results.some((r) => r.success) ? 'success' : 'error'}, NOW())
+  `;
 
   return NextResponse.json({
     agentId,

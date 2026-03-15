@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { getSession } from '@/lib/auth-utils';
 import { getChatById, getMessagesByChatId, getStreamIdsByChatId } from '@/lib/db/queries';
 import type { Chat } from '@/lib/db/schema';

@@ -1,9 +1,7 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { agent, agentToken, paymentTransaction } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { generateId } from 'ai';
-import { generateTxHash, generateBlockNumber } from '@/lib/payment-pipeline';
+import { neon } from '@neondatabase/serverless';
 import {
   generateTokenSymbol,
   DEFAULT_BASE_PRICE,
@@ -13,6 +11,23 @@ import {
 } from '@/lib/bonding-curve';
 
 const TOKENIZATION_FEE = 500; // 500 BBAI to tokenize an agent
+
+// Inline from payment-pipeline (avoids Drizzle import)
+function generateTxHash(context?: string): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `bbai-tx-${ts}-${rand}`;
+}
+
+function generateBlockNumber(): number {
+  return Date.now();
+}
+
+function generateId(): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${ts}-${rand}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,26 +49,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify agent exists
-    const [agentRecord] = await db
-      .select()
-      .from(agent)
-      .where(eq(agent.id, agentId));
+    const sql = neon(process.env.DATABASE_URL!);
 
-    if (!agentRecord) {
+    // Verify agent exists (check agent table)
+    const agentRows = await sql`
+      SELECT id, name FROM agent WHERE id = ${agentId} LIMIT 1
+    `;
+
+    if (agentRows.length === 0) {
       return NextResponse.json(
         { error: 'Agent not found' },
         { status: 404 }
       );
     }
 
-    // Check if already tokenized
-    const [existing] = await db
-      .select()
-      .from(agentToken)
-      .where(eq(agentToken.agentId, agentId));
+    const agentRecord = agentRows[0];
 
-    if (existing) {
+    // Check if already tokenized
+    const existingRows = await sql`
+      SELECT id FROM agent_token WHERE agent_id = ${agentId} LIMIT 1
+    `;
+
+    if (existingRows.length > 0) {
       return NextResponse.json(
         { error: 'Agent is already tokenized' },
         { status: 409 }
@@ -61,16 +78,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate or validate token symbol
-    const tokenSymbol = (customSymbol || generateTokenSymbol(agentRecord.name)).toUpperCase();
+    const tokenSymbol = (customSymbol || generateTokenSymbol(agentRecord.name as string)).toUpperCase();
     const tokenName = customName || `${agentRecord.name} Token`;
 
     // Check symbol uniqueness
-    const [symbolExists] = await db
-      .select()
-      .from(agentToken)
-      .where(eq(agentToken.tokenSymbol, tokenSymbol));
+    const symbolRows = await sql`
+      SELECT id FROM agent_token WHERE token_symbol = ${tokenSymbol} LIMIT 1
+    `;
 
-    if (symbolExists) {
+    if (symbolRows.length > 0) {
       return NextResponse.json(
         { error: `Token symbol "${tokenSymbol}" is already taken` },
         { status: 409 }
@@ -87,49 +103,46 @@ export async function POST(request: NextRequest) {
       maxSupply: curveMaxSupply,
     });
 
+    const tokenId = generateId();
+    const now = new Date().toISOString();
+    const txHash = generateTxHash(`tokenize-${agentId}`);
+
     // Create the agent token record
-    const [token] = await db
-      .insert(agentToken)
-      .values({
-        id: generateId(),
-        agentId,
-        tokenSymbol,
-        tokenName,
-        totalSupply: curveMaxSupply,
-        circulatingSupply: 0,
-        price: initialPrice,
-        marketCap: 0,
-        totalVolume: 0,
-        holders: 0,
-        buybackPool: 0,
-        tokenizationFee: TOKENIZATION_FEE,
-        chain,
-        txHash: generateTxHash(`tokenize-${agentId}`),
-        status: 'active',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
+    const tokenRows = await sql`
+      INSERT INTO agent_token (
+        id, agent_id, token_symbol, token_name, total_supply,
+        circulating_supply, price, market_cap, total_volume,
+        holders, buyback_pool, tokenization_fee, chain,
+        tx_hash, status, created_at, updated_at
+      ) VALUES (
+        ${tokenId}, ${agentId}, ${tokenSymbol}, ${tokenName}, ${curveMaxSupply},
+        ${0}, ${initialPrice}, ${0}, ${0},
+        ${0}, ${0}, ${TOKENIZATION_FEE}, ${chain},
+        ${txHash}, 'active', ${now}, ${now}
+      )
+      RETURNING *
+    `;
 
     // Record the tokenization fee payment
-    await db.insert(paymentTransaction).values({
-      id: generateId(),
-      type: 'staking',
-      fromAgentId: agentId,
-      toAgentId: 'platform',
-      amount: TOKENIZATION_FEE,
-      platformFee: TOKENIZATION_FEE,
-      providerShare: 0,
-      chain,
-      txHash: generateTxHash(`tokenize-fee-${agentId}`),
-      status: 'confirmed',
-      timestamp: new Date(),
-      blockNumber: generateBlockNumber(),
-    });
+    const feeTxHash = generateTxHash(`tokenize-fee-${agentId}`);
+    const feeId = generateId();
+    const blockNumber = generateBlockNumber();
+
+    await sql`
+      INSERT INTO payment_transaction (
+        id, type, from_agent_id, to_agent_id, amount,
+        platform_fee, provider_share, chain, tx_hash,
+        status, timestamp, block_number
+      ) VALUES (
+        ${feeId}, 'staking', ${agentId}, 'platform', ${TOKENIZATION_FEE},
+        ${TOKENIZATION_FEE}, ${0}, ${chain}, ${feeTxHash},
+        'confirmed', ${now}, ${blockNumber}
+      )
+    `;
 
     return NextResponse.json(
       {
-        token,
+        token: tokenRows[0],
         bondingCurve: {
           basePrice: curveBasePrice,
           slope: curveSlope,
@@ -149,10 +162,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const tokens = await db
-      .select()
-      .from(agentToken)
-      .where(eq(agentToken.status, 'active'));
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const tokens = await sql`
+      SELECT * FROM agent_token WHERE status = 'active'
+    `;
 
     // Enrich each token with bonding curve data
     const enriched = tokens.map((t) => ({
@@ -160,10 +174,10 @@ export async function GET() {
       bondingCurve: {
         basePrice: DEFAULT_BASE_PRICE,
         slope: DEFAULT_SLOPE,
-        currentPrice: getCurrentPrice(t.circulatingSupply, {
+        currentPrice: getCurrentPrice(Number(t.circulating_supply) || 0, {
           basePrice: DEFAULT_BASE_PRICE,
           slope: DEFAULT_SLOPE,
-          maxSupply: t.totalSupply,
+          maxSupply: Number(t.total_supply) || DEFAULT_MAX_SUPPLY,
         }),
       },
     }));

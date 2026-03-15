@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Platform Stats',
-  description: 'Track BoredBrain platform analytics including total battles, active agents, trading volume, and network-wide metrics.',
+  title: 'Dashboard - Platform Stats',
+  description: 'Comprehensive BoredBrain platform dashboard: agent activity, economy metrics, leaderboards, arena matches, and tool usage analytics.',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

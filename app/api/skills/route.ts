@@ -1,15 +1,15 @@
+export const runtime = 'edge';
+
 import { apiError, apiSuccess, parseJsonBody, validateBody } from '@/lib/api-utils';
 import { SkillMarketplace } from '@/lib/skill-marketplace';
-import { db } from '@/lib/db';
-import { skill, skillInstallation } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { neon } from '@neondatabase/serverless';
 
 // GET /api/skills — list all skills (DB first, fallback to in-memory)
 export async function GET() {
   // Try DB first with 3s timeout
   try {
-    const dbPromise = db.select().from(skill);
+    const sql = neon(process.env.DATABASE_URL!);
+    const dbPromise = sql`SELECT * FROM skill`;
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('DB timeout')), 3000),
     );
@@ -48,50 +48,38 @@ export async function POST(request: Request) {
 
   // Try DB first
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     const dbPromise = (async () => {
       // Check skill exists in DB
-      const [dbSkill] = await db
-        .select()
-        .from(skill)
-        .where(eq(skill.id, skillId))
-        .limit(1);
+      const dbSkills = await sql`SELECT * FROM skill WHERE id = ${skillId} LIMIT 1`;
 
-      if (!dbSkill) {
+      if (dbSkills.length === 0) {
         throw new Error(`Skill not found: ${skillId}`);
       }
 
       // Check if already installed and active
-      const [existing] = await db
-        .select()
-        .from(skillInstallation)
-        .where(
-          and(
-            eq(skillInstallation.skillId, skillId),
-            eq(skillInstallation.agentId, agentId),
-            eq(skillInstallation.status, 'active'),
-          ),
-        )
-        .limit(1);
+      const existing = await sql`
+        SELECT * FROM skill_installation
+        WHERE skill_id = ${skillId}
+          AND agent_id = ${agentId}
+          AND status = 'active'
+        LIMIT 1
+      `;
 
-      if (existing) {
-        return existing;
+      if (existing.length > 0) {
+        return existing[0];
       }
 
       // Create new installation
-      const [installation] = await db
-        .insert(skillInstallation)
-        .values({
-          id: generateId(),
-          skillId,
-          agentId,
-          installedAt: new Date(),
-          usageCount: 0,
-          totalBilled: 0,
-          status: 'active',
-        })
-        .returning();
+      const installId = crypto.randomUUID();
+      const installations = await sql`
+        INSERT INTO skill_installation (id, skill_id, agent_id, installed_at, usage_count, total_billed, status)
+        VALUES (${installId}, ${skillId}, ${agentId}, NOW(), 0, 0, 'active')
+        RETURNING *
+      `;
 
-      return installation;
+      return installations[0];
     })();
 
     const timeout = new Promise<never>((_, reject) =>

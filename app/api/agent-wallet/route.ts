@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllWallets, getAgentWallet } from '@/lib/agent-wallet';
 import { apiError } from '@/lib/api-utils';

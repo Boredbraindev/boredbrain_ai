@@ -1,11 +1,55 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/agent-api/auth';
+export const runtime = 'nodejs';
 
-export const dynamic = 'force-dynamic';
-import { db } from '@/lib/db';
-import { toolUsage, apiKey as apiKeyTable } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
+
+/**
+ * Inline auth: validate API key from request headers using raw SQL.
+ */
+async function authenticateRequestEdge(request: Request) {
+  const authHeader = request.headers.get('authorization');
+  let key: string | null = null;
+  if (authHeader?.startsWith('Bearer ')) {
+    key = authHeader.slice(7);
+  }
+  if (!key) {
+    key = request.headers.get('x-api-key');
+  }
+
+  if (!key) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Missing API key. Include it as Bearer token or x-api-key header.' },
+    } as const;
+  }
+
+  if (!key.startsWith('bb_sk_')) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Invalid or revoked API key.' },
+    } as const;
+  }
+
+  const sql = neon(process.env.DATABASE_URL!);
+  const records = await sql`
+    SELECT * FROM api_key WHERE key = ${key} AND status = 'active' LIMIT 1
+  `;
+
+  if (records.length === 0) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Invalid or revoked API key.' },
+    } as const;
+  }
+
+  const record = records[0];
+  sql`UPDATE api_key SET last_used_at = NOW() WHERE id = ${record.id}`.catch(() => {});
+
+  return { error: false, apiKey: record } as const;
+}
 
 interface BatchRequest {
   tool: string;
@@ -22,7 +66,7 @@ interface BatchRequest {
 export async function POST(request: NextRequest) {
   const { getTool, hasTool } = await import('@/lib/agent-api/tool-registry');
   // Authenticate
-  const authResult = await authenticateRequest(request);
+  const authResult = await authenticateRequestEdge(request);
   if (authResult.error) {
     return NextResponse.json(authResult.body, { status: authResult.status });
   }
@@ -51,6 +95,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const sql = neon(process.env.DATABASE_URL!);
+
   // Execute all tools in parallel
   const startTime = Date.now();
   const results = await Promise.allSettled(
@@ -62,17 +108,11 @@ export async function POST(request: NextRequest) {
         const result = await toolMeta.tool.execute(req.input);
         const latencyMs = Date.now() - toolStart;
 
-        await db.insert(toolUsage).values({
-          id: generateId(),
-          apiKeyId: apiKey.id,
-          toolName: req.tool,
-          inputParams: req.input,
-          outputSummary: JSON.stringify(result).slice(0, 500),
-          cost: String(toolMeta.pricePerCall),
-          latencyMs,
-          status: 'success',
-          createdAt: new Date(),
-        });
+        const usageId = crypto.randomUUID();
+        await sql`
+          INSERT INTO tool_usage (id, api_key_id, tool_name, input_params, output_summary, cost, latency_ms, status, created_at)
+          VALUES (${usageId}, ${apiKey.id}, ${req.tool}, ${JSON.stringify(req.input)}, ${JSON.stringify(result).slice(0, 500)}, ${String(toolMeta.pricePerCall)}, ${latencyMs}, 'success', NOW())
+        `;
 
         return {
           tool: req.tool,
@@ -99,13 +139,12 @@ export async function POST(request: NextRequest) {
   }, 0);
 
   // Update API key stats
-  await db
-    .update(apiKeyTable)
-    .set({
-      totalQueries: sql`${apiKeyTable.totalQueries} + ${body.requests.length}`,
-      totalSpent: sql`CAST(CAST(${apiKeyTable.totalSpent} AS NUMERIC) + ${totalCost} AS TEXT)`,
-    })
-    .where(eq(apiKeyTable.id, apiKey.id));
+  await sql`
+    UPDATE api_key
+    SET total_queries = total_queries + ${body.requests.length},
+        total_spent = CAST(CAST(total_spent AS NUMERIC) + ${totalCost} AS TEXT)
+    WHERE id = ${apiKey.id}
+  `;
 
   return NextResponse.json({
     success: true,

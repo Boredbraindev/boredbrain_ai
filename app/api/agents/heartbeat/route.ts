@@ -15,14 +15,9 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { serverEnv } from '@/env/server';
-import { db } from '@/lib/db';
-import { externalAgent } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { generateScenarios, getRebalanceCandidates } from '@/lib/agent-scheduler';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
-import { settleBilling } from '@/lib/inter-agent-billing';
-import { createAgentWallet, getAgentWallet } from '@/lib/agent-wallet';
-import { topUpWallet } from '@/lib/agent-wallet';
 import { apiSuccess } from '@/lib/api-utils';
 import { getFleetBscAddressCached } from '@/lib/blockchain/fleet-wallets';
 import { getHotTopics } from '@/lib/polymarket-feed';
@@ -37,6 +32,134 @@ import {
   closeExpiredDebates,
   createTopicDebate,
 } from '@/lib/topic-debate';
+
+// ---------------------------------------------------------------------------
+// Inline helpers for wallet/billing (raw SQL, no Drizzle)
+// ---------------------------------------------------------------------------
+
+function generateWalletAddress(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    const char = agentId.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  let hex = '';
+  let seed = Math.abs(hash);
+  while (hex.length < 40) {
+    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) >>> 0;
+    hex += seed.toString(16);
+  }
+  return '0x' + hex.slice(0, 40);
+}
+
+async function getAgentWalletEdge(sql: any, agentId: string) {
+  const rows = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  return rows.length > 0 ? rows[0] : null;
+}
+
+async function createAgentWalletEdge(sql: any, agentId: string, dailyLimit: number = 50, initialBalance: number = 50) {
+  const existing = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  if (existing.length > 0) return existing[0];
+
+  const address = generateWalletAddress(agentId);
+  const created = await sql`
+    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
+    RETURNING *
+  `;
+  await sql`
+    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+  `;
+  return created[0];
+}
+
+async function topUpWalletEdge(sql: any, agentId: string, amount: number) {
+  const wallets = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`;
+  if (wallets.length === 0) throw new Error(`Wallet not found for agent: ${agentId}`);
+  if (amount <= 0) throw new Error('Top-up amount must be positive');
+
+  const newBalance = wallets[0].balance + amount;
+  await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${agentId}`;
+  await sql`
+    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+    VALUES (${agentId}, ${amount}, 'credit', 'Wallet top-up', ${newBalance})
+  `;
+}
+
+async function settleBillingEdge(
+  sql: any,
+  callerAgentId: string,
+  providerAgentId: string,
+  toolsUsed: string[],
+  totalCost: number,
+) {
+  const platformFee = Number(((totalCost * 15) / 100).toFixed(4));
+  const providerEarning = Number(((totalCost * 85) / 100).toFixed(4));
+
+  // Ensure both agents have wallets
+  if (!(await getAgentWalletEdge(sql, callerAgentId))) {
+    await createAgentWalletEdge(sql, callerAgentId);
+  }
+  if (!(await getAgentWalletEdge(sql, providerAgentId))) {
+    await createAgentWalletEdge(sql, providerAgentId);
+  }
+
+  // Deduct from caller
+  const callerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${callerAgentId} LIMIT 1`;
+  let deductSuccess = false;
+  if (callerWallet.length > 0 && callerWallet[0].balance >= totalCost) {
+    const newBalance = callerWallet[0].balance - totalCost;
+    const updated = await sql`
+      UPDATE agent_wallet SET balance = ${newBalance}, total_spent = total_spent + ${totalCost}
+      WHERE agent_id = ${callerAgentId} AND balance >= ${totalCost}
+      RETURNING *
+    `;
+    if (updated.length > 0) {
+      deductSuccess = true;
+      await sql`
+        INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+        VALUES (${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
+      `;
+    }
+  }
+
+  if (!deductSuccess) {
+    const failedRows = await sql`
+      INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+      VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'failed')
+      RETURNING *
+    `;
+    return {
+      success: false,
+      billingId: failedRows[0]?.id ?? '',
+      breakdown: { totalCost, platformFee, providerEarning, callerAgentId, providerAgentId, toolsUsed },
+    };
+  }
+
+  // Credit provider
+  const providerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${providerAgentId} LIMIT 1`;
+  if (providerWallet.length > 0) {
+    const newBalance = providerWallet[0].balance + providerEarning;
+    await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${providerAgentId}`;
+    await sql`
+      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
+      VALUES (${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
+    `;
+  }
+
+  const rows = await sql`
+    INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+    VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'completed')
+    RETURNING *
+  `;
+
+  return {
+    success: true,
+    billingId: rows[0]?.id ?? '',
+    breakdown: { totalCost, platformFee, providerEarning, callerAgentId, providerAgentId, toolsUsed },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -81,6 +204,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const sql = neon(process.env.DATABASE_URL!);
   const batchSize = parseInt(process.env.HEARTBEAT_BATCH_SIZE || '3', 10);
   const errors: string[] = [];
   let scenariosRun = 0;
@@ -101,11 +225,11 @@ export async function GET(request: NextRequest) {
     for (const scenario of scenarios) {
       try {
         // Ensure both agents have wallets
-        if (!(await getAgentWallet(scenario.callerId))) {
-          await createAgentWallet(scenario.callerId);
+        if (!(await getAgentWalletEdge(sql, scenario.callerId))) {
+          await createAgentWalletEdge(sql, scenario.callerId);
         }
-        if (!(await getAgentWallet(scenario.providerId))) {
-          await createAgentWallet(scenario.providerId);
+        if (!(await getAgentWalletEdge(sql, scenario.providerId))) {
+          await createAgentWalletEdge(sql, scenario.providerId);
         }
 
         // Build an AgentConfig for the provider (the agent being called)
@@ -128,10 +252,11 @@ export async function GET(request: NextRequest) {
         const cost = Math.max(0.5, Number((result.tokensUsed * 0.0001).toFixed(4)));
 
         // Settle billing between caller and provider
-        const billing = await settleBilling(
+        const billing = await settleBillingEdge(
+          sql,
           scenario.callerId,
           scenario.providerId,
-          result.toolCalls?.map((tc) => tc.tool) ?? ['general_query'],
+          result.toolCalls?.map((tc: any) => tc.tool) ?? ['general_query'],
           cost,
         );
 
@@ -140,26 +265,24 @@ export async function GET(request: NextRequest) {
         }
 
         // Update provider agent stats
-        await db
-          .update(externalAgent)
-          .set({
-            totalCalls: sql`${externalAgent.totalCalls} + 1`,
-            totalEarned: sql`${externalAgent.totalEarned} + ${billing.breakdown.providerEarning}`,
-          })
-          .where(eq(externalAgent.id, scenario.providerId));
+        await sql`
+          UPDATE external_agent
+          SET total_calls = total_calls + 1,
+              total_earned = total_earned + ${billing.breakdown.providerEarning}
+          WHERE id = ${scenario.providerId}
+        `;
 
         // Update caller agent stats (totalCalls)
-        await db
-          .update(externalAgent)
-          .set({
-            totalCalls: sql`${externalAgent.totalCalls} + 1`,
-          })
-          .where(eq(externalAgent.id, scenario.callerId));
+        await sql`
+          UPDATE external_agent
+          SET total_calls = total_calls + 1
+          WHERE id = ${scenario.callerId}
+        `;
 
         scenariosRun++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown scenario error';
-        errors.push(`Scenario ${scenario.callerName}→${scenario.providerName}: ${msg}`);
+        errors.push(`Scenario ${scenario.callerName}->${scenario.providerName}: ${msg}`);
       }
     }
 
@@ -173,10 +296,10 @@ export async function GET(request: NextRequest) {
       for (let i = 0; i < maxRebalances; i++) {
         const candidate = candidates[i];
         try {
-          // Rebalance to 20 BP minimum (just enough for ~10 debate participations)
+          // Rebalance to 20 BP minimum
           const topUpAmount = 20 - candidate.balance;
           if (topUpAmount > 0) {
-            await topUpWallet(candidate.agentId, topUpAmount);
+            await topUpWalletEdge(sql, candidate.agentId, topUpAmount);
             rebalanced++;
           }
         } catch (err) {
@@ -222,7 +345,6 @@ export async function GET(request: NextRequest) {
         ? `https://${process.env.VERCEL_URL}`
         : 'https://boredbrain.app';
 
-      // Create a round to settle based on current 5-min window
       const roundId = Math.floor(Date.now() / 300000);
       const assets = ['BTC', 'ETH', 'SOL'];
       const asset = assets[roundId % 3];
@@ -232,7 +354,6 @@ export async function GET(request: NextRequest) {
       const endPrice = startPrice + (Math.random() - 0.5) * base * 0.01;
       const outcome = endPrice > startPrice ? 'UP' : 'DOWN';
 
-      // Pick a fleet agent BSC address as the settler (rotate through first 50 fleet wallets)
       const settlerIndex = roundId % 50;
       const settlerBscAddress = getFleetBscAddressCached(settlerIndex);
 
@@ -266,10 +387,8 @@ export async function GET(request: NextRequest) {
     // 6. AI Discourse — fetch trending topics & run debate rounds
     // ------------------------------------------------------------------
     try {
-      // Fetch 2-3 hot topics from Polymarket
       const hotTopics = await getHotTopics(3);
 
-      // Create debates for topics that don't have one yet
       for (const topic of hotTopics) {
         if (!hasActiveDebate(topic.id)) {
           try {
@@ -282,11 +401,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Run one round of any active (live or scheduled) debates
       const activeDebates = getAllDebates().filter(
         (d) => d.status === 'live' || d.status === 'scheduled',
       );
-      // Limit to 2 debates per heartbeat to control LLM costs
       const debatesToRun = activeDebates.slice(0, 2);
       for (const debate of debatesToRun) {
         try {
@@ -306,17 +423,19 @@ export async function GET(request: NextRequest) {
     // 7. Topic Debates — auto-create, auto-participate, auto-close
     // ------------------------------------------------------------------
     try {
-      // Create a new topic debate — prefer Polymarket trending topics for real settlement
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'https://boredbrain.app';
+      const secret = serverEnv.CRON_SECRET;
+
       if (Math.random() < 0.8) {
         try {
           const hotTopics = await getHotTopics(10);
           if (hotTopics.length > 0) {
-            // Pick a random trending Polymarket topic
             const pick = hotTopics[Math.floor(Math.random() * hotTopics.length)];
             await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id);
             topicDebatesCreated++;
           } else {
-            // Fallback to hardcoded topics if Polymarket API is down
             const fallbackTopics = [
               { topic: 'Will Bitcoin reach a new all-time high this quarter?', category: 'crypto' },
               { topic: 'Is DeFi yield farming still sustainable in the current market?', category: 'defi' },
@@ -332,13 +451,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Auto-participate moved to /api/topics/participate (separate endpoint)
-      // Call it once from heartbeat to trigger 1 real LLM opinion per cycle
+      // Auto-participate
       try {
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : 'https://boredbrain.app';
-        const secret = serverEnv.CRON_SECRET;
         const participateRes = await fetch(`${baseUrl}/api/topics/participate`, {
           method: 'POST',
           headers: secret ? { Authorization: `Bearer ${secret}` } : {},
@@ -348,7 +462,7 @@ export async function GET(request: NextRequest) {
           if (pData.participated) topicDebateParticipations = 1;
         }
       } catch {
-        // Non-critical — participation can happen via separate cron
+        // Non-critical
       }
 
       // Auto-close expired debates and score them

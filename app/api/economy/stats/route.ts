@@ -1,14 +1,14 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { billingRecord, agentWallet, walletTransaction, externalAgent } from '@/lib/db/schema';
-import { sql, desc } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 export async function GET(_request: NextRequest) {
   try {
+    const sql = neon(process.env.DATABASE_URL!);
+
     const timeout = <T>(promise: Promise<T>) =>
       Promise.race([
         promise,
@@ -30,80 +30,31 @@ export async function GET(_request: NextRequest) {
     ] = await timeout(
       Promise.all([
         // 1. Total billing volume
-        db
-          .select({ total: sql<number>`coalesce(sum(${billingRecord.totalCost}), 0)` })
-          .from(billingRecord)
-          .where(sql`${billingRecord.status} = 'completed'`),
+        sql`SELECT coalesce(sum(total_cost), 0) as total FROM billing_record WHERE status = 'completed'`,
 
         // 2. Platform fees
-        db
-          .select({ total: sql<number>`coalesce(sum(${billingRecord.platformFee}), 0)` })
-          .from(billingRecord)
-          .where(sql`${billingRecord.status} = 'completed'`),
+        sql`SELECT coalesce(sum(platform_fee), 0) as total FROM billing_record WHERE status = 'completed'`,
 
         // 3. Agent payouts
-        db
-          .select({ total: sql<number>`coalesce(sum(${billingRecord.providerEarning}), 0)` })
-          .from(billingRecord)
-          .where(sql`${billingRecord.status} = 'completed'`),
+        sql`SELECT coalesce(sum(provider_earning), 0) as total FROM billing_record WHERE status = 'completed'`,
 
         // 4. Total transactions
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(billingRecord),
+        sql`SELECT count(*) as count FROM billing_record`,
 
         // 5. Active wallets
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(agentWallet),
+        sql`SELECT count(*) as count FROM agent_wallet`,
 
         // 6 & 7. Total circulation & average balance
-        db
-          .select({
-            total: sql<number>`coalesce(sum(${agentWallet.balance}), 0)`,
-            avg: sql<number>`coalesce(avg(${agentWallet.balance}), 0)`,
-          })
-          .from(agentWallet),
+        sql`SELECT coalesce(sum(balance), 0) as total, coalesce(avg(balance), 0) as avg FROM agent_wallet`,
 
         // 8. Top earners
-        db
-          .select({
-            name: externalAgent.name,
-            specialization: externalAgent.specialization,
-            totalEarned: externalAgent.totalEarned,
-            totalCalls: externalAgent.totalCalls,
-            rating: externalAgent.rating,
-          })
-          .from(externalAgent)
-          .orderBy(desc(externalAgent.totalEarned))
-          .limit(5),
+        sql`SELECT name, specialization, total_earned, total_calls, rating FROM external_agent ORDER BY total_earned DESC LIMIT 5`,
 
         // 9. Top spenders
-        db
-          .select({
-            agentId: agentWallet.agentId,
-            totalSpent: agentWallet.totalSpent,
-            balance: agentWallet.balance,
-          })
-          .from(agentWallet)
-          .orderBy(desc(agentWallet.totalSpent))
-          .limit(5),
+        sql`SELECT agent_id, total_spent, balance FROM agent_wallet ORDER BY total_spent DESC LIMIT 5`,
 
         // 10. Recent activity
-        db
-          .select({
-            id: billingRecord.id,
-            callerAgentId: billingRecord.callerAgentId,
-            providerAgentId: billingRecord.providerAgentId,
-            totalCost: billingRecord.totalCost,
-            platformFee: billingRecord.platformFee,
-            providerEarning: billingRecord.providerEarning,
-            status: billingRecord.status,
-            timestamp: billingRecord.timestamp,
-          })
-          .from(billingRecord)
-          .orderBy(desc(billingRecord.timestamp))
-          .limit(10),
+        sql`SELECT id, caller_agent_id, provider_agent_id, total_cost, platform_fee, provider_earning, status, timestamp FROM billing_record ORDER BY timestamp DESC LIMIT 10`,
       ]),
     );
 
@@ -116,9 +67,28 @@ export async function GET(_request: NextRequest) {
         activeWallets: Number(activeWalletsResult[0]?.count ?? 0),
         totalCirculation: Number(circulationResult[0]?.total ?? 0),
         avgWalletBalance: Number(circulationResult[0]?.avg ?? 0),
-        topEarners: topEarnersResult,
-        topSpenders: topSpendersResult,
-        recentActivity: recentActivityResult,
+        topEarners: topEarnersResult.map((r: any) => ({
+          name: r.name,
+          specialization: r.specialization,
+          totalEarned: r.total_earned,
+          totalCalls: r.total_calls,
+          rating: r.rating,
+        })),
+        topSpenders: topSpendersResult.map((r: any) => ({
+          agentId: r.agent_id,
+          totalSpent: r.total_spent,
+          balance: r.balance,
+        })),
+        recentActivity: recentActivityResult.map((r: any) => ({
+          id: r.id,
+          callerAgentId: r.caller_agent_id,
+          providerAgentId: r.provider_agent_id,
+          totalCost: r.total_cost,
+          platformFee: r.platform_fee,
+          providerEarning: r.provider_earning,
+          status: r.status,
+          timestamp: r.timestamp,
+        })),
       },
     );
   } catch (error) {

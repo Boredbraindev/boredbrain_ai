@@ -33,11 +33,11 @@ export async function GET() {
     console.error('[stats] totalAgents error:', e);
   }
 
-  // --- Total tool calls (sum of total_executions) ---
+  // --- Total tool calls (sum of total_calls) ---
   let totalToolCalls = 0;
   try {
     const rows = await sql`
-      SELECT COALESCE(SUM(total_executions), 0)::int AS total
+      SELECT COALESCE(SUM(total_calls), 0)::int AS total
       FROM external_agent
       WHERE status IN ('active', 'verified')
     `;
@@ -81,16 +81,16 @@ export async function GET() {
   }> = [];
   try {
     const rows = await sql`
-      SELECT id, name, specialization, total_executions, total_earned, rating
+      SELECT id, name, specialization, total_calls, total_earned, rating
       FROM external_agent
       WHERE status IN ('active', 'verified')
-      ORDER BY total_executions DESC
+      ORDER BY total_calls DESC
       LIMIT 10
     `;
     topAgents = rows.map((r: any) => ({
       id: r.id,
       name: r.name,
-      totalExecutions: r.total_executions ?? 0,
+      totalExecutions: r.total_calls ?? 0,
       totalRevenue: String(r.total_earned ?? 0),
       rating: r.rating ?? 0,
       capabilities: r.specialization ? [r.specialization] : [],
@@ -135,7 +135,7 @@ export async function GET() {
   let topTools: Array<{ name: string; count: number; category: string }> = [];
   try {
     const rows = await sql`
-      SELECT id, tools, total_executions
+      SELECT id, tools, total_calls
       FROM external_agent
       WHERE status IN ('active', 'verified') AND tools IS NOT NULL
     `;
@@ -144,7 +144,7 @@ export async function GET() {
     for (const r of rows) {
       const tools: string[] = Array.isArray(r.tools) ? r.tools : [];
       for (const t of tools) {
-        toolCounts[t] = (toolCounts[t] || 0) + (r.total_executions || 0);
+        toolCounts[t] = (toolCounts[t] || 0) + (r.total_calls || 0);
       }
     }
 

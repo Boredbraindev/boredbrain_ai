@@ -1,9 +1,8 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { getUserPositions } from '@/lib/betting/matching-engine';
-import { db } from '@/lib/db';
-import { bettingPosition, bettingMarket } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 // ─── GET /api/markets/positions?wallet=0x... ────────────────────────
 
@@ -17,31 +16,47 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const dbPromise = getUserPositions(wallet);
+      const sql = neon(process.env.DATABASE_URL!);
+
+      const dbPromise = sql`
+        SELECT * FROM betting_position
+        WHERE user_address = ${wallet}
+        ORDER BY updated_at DESC
+      `;
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000),
       );
 
-      const positions = await Promise.race([dbPromise, timeout]);
+      const positionRows = await Promise.race([dbPromise, timeout]);
+
+      const positions = positionRows.map((p: any) => ({
+        id: p.id,
+        marketId: p.market_id,
+        userAddress: p.user_address,
+        outcome: p.outcome,
+        shares: p.shares,
+        avgPrice: p.avg_price,
+        realizedPnl: p.realized_pnl,
+      }));
 
       // Enrich positions with market info
       const enriched = await Promise.all(
-        positions.map(async (pos) => {
+        positions.map(async (pos: any) => {
           try {
-            const [market] = await db
-              .select({
-                title: bettingMarket.title,
-                status: bettingMarket.status,
-                resolvedOutcome: bettingMarket.resolvedOutcome,
-                outcomes: bettingMarket.outcomes,
-              })
-              .from(bettingMarket)
-              .where(eq(bettingMarket.id, pos.marketId))
-              .limit(1);
+            const marketRows = await sql`
+              SELECT title, status, resolved_outcome, outcomes
+              FROM betting_market WHERE id = ${pos.marketId} LIMIT 1
+            `;
+            const market = marketRows[0] ? {
+              title: marketRows[0].title,
+              status: marketRows[0].status,
+              resolvedOutcome: marketRows[0].resolved_outcome,
+              outcomes: marketRows[0].outcomes,
+            } : null;
 
             return {
               ...pos,
-              market: market || null,
+              market,
               currentValue: pos.shares * pos.avgPrice,
               currency: 'BBAI',
             };
@@ -58,12 +73,12 @@ export async function GET(request: NextRequest) {
 
       // Summary
       const totalInvested = enriched.reduce(
-        (sum, p) => sum + p.shares * p.avgPrice,
+        (sum: number, p: any) => sum + p.shares * p.avgPrice,
         0,
       );
-      const totalPnl = enriched.reduce((sum, p) => sum + p.realizedPnl, 0);
+      const totalPnl = enriched.reduce((sum: number, p: any) => sum + p.realizedPnl, 0);
       const activePositions = enriched.filter(
-        (p) => p.shares > 0 && p.market?.status === 'open',
+        (p: any) => p.shares > 0 && p.market?.status === 'open',
       );
 
       return apiSuccess({

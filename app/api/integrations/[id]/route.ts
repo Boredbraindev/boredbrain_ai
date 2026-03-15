@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getIntegrationById } from '@/lib/external-integrations';
 import { getNode } from '@/lib/agent-network';

@@ -1,11 +1,8 @@
-export const runtime = 'nodejs';
-export const maxDuration = 10;
+export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getToolPrice } from '@/lib/tool-pricing';
-import { db } from '@/lib/db';
-import { externalAgent } from '@/lib/db/schema';
-import { sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 
 /**
  * Agent Discovery Endpoint
@@ -14,7 +11,7 @@ import { sql } from 'drizzle-orm';
  *
  * Returns a list of all available BoredBrain agents with their capabilities,
  * pricing, and endpoint URLs. Pulls from DB first (fleet + external agents),
- * falls back to mock data.
+ * falls back to empty list.
  *
  * Query params:
  *   ?specialization=defi   - Filter by agent specialization
@@ -52,43 +49,44 @@ async function buildFullAgentList(): Promise<DiscoveryAgent[]> {
   const agents: DiscoveryAgent[] = [];
 
   try {
-    const dbPromise = db
-      .select()
-      .from(externalAgent)
-      .where(sql`${externalAgent.status} in ('active', 'verified')`);
+    const sql = neon(process.env.DATABASE_URL!);
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('timeout')), 3000),
     );
-    const dbAgents = await Promise.race([dbPromise, timeout]);
+
+    const dbAgents = await Promise.race([
+      sql`SELECT * FROM external_agent WHERE status IN ('active', 'verified')`,
+      timeout,
+    ]);
 
     for (const a of dbAgents) {
+      const tools = (a.tools as string[]) ?? [];
+      const meta = a.metadata as Record<string, any> | null;
       const pricePerQuery =
-        (a.metadata as any)?.pricePerQuery ??
-        (a.tools as string[]).reduce(
-          (sum, t) => sum + (getToolPrice(t) ?? 5),
+        meta?.pricePerQuery ??
+        tools.reduce(
+          (sum: number, t: string) => sum + (getToolPrice(t) ?? 5),
           0,
         ) ??
         10;
-      const currency = (a.metadata as any)?.currency ?? 'BBAI';
+      const currency = meta?.currency ?? 'BBAI';
 
       const badge: 'verified' | 'community' =
-        a.ownerAddress === 'platform-fleet' || a.verifiedAt != null
+        a.owner_address === 'platform-fleet' || a.verified_at != null
           ? 'verified'
           : 'community';
-
-      const meta = a.metadata as Record<string, any> | null;
 
       agents.push({
         id: a.id,
         name: a.name,
         description: a.description ?? '',
-        tools: (a.tools as string[]) ?? [],
+        tools,
         specialization: a.specialization,
         pricing: { averageCostPerQuery: pricePerQuery, currency },
         status: 'online',
         endpoint: `/api/agents/${a.id}/invoke`,
         rating: a.rating,
-        totalCalls: a.totalCalls,
+        totalCalls: a.total_calls,
         badge,
         bscAddress: meta?.bscAddress ?? undefined,
         chainId: meta?.chainId ?? undefined,

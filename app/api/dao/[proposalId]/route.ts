@@ -1,9 +1,9 @@
+export const runtime = 'edge';
+
 import { NextRequest } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import { agentDAO } from '@/lib/agent-dao';
 import { apiError, apiSuccess, parseJsonBody, validateBody, type Schema } from '@/lib/api-utils';
-import { db } from '@/lib/db';
-import { daoProposal, daoVote } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,16 +40,18 @@ export async function POST(
 
     // Try DB first
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('DB timeout')), 3000),
-      );
+      const sql = neon(process.env.DATABASE_URL!);
 
-      const [proposal] = await Promise.race([
-        db.select().from(daoProposal).where(eq(daoProposal.id, proposalId)).limit(1),
-        timeout,
+      const proposalRows = await Promise.race([
+        sql`SELECT * FROM dao_proposal WHERE id = ${proposalId} LIMIT 1`,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
-      if (!proposal) return apiError('Proposal not found', 404);
+      if (proposalRows.length === 0) return apiError('Proposal not found', 404);
+      const proposal = proposalRows[0];
+
       if (proposal.status !== 'active') return apiError('Proposal is not active');
 
       const options = proposal.options as Array<{ label: string; votes: number }>;
@@ -58,41 +60,44 @@ export async function POST(
       }
 
       // Check duplicate vote
-      const [existingVote] = await Promise.race([
-        db
-          .select()
-          .from(daoVote)
-          .where(and(eq(daoVote.proposalId, proposalId), eq(daoVote.voter, voter)))
-          .limit(1),
-        timeout,
+      const existingVoteRows = await Promise.race([
+        sql`
+          SELECT id FROM dao_vote
+          WHERE proposal_id = ${proposalId} AND voter = ${voter}
+          LIMIT 1
+        `,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
-      if (existingVote) return apiError('Already voted on this proposal');
+      if (existingVoteRows.length > 0) return apiError('Already voted on this proposal');
 
       // Insert vote
       await Promise.race([
-        db.insert(daoVote).values({
-          proposalId,
-          voter,
-          optionIndex,
-          weight,
-        }),
-        timeout,
+        sql`
+          INSERT INTO dao_vote (proposal_id, voter, option_index, weight)
+          VALUES (${proposalId}, ${voter}, ${optionIndex}, ${weight})
+        `,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
       // Update proposal vote counts
       options[optionIndex].votes += weight;
-      const newTotalVotes = proposal.totalVotes + weight;
+      const newTotalVotes = Number(proposal.total_votes) + weight;
 
       await Promise.race([
-        db
-          .update(daoProposal)
-          .set({
-            options,
-            totalVotes: newTotalVotes,
-          })
-          .where(eq(daoProposal.id, proposalId)),
-        timeout,
+        sql`
+          UPDATE dao_proposal SET
+            options = ${JSON.stringify(options)}::jsonb,
+            total_votes = ${newTotalVotes}
+          WHERE id = ${proposalId}
+        `,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
       return apiSuccess({ voted: true, proposalId, optionIndex, weight });
@@ -123,24 +128,31 @@ export async function GET(
 
     // Try DB first
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('DB timeout')), 3000),
-      );
+      const sql = neon(process.env.DATABASE_URL!);
 
-      const [row] = await Promise.race([
-        db.select().from(daoProposal).where(eq(daoProposal.id, proposalId)).limit(1),
-        timeout,
+      const proposalRows = await Promise.race([
+        sql`SELECT * FROM dao_proposal WHERE id = ${proposalId} LIMIT 1`,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB timeout')), 3000),
+        ),
       ]);
 
-      if (row) {
+      if (proposalRows.length > 0) {
+        const row = proposalRows[0];
+
         const votes = await Promise.race([
-          db.select().from(daoVote).where(eq(daoVote.proposalId, proposalId)),
-          timeout,
+          sql`SELECT * FROM dao_vote WHERE proposal_id = ${proposalId}`,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('DB timeout')), 3000),
+          ),
         ]);
 
         const voters: Record<string, { optionIndex: number; weight: number }> = {};
         for (const v of votes) {
-          voters[v.voter] = { optionIndex: v.optionIndex, weight: v.weight };
+          voters[v.voter as string] = {
+            optionIndex: Number(v.option_index),
+            weight: Number(v.weight),
+          };
         }
 
         return apiSuccess({
@@ -152,9 +164,9 @@ export async function GET(
             type: row.type,
             options: row.options as Array<{ label: string; votes: number }>,
             status: row.status,
-            createdAt: row.createdAt.toISOString(),
-            endsAt: row.endsAt.toISOString(),
-            totalVotes: row.totalVotes,
+            createdAt: row.created_at,
+            endsAt: row.ends_at,
+            totalVotes: row.total_votes,
             quorum: row.quorum,
             voters,
           },

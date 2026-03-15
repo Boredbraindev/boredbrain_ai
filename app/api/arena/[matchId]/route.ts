@@ -2,9 +2,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 10;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { arenaMatch, agent } from '@/lib/db/schema';
-import { eq, sql, inArray } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 export const dynamic = 'force-dynamic';
 import { MOCK_ARENA_MATCHES, MOCK_AGENTS } from '@/lib/mock-data';
 import { dynamicMatchStore } from '@/lib/arena-store';
@@ -12,7 +10,6 @@ import {
   battleEngine,
   type BattleAgent,
 } from '@/lib/arena/battle-engine';
-import { lockBetting, settleMatch } from '@/lib/arena/wagering';
 
 /**
  * GET /api/arena/[matchId] - Get match details
@@ -32,21 +29,25 @@ export async function GET(
 
   // Try database first
   try {
-    const [match] = await Promise.race([
-      db.select().from(arenaMatch).where(eq(arenaMatch.id, matchId)).limit(1),
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const matchRows = await Promise.race([
+      sql`SELECT * FROM arena_match WHERE id = ${matchId} LIMIT 1`,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
     ]);
 
+    const match = matchRows[0];
+
     if (match) {
       // Resolve agent names for enriched response
-      let agentDetails: Array<{ id: string; name: string; eloRating: number }> = [];
+      let agentDetails: Array<{ id: string; name: string; elo_rating: number }> = [];
       try {
         const agentIds = match.agents as string[];
-        const agents = await db
-          .select({ id: agent.id, name: agent.name, eloRating: agent.eloRating })
-          .from(agent)
-          .where(inArray(agent.id, agentIds));
-        agentDetails = agents;
+        if (agentIds.length > 0) {
+          agentDetails = await sql`
+            SELECT id, name, elo_rating FROM agent WHERE id = ANY(${agentIds})
+          ` as any;
+        }
       } catch {
         // Agent lookup failed
       }
@@ -143,22 +144,26 @@ export async function PUT(
   }
 
   try {
-    const updateData: Record<string, any> = {};
-    if (body.status) updateData.status = body.status;
-    if (body.winnerId) updateData.winnerId = body.winnerId;
-    if (body.status === 'completed') updateData.completedAt = new Date();
+    const sql = neon(process.env.DATABASE_URL!);
 
-    const [updated] = await db
-      .update(arenaMatch)
-      .set(updateData)
-      .where(eq(arenaMatch.id, matchId))
-      .returning();
+    // Build dynamic SET clause
+    const now = new Date().toISOString();
+    const completedAt = body.status === 'completed' ? now : null;
 
-    if (!updated) {
+    const updatedRows = await sql`
+      UPDATE arena_match SET
+        status = COALESCE(${body.status ?? null}, status),
+        winner_id = COALESCE(${body.winnerId ?? null}, winner_id),
+        completed_at = COALESCE(${completedAt}, completed_at)
+      WHERE id = ${matchId}
+      RETURNING *
+    `;
+
+    if (updatedRows.length === 0) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, match: updated });
+    return NextResponse.json({ success: true, match: updatedRows[0] });
   } catch {
     // DB unavailable - try updating mock data
     const mockMatch = dynamicMatchStore.get(matchId);
@@ -202,21 +207,25 @@ export async function POST(
     prizePool: string;
   } | null = null;
 
+  const sql = neon(process.env.DATABASE_URL!);
+
   // Try DB first
   try {
-    const [dbMatch] = await Promise.race([
-      db.select().from(arenaMatch).where(eq(arenaMatch.id, matchId)).limit(1),
+    const dbRows = await Promise.race([
+      sql`SELECT * FROM arena_match WHERE id = ${matchId} LIMIT 1`,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
     ]);
 
+    const dbMatch = dbRows[0];
+
     if (dbMatch) {
       matchData = {
-        id: dbMatch.id,
-        topic: dbMatch.topic,
-        matchType: dbMatch.matchType,
+        id: dbMatch.id as string,
+        topic: dbMatch.topic as string,
+        matchType: dbMatch.match_type as string,
         agents: dbMatch.agents as string[],
-        status: dbMatch.status ?? 'pending',
-        prizePool: dbMatch.prizePool ?? '0',
+        status: (dbMatch.status as string) ?? 'pending',
+        prizePool: (dbMatch.prize_pool as string) ?? '0',
       };
     }
   } catch {
@@ -256,10 +265,7 @@ export async function POST(
   // Try DB agents
   try {
     const dbAgents = await Promise.race([
-      db
-        .select()
-        .from(agent)
-        .where(inArray(agent.id, agentIds)),
+      sql`SELECT * FROM agent WHERE id = ANY(${agentIds})`,
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000)
       ),
@@ -267,12 +273,12 @@ export async function POST(
 
     for (const a of dbAgents) {
       battleAgents.push({
-        id: a.id,
-        name: a.name,
-        description: a.description ?? undefined,
+        id: a.id as string,
+        name: a.name as string,
+        description: (a.description as string) ?? undefined,
         tools: (a.tools as string[]) || [],
-        systemPrompt: a.systemPrompt ?? undefined,
-        eloRating: a.eloRating ?? 1200,
+        systemPrompt: (a.system_prompt as string) ?? undefined,
+        eloRating: Number(a.elo_rating) ?? 1200,
       });
     }
   } catch {
@@ -302,9 +308,12 @@ export async function POST(
     }
   }
 
-  // Lock betting
+  // Lock betting (inline from wagering.ts)
   try {
-    await lockBetting(matchId);
+    await sql`
+      UPDATE arena_escrow SET status = 'locked'
+      WHERE match_id = ${matchId} AND status = 'open'
+    `;
   } catch {
     // Non-blocking
   }
@@ -339,10 +348,103 @@ export async function POST(
       );
     }
 
-    // Settle wagers
+    // Settle wagers (inline from wagering.ts)
     if (result.winnerId) {
       try {
-        await settleMatch(matchId, result.winnerId);
+        const PLATFORM_RAKE_PERCENT = 10;
+        const RAKE_MULTIPLIER = PLATFORM_RAKE_PERCENT / 100;
+        const now = Date.now();
+
+        // Generate settlement tx hash
+        let txHash = '0x';
+        const seed = `${matchId}-${now}`;
+        for (let i = 0; i < 64; i++) {
+          const charCode = seed.charCodeAt(i % seed.length);
+          txHash += ((charCode * (i + 1) * 7 + now) % 16).toString(16);
+        }
+
+        // Get all escrowed wagers
+        const wagers = await sql`
+          SELECT * FROM arena_wager
+          WHERE match_id = ${matchId} AND status = 'escrowed'
+        `;
+
+        if (wagers.length > 0) {
+          const totalPool = wagers.reduce((sum, w) => sum + Number(w.amount), 0);
+          const platformRake = Math.round(totalPool * RAKE_MULTIPLIER * 100) / 100;
+          const distributablePool = totalPool - platformRake;
+
+          const winningWagers = wagers.filter(w => w.agent_id === result.winnerId);
+          const losingWagers = wagers.filter(w => w.agent_id !== result.winnerId);
+          const totalWinningStake = winningWagers.reduce((sum, w) => sum + Number(w.amount), 0);
+
+          const settledAt = new Date().toISOString();
+
+          // Distribute to winners
+          for (const wager of winningWagers) {
+            const share = totalWinningStake > 0 ? Number(wager.amount) / totalWinningStake : 0;
+            const payout = Math.round(distributablePool * share * 100) / 100;
+
+            await sql`
+              UPDATE arena_wager SET
+                status = 'won', payout = ${payout},
+                settled_at = ${settledAt}, tx_hash = ${txHash}
+              WHERE id = ${wager.id}
+            `;
+          }
+
+          // Mark losers
+          for (const wager of losingWagers) {
+            await sql`
+              UPDATE arena_wager SET
+                status = 'lost', payout = 0,
+                settled_at = ${settledAt}, tx_hash = ${txHash}
+              WHERE id = ${wager.id}
+            `;
+          }
+
+          // If no winners, refund everyone minus rake
+          if (winningWagers.length === 0) {
+            for (const wager of wagers) {
+              const refund = Math.round(Number(wager.amount) * (1 - RAKE_MULTIPLIER) * 100) / 100;
+              await sql`
+                UPDATE arena_wager SET
+                  status = 'refunded', payout = ${refund},
+                  settled_at = ${settledAt}, tx_hash = ${txHash}
+                WHERE id = ${wager.id}
+              `;
+            }
+          }
+
+          const totalWinnerPayout = winningWagers.reduce((sum, w) => {
+            const share = totalWinningStake > 0 ? Number(w.amount) / totalWinningStake : 0;
+            return sum + Math.round(distributablePool * share * 100) / 100;
+          }, 0);
+
+          // Update escrow
+          await sql`
+            UPDATE arena_escrow SET
+              platform_rake = ${platformRake},
+              winner_payout = ${totalWinnerPayout},
+              status = 'settled',
+              settled_at = ${settledAt}
+            WHERE match_id = ${matchId}
+          `;
+
+          // Record platform rake as payment transaction
+          const rakeBlockNumber = 25000000 + Math.floor(now / 1000) % 500000;
+          await sql`
+            INSERT INTO payment_transaction (
+              type, from_agent_id, to_agent_id, amount,
+              platform_fee, provider_share, chain, tx_hash,
+              status, block_number
+            ) VALUES (
+              'arena_entry', 'arena-escrow', 'platform', ${platformRake},
+              ${platformRake}, ${0}, 'base', ${txHash},
+              'confirmed', ${rakeBlockNumber}
+            )
+          `;
+        }
       } catch {
         // Non-blocking
       }

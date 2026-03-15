@@ -1,11 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/agent-api/auth';
+export const runtime = 'nodejs';
 
-export const dynamic = 'force-dynamic';
-import { db } from '@/lib/db';
-import { toolUsage, apiKey as apiKeyTable } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
-import { generateId } from 'ai';
+import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
+
+/**
+ * Inline auth: validate API key from request headers using raw SQL.
+ */
+async function authenticateRequestEdge(request: Request) {
+  // Extract API key
+  const authHeader = request.headers.get('authorization');
+  let key: string | null = null;
+  if (authHeader?.startsWith('Bearer ')) {
+    key = authHeader.slice(7);
+  }
+  if (!key) {
+    key = request.headers.get('x-api-key');
+  }
+
+  if (!key) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Missing API key. Include it as Bearer token or x-api-key header.' },
+    } as const;
+  }
+
+  if (!key.startsWith('bb_sk_')) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Invalid or revoked API key.' },
+    } as const;
+  }
+
+  const sql = neon(process.env.DATABASE_URL!);
+  const records = await sql`
+    SELECT * FROM api_key WHERE key = ${key} AND status = 'active' LIMIT 1
+  `;
+
+  if (records.length === 0) {
+    return {
+      error: true,
+      status: 401,
+      body: { error: 'Invalid or revoked API key.' },
+    } as const;
+  }
+
+  const record = records[0];
+
+  // Update last used timestamp (fire and forget)
+  sql`UPDATE api_key SET last_used_at = NOW() WHERE id = ${record.id}`.catch(() => {});
+
+  return { error: false, apiKey: record } as const;
+}
 
 /**
  * POST /api/tools/[toolName] - Execute a specific tool
@@ -32,7 +79,7 @@ export async function POST(
   }
 
   // Authenticate
-  const authResult = await authenticateRequest(request);
+  const authResult = await authenticateRequestEdge(request);
   if (authResult.error) {
     return NextResponse.json(authResult.body, { status: authResult.status });
   }
@@ -57,6 +104,8 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  const sql = neon(process.env.DATABASE_URL!);
+
   // Execute tool
   const startTime = Date.now();
   try {
@@ -64,26 +113,19 @@ export async function POST(
     const latencyMs = Date.now() - startTime;
 
     // Log usage
-    await db.insert(toolUsage).values({
-      id: generateId(),
-      apiKeyId: apiKey.id,
-      toolName,
-      inputParams: input,
-      outputSummary: typeof result === 'object' ? JSON.stringify(result).slice(0, 500) : String(result).slice(0, 500),
-      cost: String(toolMeta.pricePerCall),
-      latencyMs,
-      status: 'success',
-      createdAt: new Date(),
-    });
+    const usageId = crypto.randomUUID();
+    await sql`
+      INSERT INTO tool_usage (id, api_key_id, tool_name, input_params, output_summary, cost, latency_ms, status, created_at)
+      VALUES (${usageId}, ${apiKey.id}, ${toolName}, ${JSON.stringify(input)}, ${typeof result === 'object' ? JSON.stringify(result).slice(0, 500) : String(result).slice(0, 500)}, ${String(toolMeta.pricePerCall)}, ${latencyMs}, 'success', NOW())
+    `;
 
     // Increment query count
-    await db
-      .update(apiKeyTable)
-      .set({
-        totalQueries: sql`${apiKeyTable.totalQueries} + 1`,
-        totalSpent: sql`CAST(CAST(${apiKeyTable.totalSpent} AS NUMERIC) + ${toolMeta.pricePerCall} AS TEXT)`,
-      })
-      .where(eq(apiKeyTable.id, apiKey.id));
+    await sql`
+      UPDATE api_key
+      SET total_queries = total_queries + 1,
+          total_spent = CAST(CAST(total_spent AS NUMERIC) + ${toolMeta.pricePerCall} AS TEXT)
+      WHERE id = ${apiKey.id}
+    `;
 
     return NextResponse.json({
       success: true,
@@ -99,17 +141,11 @@ export async function POST(
     const latencyMs = Date.now() - startTime;
 
     // Log failed usage
-    await db.insert(toolUsage).values({
-      id: generateId(),
-      apiKeyId: apiKey.id,
-      toolName,
-      inputParams: input,
-      outputSummary: error instanceof Error ? error.message : 'Unknown error',
-      cost: '0',
-      latencyMs,
-      status: 'error',
-      createdAt: new Date(),
-    });
+    const usageId = crypto.randomUUID();
+    await sql`
+      INSERT INTO tool_usage (id, api_key_id, tool_name, input_params, output_summary, cost, latency_ms, status, created_at)
+      VALUES (${usageId}, ${apiKey.id}, ${toolName}, ${JSON.stringify(input)}, ${error instanceof Error ? error.message : 'Unknown error'}, '0', ${latencyMs}, 'error', NOW())
+    `;
 
     return NextResponse.json(
       {

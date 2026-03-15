@@ -1,9 +1,7 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { agentToken, agentTokenTrade, paymentTransaction } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
-import { generateId } from 'ai';
-import { generateTxHash, generateBlockNumber } from '@/lib/payment-pipeline';
+import { neon } from '@neondatabase/serverless';
 import {
   calculateBuyPrice,
   calculateSellPrice,
@@ -12,6 +10,23 @@ import {
   DEFAULT_SLOPE,
   type BondingCurveParams,
 } from '@/lib/bonding-curve';
+
+// Inline from payment-pipeline (avoids Drizzle import)
+function generateTxHash(context?: string): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `bbai-tx-${ts}-${rand}`;
+}
+
+function generateBlockNumber(): number {
+  return Date.now();
+}
+
+function generateId(): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${ts}-${rand}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,15 +55,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the token
-    const [token] = await db
-      .select()
-      .from(agentToken)
-      .where(eq(agentToken.id, tokenId));
+    const sql = neon(process.env.DATABASE_URL!);
 
-    if (!token) {
+    // Fetch the token
+    const tokenRows = await sql`
+      SELECT * FROM agent_token WHERE id = ${tokenId} LIMIT 1
+    `;
+
+    if (tokenRows.length === 0) {
       return NextResponse.json({ error: 'Token not found' }, { status: 404 });
     }
+
+    const token = tokenRows[0];
 
     if (token.status !== 'active') {
       return NextResponse.json(
@@ -57,11 +75,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const circulatingSupply = Number(token.circulating_supply) || 0;
+    const totalSupply = Number(token.total_supply) || 1_000_000_000;
+
     // Build bonding curve params for this token
     const params: BondingCurveParams = {
       basePrice: DEFAULT_BASE_PRICE,
       slope: DEFAULT_SLOPE,
-      maxSupply: token.totalSupply,
+      maxSupply: totalSupply,
     };
 
     let quote;
@@ -69,25 +90,25 @@ export async function POST(request: NextRequest) {
 
     if (type === 'buy') {
       // Validate supply cap
-      if (token.circulatingSupply + tradeAmount > token.totalSupply) {
+      if (circulatingSupply + tradeAmount > totalSupply) {
         return NextResponse.json(
           { error: 'Purchase would exceed max supply' },
           { status: 400 }
         );
       }
 
-      quote = calculateBuyPrice(token.circulatingSupply, tradeAmount, params);
+      quote = calculateBuyPrice(circulatingSupply, tradeAmount, params);
       newCirculating = quote.newSupply;
     } else {
       // Validate sufficient supply to sell
-      if (tradeAmount > token.circulatingSupply) {
+      if (tradeAmount > circulatingSupply) {
         return NextResponse.json(
           { error: 'Insufficient circulating supply to sell' },
           { status: 400 }
         );
       }
 
-      quote = calculateSellPrice(token.circulatingSupply, tradeAmount, params);
+      quote = calculateSellPrice(circulatingSupply, tradeAmount, params);
       newCirculating = quote.newSupply;
     }
 
@@ -95,72 +116,69 @@ export async function POST(request: NextRequest) {
     const newMarketCap = newPrice * newCirculating;
 
     // Record the trade
-    const [trade] = await db
-      .insert(agentTokenTrade)
-      .values({
-        id: generateId(),
-        tokenId,
-        traderId,
-        type,
-        amount: tradeAmount,
-        price: quote.averagePrice,
-        totalCost: quote.total,
-        platformFee: quote.platformFee,
-        txHash: generateTxHash(`trade-${tokenId}-${traderId}-${Date.now()}`),
-        timestamp: new Date(),
-      })
-      .returning();
+    const tradeId = generateId();
+    const tradeTxHash = generateTxHash(`trade-${tokenId}-${traderId}-${Date.now()}`);
+    const now = new Date().toISOString();
+
+    const tradeRows = await sql`
+      INSERT INTO agent_token_trade (
+        id, token_id, trader_id, type, amount,
+        price, total_cost, platform_fee, tx_hash, timestamp
+      ) VALUES (
+        ${tradeId}, ${tokenId}, ${traderId}, ${type}, ${tradeAmount},
+        ${quote.averagePrice}, ${quote.total}, ${quote.platformFee},
+        ${tradeTxHash}, ${now}
+      )
+      RETURNING *
+    `;
+
+    const trade = tradeRows[0];
 
     // Update the token state
-    await db
-      .update(agentToken)
-      .set({
-        circulatingSupply: newCirculating,
-        price: newPrice,
-        marketCap: newMarketCap,
-        totalVolume: sql`${agentToken.totalVolume} + ${quote.total}`,
-        holders:
-          type === 'buy'
-            ? sql`${agentToken.holders} + 1`
-            : sql`greatest(${agentToken.holders} - 1, 0)`,
-        updatedAt: new Date(),
-      })
-      .where(eq(agentToken.id, tokenId));
+    const holdersChange = type === 'buy' ? 1 : -1;
+    await sql`
+      UPDATE agent_token SET
+        circulating_supply = ${newCirculating},
+        price = ${newPrice},
+        market_cap = ${newMarketCap},
+        total_volume = total_volume + ${quote.total},
+        holders = GREATEST(holders + ${holdersChange}, 0),
+        updated_at = ${now}
+      WHERE id = ${tokenId}
+    `;
 
     // Record platform fee as a payment transaction
     if (quote.platformFee > 0) {
-      await db.insert(paymentTransaction).values({
-        id: generateId(),
-        type: 'tool_call',
-        fromAgentId: traderId,
-        toAgentId: 'platform',
-        amount: quote.platformFee,
-        platformFee: quote.platformFee,
-        providerShare: 0,
-        chain: token.chain,
-        txHash: generateTxHash(`trade-fee-${trade.id}`),
-        status: 'confirmed',
-        timestamp: new Date(),
-        blockNumber: generateBlockNumber(),
-      });
+      const feeId = generateId();
+      const feeTxHash = generateTxHash(`trade-fee-${trade.id}`);
+      await sql`
+        INSERT INTO payment_transaction (
+          id, type, from_agent_id, to_agent_id, amount,
+          platform_fee, provider_share, chain, tx_hash,
+          status, timestamp, block_number
+        ) VALUES (
+          ${feeId}, 'tool_call', ${traderId}, 'platform', ${quote.platformFee},
+          ${quote.platformFee}, ${0}, ${token.chain}, ${feeTxHash},
+          'confirmed', ${now}, ${generateBlockNumber()}
+        )
+      `;
     }
 
     // Record creator fee as a separate payment transaction
     if (quote.creatorFee > 0) {
-      await db.insert(paymentTransaction).values({
-        id: generateId(),
-        type: 'agent_invoke',
-        fromAgentId: traderId,
-        toAgentId: token.agentId,
-        amount: quote.creatorFee,
-        platformFee: 0,
-        providerShare: quote.creatorFee,
-        chain: token.chain,
-        txHash: generateTxHash(`creator-fee-${trade.id}`),
-        status: 'confirmed',
-        timestamp: new Date(),
-        blockNumber: generateBlockNumber(),
-      });
+      const creatorFeeId = generateId();
+      const creatorFeeTxHash = generateTxHash(`creator-fee-${trade.id}`);
+      await sql`
+        INSERT INTO payment_transaction (
+          id, type, from_agent_id, to_agent_id, amount,
+          platform_fee, provider_share, chain, tx_hash,
+          status, timestamp, block_number
+        ) VALUES (
+          ${creatorFeeId}, 'agent_invoke', ${traderId}, ${token.agent_id}, ${quote.creatorFee},
+          ${0}, ${quote.creatorFee}, ${token.chain}, ${creatorFeeTxHash},
+          'confirmed', ${now}, ${generateBlockNumber()}
+        )
+      `;
     }
 
     return NextResponse.json(
@@ -199,22 +217,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const trades = await db
-      .select()
-      .from(agentTokenTrade)
-      .where(eq(agentTokenTrade.tokenId, tokenId))
-      .orderBy(desc(agentTokenTrade.timestamp));
+    const sql = neon(process.env.DATABASE_URL!);
+
+    const trades = await sql`
+      SELECT * FROM agent_token_trade
+      WHERE token_id = ${tokenId}
+      ORDER BY timestamp DESC
+    `;
 
     // Also return current token state
-    const [token] = await db
-      .select()
-      .from(agentToken)
-      .where(eq(agentToken.id, tokenId));
+    const tokenRows = await sql`
+      SELECT * FROM agent_token WHERE id = ${tokenId} LIMIT 1
+    `;
+
+    const token = tokenRows[0] || null;
 
     const params: BondingCurveParams = {
       basePrice: DEFAULT_BASE_PRICE,
       slope: DEFAULT_SLOPE,
-      maxSupply: token?.totalSupply ?? 1_000_000_000,
+      maxSupply: Number(token?.total_supply) ?? 1_000_000_000,
     };
 
     return NextResponse.json({
@@ -225,7 +246,7 @@ export async function GET(request: NextRequest) {
             bondingCurve: {
               basePrice: params.basePrice,
               slope: params.slope,
-              currentPrice: getCurrentPrice(token.circulatingSupply, params),
+              currentPrice: getCurrentPrice(Number(token.circulating_supply) || 0, params),
             },
           }
         : null,
