@@ -15,14 +15,25 @@ export async function GET(
 
   try {
     const sql = neon(process.env.DATABASE_URL!);
+
+    // Try agent table first
     const rows = await sql`
       SELECT * FROM agent
       WHERE id = ${agentId}
       LIMIT 1
     `;
-
     if (rows.length > 0) {
       return NextResponse.json({ agent: rows[0] });
+    }
+
+    // Try external_agent table (fleet agents)
+    const extRows = await sql`
+      SELECT * FROM external_agent
+      WHERE id = ${agentId}
+      LIMIT 1
+    `;
+    if (extRows.length > 0) {
+      return NextResponse.json({ agent: extRows[0] });
     }
   } catch {
     // DB error - fall through to mock

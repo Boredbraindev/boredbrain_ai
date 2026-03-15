@@ -455,6 +455,20 @@ export default function ArenaPage() {
                 rightName={activeSummary ? `AGAINST (${againstPercent}%)` : 'Arena'}
                 leftPercent={forPercent}
                 rightPercent={againstPercent}
+                leftModels={[
+                  { model: 'Llama', count: Math.ceil(forPercent * 0.3) },
+                  { model: 'Qwen', count: Math.ceil(forPercent * 0.25) },
+                  { model: 'Gemini', count: Math.ceil(forPercent * 0.2) },
+                  { model: 'DeepSeek', count: Math.ceil(forPercent * 0.15) },
+                  { model: 'Claude', count: Math.ceil(forPercent * 0.1) },
+                ]}
+                rightModels={[
+                  { model: 'GPT', count: Math.ceil(againstPercent * 0.3) },
+                  { model: 'Grok', count: Math.ceil(againstPercent * 0.25) },
+                  { model: 'Llama 4', count: Math.ceil(againstPercent * 0.2) },
+                  { model: 'Qwen', count: Math.ceil(againstPercent * 0.15) },
+                  { model: 'DeepSeek', count: Math.ceil(againstPercent * 0.1) },
+                ]}
               />
 
               {/* Topic representative overlay on battle visual */}
