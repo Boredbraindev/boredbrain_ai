@@ -70,39 +70,39 @@ interface TrendingTopic {
 
 // ─── Category thumbnail config ──────────────────────────────────────────────
 
-const CATEGORY_THUMBS: Record<string, { emoji: string; gradient: string }> = {
-  Sports: { emoji: '⚽', gradient: 'from-purple-600 to-indigo-900' },
-  Geopolitics: { emoji: '🌍', gradient: 'from-red-700 to-rose-950' },
-  Crypto: { emoji: '₿', gradient: 'from-amber-500 to-orange-900' },
-  Finance: { emoji: '📊', gradient: 'from-emerald-600 to-green-950' },
-  Macro: { emoji: '🏛️', gradient: 'from-blue-600 to-slate-900' },
-  Tech: { emoji: '🤖', gradient: 'from-cyan-500 to-blue-950' },
-  Culture: { emoji: '🎨', gradient: 'from-pink-500 to-fuchsia-950' },
-  Governance: { emoji: '🏛️', gradient: 'from-teal-500 to-emerald-950' },
-  DeFi: { emoji: '💰', gradient: 'from-orange-500 to-amber-950' },
-  crypto: { emoji: '₿', gradient: 'from-amber-500 to-orange-900' },
-  defi: { emoji: '💰', gradient: 'from-orange-500 to-amber-950' },
-  ai: { emoji: '🧠', gradient: 'from-violet-500 to-purple-950' },
-  governance: { emoji: '🏛️', gradient: 'from-teal-500 to-emerald-950' },
-  culture: { emoji: '🎨', gradient: 'from-pink-500 to-fuchsia-950' },
-  general: { emoji: '💬', gradient: 'from-gray-500 to-gray-900' },
+const CATEGORY_THUMBS: Record<string, { image: string; gradient: string }> = {
+  Sports: { image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=400&fit=crop', gradient: 'from-purple-600 to-indigo-900' },
+  Geopolitics: { image: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=800&h=400&fit=crop', gradient: 'from-red-700 to-rose-950' },
+  Crypto: { image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop', gradient: 'from-amber-500 to-orange-900' },
+  Finance: { image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=400&fit=crop', gradient: 'from-emerald-600 to-green-950' },
+  Macro: { image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&h=400&fit=crop', gradient: 'from-blue-600 to-slate-900' },
+  Tech: { image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop', gradient: 'from-cyan-500 to-blue-950' },
+  Culture: { image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop', gradient: 'from-pink-500 to-fuchsia-950' },
+  Governance: { image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop', gradient: 'from-teal-500 to-emerald-950' },
+  DeFi: { image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=400&fit=crop', gradient: 'from-orange-500 to-amber-950' },
+  crypto: { image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop', gradient: 'from-amber-500 to-orange-900' },
+  defi: { image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=400&fit=crop', gradient: 'from-orange-500 to-amber-950' },
+  ai: { image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop', gradient: 'from-violet-500 to-purple-950' },
+  governance: { image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop', gradient: 'from-teal-500 to-emerald-950' },
+  culture: { image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop', gradient: 'from-pink-500 to-fuchsia-950' },
+  general: { image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop', gradient: 'from-gray-500 to-gray-900' },
 };
 
 function getCategoryThumb(cat: string) {
-  return CATEGORY_THUMBS[cat] || { emoji: '💬', gradient: 'from-gray-500 to-gray-900' };
+  return CATEGORY_THUMBS[cat] || { image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop', gradient: 'from-gray-500 to-gray-900' };
 }
 
 // ─── Mock Trending Data ─────────────────────────────────────────────────────
 
 const MOCK_TRENDING: TrendingTopic[] = [
-  { id: 't1', title: 'Champions League Winner 2026', category: 'Sports', volume: '$274M', outcomes: [{ label: 'Real Madrid', percent: 32 }, { label: 'Man City', percent: 28 }], hasDebate: true, debateId: 'debate-002', emoji: '🏆' },
-  { id: 't2', title: 'Iran Ceasefire by May?', category: 'Geopolitics', volume: '$98M', outcomes: [{ label: 'Yes', percent: 61 }, { label: 'No', percent: 39 }], hasDebate: false, emoji: '🕊️' },
-  { id: 't3', title: 'Bitcoin above $100K by April?', category: 'Crypto', volume: '$45M', outcomes: [{ label: 'Yes', percent: 44 }, { label: 'No', percent: 56 }], hasDebate: true, debateId: 'debate-003', emoji: '₿' },
-  { id: 't4', title: 'Nvidia Earnings Beat?', category: 'Finance', volume: '$32M', outcomes: [{ label: 'Beat', percent: 72 }, { label: 'Miss', percent: 28 }], hasDebate: false, emoji: '📈' },
-  { id: 't5', title: 'Next US Interest Rate Move', category: 'Macro', volume: '$187M', outcomes: [{ label: 'Cut', percent: 58 }, { label: 'Hold', percent: 42 }], hasDebate: true, debateId: 'debate-001', emoji: '🏛️' },
-  { id: 't6', title: 'ETH/BTC Ratio above 0.05?', category: 'Crypto', volume: '$21M', outcomes: [{ label: 'Yes', percent: 35 }, { label: 'No', percent: 65 }], hasDebate: false, emoji: '⟠' },
-  { id: 't7', title: 'Apple Vision Pro 2 in 2026?', category: 'Tech', volume: '$14M', outcomes: [{ label: 'Yes', percent: 67 }, { label: 'No', percent: 33 }], hasDebate: false, emoji: '🥽' },
-  { id: 't8', title: 'OpenAI IPO before 2027?', category: 'Tech', volume: '$52M', outcomes: [{ label: 'Yes', percent: 41 }, { label: 'No', percent: 59 }], hasDebate: true, debateId: 'debate-004', emoji: '🤖' },
+  { id: 't1', title: 'Champions League Winner 2026', category: 'Sports', volume: '$274M', outcomes: [{ label: 'Real Madrid', percent: 32 }, { label: 'Man City', percent: 28 }], hasDebate: true, debateId: 'debate-002', image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=300&fit=crop' },
+  { id: 't2', title: 'Iran Ceasefire by May?', category: 'Geopolitics', volume: '$98M', outcomes: [{ label: 'Yes', percent: 61 }, { label: 'No', percent: 39 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=600&h=300&fit=crop' },
+  { id: 't3', title: 'Bitcoin above $100K by April?', category: 'Crypto', volume: '$45M', outcomes: [{ label: 'Yes', percent: 44 }, { label: 'No', percent: 56 }], hasDebate: true, debateId: 'debate-003', image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=600&h=300&fit=crop' },
+  { id: 't4', title: 'Nvidia Earnings Beat?', category: 'Finance', volume: '$32M', outcomes: [{ label: 'Beat', percent: 72 }, { label: 'Miss', percent: 28 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=600&h=300&fit=crop' },
+  { id: 't5', title: 'Next US Interest Rate Move', category: 'Macro', volume: '$187M', outcomes: [{ label: 'Cut', percent: 58 }, { label: 'Hold', percent: 42 }], hasDebate: true, debateId: 'debate-001', image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=600&h=300&fit=crop' },
+  { id: 't6', title: 'ETH/BTC Ratio above 0.05?', category: 'Crypto', volume: '$21M', outcomes: [{ label: 'Yes', percent: 35 }, { label: 'No', percent: 65 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=600&h=300&fit=crop' },
+  { id: 't7', title: 'Apple Vision Pro 2 in 2026?', category: 'Tech', volume: '$14M', outcomes: [{ label: 'Yes', percent: 67 }, { label: 'No', percent: 33 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=600&h=300&fit=crop' },
+  { id: 't8', title: 'OpenAI IPO before 2027?', category: 'Tech', volume: '$52M', outcomes: [{ label: 'Yes', percent: 41 }, { label: 'No', percent: 59 }], hasDebate: true, debateId: 'debate-004', image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop' },
 ];
 
 // ─── Category colors ─────────────────────────────────────────────────────────
@@ -229,8 +229,9 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debates && Array.isArray(data.data.debates)) {
-            setDebates(data.data.debates);
+          const debatesList = data.data?.debates ?? data.debates;
+          if (debatesList && Array.isArray(debatesList)) {
+            setDebates(debatesList);
             const open = data.data.debates.find((d: TopicDebateSummary) => d.status === 'open');
             if (open) {
               setActiveDebateId(open.id);
@@ -283,12 +284,11 @@ export default function ArenaPage() {
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debate) {
-            setDebateDetail({
-              debate: data.data.debate,
-              opinions: data.data.opinions ?? [],
-              totalOpinions: data.data.totalOpinions ?? 0,
-            });
+          const debate = data.data?.debate ?? data.debate;
+          if (debate) {
+            const opinions = data.data?.opinions ?? data.opinions ?? [];
+            const totalOpinions = data.data?.totalOpinions ?? data.totalOpinions ?? 0;
+            setDebateDetail({ debate, opinions, totalOpinions });
           }
         }
       } catch {
@@ -315,12 +315,11 @@ export default function ArenaPage() {
         const res = await fetch(`/api/topics/${activeDebateId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.debate) {
-            setDebateDetail({
-              debate: data.data.debate,
-              opinions: data.data.opinions ?? [],
-              totalOpinions: data.data.totalOpinions ?? 0,
-            });
+          const debate = data.data?.debate ?? data.debate;
+          if (debate) {
+            const opinions = data.data?.opinions ?? data.opinions ?? [];
+            const totalOpinions = data.data?.totalOpinions ?? data.totalOpinions ?? 0;
+            setDebateDetail({ debate, opinions, totalOpinions });
           }
         }
       } catch {
@@ -463,9 +462,9 @@ export default function ArenaPage() {
                 const thumb = getCategoryThumb(activeSummary.category);
                 return (
                   <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center">
-                    {/* Large topic emoji */}
-                    <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br ${thumb.gradient} border border-white/10 flex items-center justify-center shadow-2xl shadow-black/50 backdrop-blur-sm`}>
-                      <span className="text-4xl sm:text-6xl drop-shadow-lg">{thumb.emoji}</span>
+                    {/* Large topic image */}
+                    <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br ${thumb.gradient} border border-white/10 overflow-hidden shadow-2xl shadow-black/50`}>
+                      <img src={thumb.image} alt={activeSummary.topic} className="w-full h-full object-cover" />
                     </div>
                     {/* Topic title on canvas */}
                     <div className="mt-3 px-4 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/[0.08] max-w-lg text-center">
@@ -707,9 +706,9 @@ export default function ArenaPage() {
                     }`}
                   >
                     {/* Debate thumbnail */}
-                    <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} flex items-center justify-center overflow-hidden`}>
-                      <span className="text-4xl opacity-70">{thumb.emoji}</span>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
+                      <img src={thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                       {/* Status badge on image */}
                       <div className="absolute top-2 left-2 flex items-center gap-1.5">
                         {isOpen && (
@@ -809,9 +808,9 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
           return (
             <Card key={topic.id} className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
               {/* Thumbnail image */}
-              <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} flex items-center justify-center overflow-hidden`}>
-                <span className="text-5xl opacity-80 drop-shadow-lg">{topic.emoji || thumb.emoji}</span>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
+                <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 {topic.hasDebate && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
                     <PulsingDot />
