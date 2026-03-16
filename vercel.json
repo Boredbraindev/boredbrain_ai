@@ -9,6 +9,10 @@
     {
       "path": "/api/agents/heartbeat",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/topics/participate",
+      "schedule": "*/2 * * * *"
     }
   ]
 }
