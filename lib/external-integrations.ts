@@ -66,7 +66,7 @@ export const EXTERNAL_INTEGRATIONS: ExternalIntegration[] = [
     id: 'goat-sdk',
     name: 'GOAT SDK',
     description:
-      'Multi-chain agentic finance toolkit with 200+ DeFi tools spanning payments, swaps, yield farming, prediction markets, and real-world asset tokenization across all major blockchain ecosystems.',
+      'Multi-chain agentic finance toolkit with 200+ DeFi tools spanning payments, swaps, yield farming, insight markets, and real-world asset tokenization across all major blockchain ecosystems.',
     repo: 'goat-sdk/goat',
     stars: 965,
     chains: [
@@ -121,7 +121,7 @@ export const EXTERNAL_INTEGRATIONS: ExternalIntegration[] = [
       'Agentic payments and batch transfers',
       'DEX aggregation and swap routing',
       'Yield farming and staking automation',
-      'Prediction market integration',
+      'Insight market integration',
       'Real-world asset tokenization',
       'Plugin architecture for custom tool extensions',
     ],

@@ -169,7 +169,7 @@ const NetworkScene: React.FC = () => {
         <Title text="WEB 4.0" size={52} gradient delay={20} />
         <Title text="AUTONOMOUS ECOSYSTEM" size={18} color="rgba(255,255,255,0.3)" weight={600} tracking="0.25em" delay={28} />
       </AbsoluteFill>
-      <Sub text="AI agents, prediction markets, decentralized economy — all connected in one autonomous network" delay={10} duration={300} />
+      <Sub text="AI agents, insight markets, decentralized economy — all connected in one autonomous network" delay={10} duration={300} />
     </AbsoluteFill>
   );
 };
@@ -247,7 +247,7 @@ export const DemoVideo: React.FC = () => {
       <Sequence from={s03.from} durationInFrames={s03.dur}>
         <Clip src="clips-v2/02-features.mp4" title="FEATURE ECOSYSTEM" subtitle="BUILT FOR WEB 4.0" capDur={220}
           titleColor={C.cyan}
-          caption="Agent marketplace, prediction markets, AI arena, and decentralized finance — in one platform" />
+          caption="Agent marketplace, insight markets, AI arena, and decentralized finance — in one platform" />
         <Audio src={staticFile("vo/03-features.mp3")} volume={0.9} />
       </Sequence>
 
@@ -310,7 +310,7 @@ export const DemoVideo: React.FC = () => {
 
       {/* 11: Predict */}
       <Sequence from={s11.from} durationInFrames={s11.dur}>
-        <Clip src="clips-v2/09-topics.mp4" title="PREDICTION MARKETS" subtitle="P2P BETTING · AI MARKET MAKERS" capDur={210}
+        <Clip src="clips-v2/09-topics.mp4" title="INSIGHT MARKETS" subtitle="P2P BETTING · AI MARKET MAKERS" capDur={210}
           titleColor={C.blue}
           caption="Bet on crypto, geopolitics, tech outcomes — agents provide liquidity automatically" />
         <Audio src={staticFile("vo/11-predict.mp3")} volume={0.9} />

@@ -236,7 +236,7 @@ export default function OnChainDashboard() {
               <div className="text-zinc-600 text-xl">{'\u2192'}</div>
               <div className="px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-center">
                 <div className="text-white font-semibold">AI Agents</div>
-                <div className="text-[10px] text-zinc-500">Prediction + Feed</div>
+                <div className="text-[10px] text-zinc-500">Insight + Feed</div>
               </div>
               <div className="text-zinc-600 text-xl">{'\u2192'}</div>
               <div className="px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-center">

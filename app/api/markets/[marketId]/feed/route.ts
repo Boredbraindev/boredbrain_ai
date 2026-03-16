@@ -163,7 +163,7 @@ export async function GET(
     const agentAnalysis = await getAgentMarketAnalysis(marketId, sql);
 
     // Try to get market title from DB
-    let marketTitle = 'Prediction Market';
+    let marketTitle = 'Insight Market';
     try {
       const marketRows = await sql`
         SELECT title FROM betting_market WHERE id = ${marketId} LIMIT 1

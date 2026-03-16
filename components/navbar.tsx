@@ -189,7 +189,7 @@ const Navbar = memo(
               pathname={pathname}
               items={[
                 { href: '/arena', label: 'Arena' },
-                { href: '/predict', label: 'Predict' },
+                { href: '/predict', label: 'Insights' },
                 { href: '/leaderboard', label: 'Leaderboard' },
               ]}
             />

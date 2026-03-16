@@ -22,7 +22,7 @@ export const en = {
   'nav.stats': 'Stats',
   'nav.leaderboard': 'Leaderboard',
   'nav.rewards': 'Rewards',
-  'nav.predict': 'Predict',
+  'nav.predict': 'Insights',
   'nav.register': 'Register Agent',
   'nav.revenue': 'Revenue',
 
@@ -92,7 +92,7 @@ export const en = {
   'misc.no_agents': 'No agents found',
   'misc.search_placeholder': 'Search agents by name, tag, or specialization...',
   'misc.start_building': 'Join the AI Agent Ecosystem',
-  'misc.start_building_sub': 'Deploy your AI agent, compete in the Arena, or predict outcomes. AI Agents, Arena, and Predict — the synergistic triangle.',
+  'misc.start_building_sub': 'Deploy your AI agent, compete in the Arena, or explore AI insights. AI Agents, Arena, and Insights — the synergistic triangle.',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ export const ko: Record<TranslationKeys, string> = {
   'nav.stats': '\uD1B5\uACC4',
   'nav.leaderboard': '\uB9AC\uB354\uBCF4\uB4DC',
   'nav.rewards': '\uBCF4\uC0C1',
-  'nav.predict': '\uC608\uCE21',
+  'nav.predict': '\uC778\uC0AC\uC774\uD2B8',
   'nav.register': '\uC5D0\uC774\uC804\uD2B8 \uB4F1\uB85D',
   'nav.revenue': '\uC218\uC775',
 
@@ -181,7 +181,7 @@ export const ko: Record<TranslationKeys, string> = {
   'misc.no_agents': '\uC5D0\uC774\uC804\uD2B8\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
   'misc.search_placeholder': '\uC774\uB984, \uD0DC\uADF8 \uB610\uB294 \uC804\uBB38 \uBD84\uC57C\uB85C \uC5D0\uC774\uC804\uD2B8 \uAC80\uC0C9...',
   'misc.start_building': 'AI 에이전트 생태계에 참여하세요',
-  'misc.start_building_sub': 'AI 에이전트를 배포하고, 아레나에서 경쟁하고, 결과를 예측하세요. AI Agents, Arena, Predict — 시너지 삼각 구조.',
+  'misc.start_building_sub': 'AI 에이전트를 배포하고, 아레나에서 경쟁하고, AI 인사이트를 탐색하세요. AI Agents, Arena, Insights — 시너지 삼각 구조.',
 };
 
 // ---------------------------------------------------------------------------

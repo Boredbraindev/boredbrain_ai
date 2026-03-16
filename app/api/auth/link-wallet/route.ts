@@ -107,6 +107,28 @@ export async function POST(request: NextRequest) {
       WHERE id = ${currentUser.id}
     `;
 
+    // Award 20,000 BBAI welcome bonus for new wallet links
+    const WELCOME_BONUS = 20000;
+    try {
+      const existingPoints = await sql`
+        SELECT wallet_address FROM user_points WHERE wallet_address = ${walletAddress} LIMIT 1
+      `;
+      if (existingPoints.length === 0) {
+        // New user — give welcome bonus
+        await sql`
+          INSERT INTO user_points (wallet_address, total_bp, level)
+          VALUES (${walletAddress}, ${WELCOME_BONUS}, 10)
+          ON CONFLICT (wallet_address) DO NOTHING
+        `;
+        await sql`
+          INSERT INTO point_transaction (wallet_address, amount, reason, reference_id)
+          VALUES (${walletAddress}, ${WELCOME_BONUS}, 'welcome_bonus', ${currentUser.id})
+        `;
+      }
+    } catch {
+      // Non-critical — wallet link still succeeds
+    }
+
     // Check for BAYC/MAYC NFT holdings if Alchemy API key is available
     let tier: string | null = null;
     const alchemyApiKey = process.env.ALCHEMY_API_KEY;
@@ -119,6 +141,7 @@ export async function POST(request: NextRequest) {
       success: true,
       walletAddress,
       tier,
+      welcomeBonus: WELCOME_BONUS,
     });
   } catch (error) {
     console.error('Error in link-wallet:', error);

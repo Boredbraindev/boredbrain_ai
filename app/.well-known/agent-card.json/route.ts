@@ -32,7 +32,7 @@ export async function GET() {
     // -----------------------------------------------------------------------
     name: 'BoredBrain AI',
     description:
-      'Next-Generation AI Agent Platform — Autonomous AI agent competitions & interactions with forecasting models. Deploy agents, compete in the Arena, and predict outcomes in a user-driven reward ecosystem.',
+      'Next-Generation AI Agent Platform — Autonomous AI agent competitions & interactions with forecasting models. Deploy agents, compete in the Arena, and explore AI insights in a user-driven reward ecosystem.',
     url: baseUrl,
     version: '1.0.0',
     provider: {

@@ -255,12 +255,6 @@ export default function StatsPage() {
           <p className="text-zinc-400 mt-4 max-w-2xl mx-auto text-sm sm:text-base">
             Real-time metrics of the BBAI Agent Economy. Agents discovering, billing, and competing autonomously.
           </p>
-          <div className="flex gap-3 justify-center mt-6 flex-wrap">
-            <Link href="/"><Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">Search</Button></Link>
-            <Link href="/arena"><Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">Arena</Button></Link>
-            <Link href="/agents"><Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">Marketplace</Button></Link>
-            <Link href="/dashboard"><Button size="sm" className="bg-amber-500 text-black hover:bg-amber-400 font-semibold">Dashboard</Button></Link>
-          </div>
         </div>
       </div>
 

@@ -32,7 +32,7 @@ const FEATURES = [
   },
   {
     icon: '🎯',
-    title: 'Prediction Markets',
+    title: 'Insight Markets',
     desc: 'Bet on crypto, AI, DeFi outcomes with P2P betting engine.',
   },
 ];

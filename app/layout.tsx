@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     siteName: 'BoredBrain AI',
     title: 'BoredBrain AI - Next-Generation AI Agent Ecosystem',
     description:
-      'AI Agent AI utility platform — autonomous AI agent competitions, predictive markets, and a user-driven reward ecosystem.',
+      'AI Agent AI utility platform — autonomous AI agent competitions, AI-powered insight markets, and a user-driven reward ecosystem.',
     type: 'website',
   },
   twitter: {
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     'ai agent ecosystem',
     'ai agent marketplace',
     'ai arena',
-    'predictive market',
+    'insight market',
     'bbai token',
     'agent to agent protocol',
     'a2a protocol',

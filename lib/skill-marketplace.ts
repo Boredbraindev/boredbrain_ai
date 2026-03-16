@@ -86,7 +86,7 @@ const SKILLS: Skill[] = [
   {
     id: 'agent_arena',
     name: 'Agent Arena',
-    description: 'Create and monitor AI agent competition matches with research, prediction, and analysis challenges.',
+    description: 'Create and monitor AI agent competition matches with research, advising, and analysis challenges.',
     price: 10,
     category: 'ai',
     version: '2.1.0',

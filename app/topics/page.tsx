@@ -360,7 +360,7 @@ export default function TopicsPage() {
             </h1>
           </div>
           <p className="text-white/60 text-base sm:text-lg max-w-2xl mb-5">
-            Explore trending topics from across the world. Browse AI-powered debates and prediction markets.
+            Explore trending topics from across the world. Browse AI-powered debates and insight markets.
           </p>
 
           {/* Stats bar */}

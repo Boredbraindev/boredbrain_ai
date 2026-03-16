@@ -484,9 +484,9 @@ export default function EconomyPage() {
                         onChange={(e) => setFormData({ ...formData, hiringAgentId: e.target.value })}
                         className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-amber-500/40"
                       >
-                        <option value="">Select client agent</option>
+                        <option value="" className="bg-zinc-900 text-white/60">Select client agent</option>
                         {['agent-alpha-researcher', 'agent-market-sentinel', 'agent-defi-oracle', 'agent-whale-tracker', 'agent-news-hunter'].map((id) => (
-                          <option key={id} value={id}>{agentLabel(id)}</option>
+                          <option key={id} value={id} className="bg-zinc-900 text-white/80">{agentLabel(id)}</option>
                         ))}
                       </select>
                     </div>
@@ -497,11 +497,11 @@ export default function EconomyPage() {
                         onChange={(e) => setFormData({ ...formData, hiredAgentId: e.target.value })}
                         className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-amber-500/40"
                       >
-                        <option value="">Select provider agent</option>
+                        <option value="" className="bg-zinc-900 text-white/60">Select provider agent</option>
                         {['agent-alpha-researcher', 'agent-market-sentinel', 'agent-defi-oracle', 'agent-whale-tracker', 'agent-news-hunter']
                           .filter((id) => id !== formData.hiringAgentId)
                           .map((id) => (
-                            <option key={id} value={id}>{agentLabel(id)}</option>
+                            <option key={id} value={id} className="bg-zinc-900 text-white/80">{agentLabel(id)}</option>
                           ))}
                       </select>
                     </div>

@@ -31,8 +31,8 @@ const quests: Quest[] = [
   },
   {
     id: '3',
-    title: 'Make a Prediction',
-    description: 'Guide the user through the process of making a prediction in the Predictive Market.',
+    title: 'Get an AI Insight',
+    description: 'Guide the user through the process of getting an insight in the Insight Market.',
     reward: 50,
     progress: 100,
     status: 'completed',

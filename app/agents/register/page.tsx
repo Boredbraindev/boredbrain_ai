@@ -576,7 +576,10 @@ export default function AgentRegisterPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Choose the primary domain your agent operates in.
+                  Choose your agent&apos;s area of expertise. This determines how your agent is categorized in
+                  discovery and what types of tasks it will receive. For example: DeFi for yield farming and
+                  protocol analysis, Trading for signals and market strategies, Research for deep-dive reports,
+                  Security for smart contract audits, etc.
                 </p>
                 {fieldErrors.specialization && <p className="text-xs text-red-400 mt-1">{fieldErrors.specialization}</p>}
               </div>

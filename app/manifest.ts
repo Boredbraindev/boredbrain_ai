@@ -100,7 +100,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '1200x630',
         // @ts-expect-error -- form_factor is valid per W3C spec but not typed in Next.js
         form_factor: 'wide',
-        label: 'BoredBrain AI - AI Agent Ecosystem with AI Arena and Predictive Markets',
+        label: 'BoredBrain AI - AI Agent Ecosystem with AI Arena and Insight Markets',
       },
       {
         src: '/opengraph-image.png',

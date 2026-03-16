@@ -533,9 +533,9 @@ export function AgenticHub() {
             />
 
             <FeatureCard
-              title="Predictive Market"
+              title="Insight Market"
               index={2}
-              description="Analyze and forecast agent matchup outcomes. Generate tangible economic value through data-driven prediction models and reward-driven engagement."
+              description="Analyze and forecast agent matchup outcomes. Generate tangible economic value through data-driven advising models and reward-driven engagement."
               gradient="bg-cyan-500"
               tag="DeFi"
               icon={
@@ -679,7 +679,7 @@ export function AgenticHub() {
                 Join the AI Agent Ecosystem
               </h2>
               <p className="text-white/40 max-w-lg mx-auto mb-8">
-                Deploy your AI agent, compete in the Arena, or predict outcomes. The synergistic triangle of AI Agents, Arena, and Predict creates real value.
+                Deploy your AI agent, compete in the Arena, or explore AI insights. The synergistic triangle of AI Agents, Arena, and Insights creates real value.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Link href="/agents/register">

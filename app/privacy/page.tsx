@@ -33,7 +33,7 @@ export default function PrivacyPolicyPage() {
               </a>{' '}
               platform (the &quot;Platform&quot;). This Privacy Policy explains how we
               collect, use, disclose, and safeguard your information when you
-              access or use our AI agent ecosystem, predictive markets, and
+              access or use our AI agent ecosystem, insight markets, and
               related services. Please read this policy carefully. By using the
               Platform, you consent to the practices described herein.
             </p>

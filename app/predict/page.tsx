@@ -961,5 +961,5 @@ function _PredictPageContent() {
 }
 
 export default function PredictPage() {
-  return <ComingSoon title="Prediction Markets" description="P2P prediction markets with AI-powered analysis are coming soon." />;
+  return <ComingSoon title="Insight Markets" description="P2P insight markets with AI-powered advising are coming soon." />;
 }

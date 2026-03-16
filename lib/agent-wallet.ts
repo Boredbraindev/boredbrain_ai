@@ -123,30 +123,74 @@ export async function createAgentWallet(
   dailyLimit: number = 50,
   initialBalance: number = 50,
 ): Promise<AgentWallet> {
-  // Check if wallet already exists
-  const [existing] = await db
-    .select()
-    .from(agentWallet)
-    .where(eq(agentWallet.agentId, agentId));
+  // Use raw SQL to avoid Drizzle schema mismatch if the DB table has
+  // different columns than what the ORM expects (e.g. missing "address").
+  try {
+    // Check if wallet already exists
+    const [existing] = await db
+      .select()
+      .from(agentWallet)
+      .where(eq(agentWallet.agentId, agentId));
 
-  if (existing) return toAgentWallet(existing);
+    if (existing) return toAgentWallet(existing);
+  } catch (err) {
+    // Schema mismatch — try raw SQL fallback
+    console.warn('[agent-wallet] Drizzle select failed, trying raw SQL:', err instanceof Error ? err.message : err);
+    const existingRows = await db.execute(
+      sql`SELECT agent_id, balance, daily_limit, is_active, created_at FROM agent_wallet WHERE agent_id = ${agentId} LIMIT 1`
+    );
+    if (existingRows.rows && existingRows.rows.length > 0) {
+      const r = existingRows.rows[0] as Record<string, any>;
+      return {
+        agentId: r.agent_id,
+        address: generateWalletAddress(agentId),
+        balance: Number(r.balance ?? 0),
+        dailyLimit: Number(r.daily_limit ?? 50),
+        totalSpent: 0,
+        isActive: r.is_active !== false,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      };
+    }
+  }
 
-  const [row] = await db
-    .insert(agentWallet)
-    .values({
+  try {
+    const [row] = await db
+      .insert(agentWallet)
+      .values({
+        agentId,
+        address: generateWalletAddress(agentId),
+        balance: initialBalance,
+        dailyLimit,
+        totalSpent: 0,
+        isActive: true,
+      })
+      .returning();
+
+    // Record the initial credit
+    await recordTransaction(agentId, initialBalance, 'credit', 'Initial wallet funding', initialBalance);
+
+    return toAgentWallet(row);
+  } catch (insertErr) {
+    // Drizzle insert failed — try raw SQL insert (table may lack some columns)
+    console.warn('[agent-wallet] Drizzle insert failed, trying raw SQL:', insertErr instanceof Error ? insertErr.message : insertErr);
+    const walletAddress = generateWalletAddress(agentId);
+    const id = `wallet-${agentId}-${Date.now()}`;
+    await db.execute(
+      sql`INSERT INTO agent_wallet (id, agent_id, balance, daily_limit, is_active, created_at)
+          VALUES (${id}, ${agentId}, ${initialBalance}, ${dailyLimit}, true, NOW())
+          ON CONFLICT (agent_id) DO NOTHING`
+    );
+
+    return {
       agentId,
-      address: generateWalletAddress(agentId),
+      address: walletAddress,
       balance: initialBalance,
       dailyLimit,
       totalSpent: 0,
       isActive: true,
-    })
-    .returning();
-
-  // Record the initial credit
-  await recordTransaction(agentId, initialBalance, 'credit', 'Initial wallet funding', initialBalance);
-
-  return toAgentWallet(row);
+      createdAt: new Date().toISOString(),
+    };
+  }
 }
 
 /**

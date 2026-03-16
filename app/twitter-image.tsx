@@ -112,7 +112,7 @@ export default async function Image() {
           <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>{'\u00B7'}</span>
           <span style={{ color: '#f59e0b' }}>Arena</span>
           <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>{'\u00B7'}</span>
-          <span style={{ color: '#f59e0b' }}>Predict</span>
+          <span style={{ color: '#f59e0b' }}>Insights</span>
         </div>
       </div>
     ),

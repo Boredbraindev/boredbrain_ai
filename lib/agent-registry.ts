@@ -304,8 +304,16 @@ export async function registerAgent(data: RegisterAgentInput): Promise<Registere
     })
     .returning();
 
-  // Create an agent wallet automatically
-  await createAgentWallet(id);
+  // Create an agent wallet automatically — fail gracefully so registration
+  // still succeeds even if the agent_wallet table schema is out of sync.
+  try {
+    await createAgentWallet(id);
+  } catch (walletErr) {
+    console.warn(
+      `[agent-registry] Failed to create wallet for agent ${id}, registration will proceed without wallet:`,
+      walletErr instanceof Error ? walletErr.message : walletErr,
+    );
+  }
 
   return toRegisteredAgent(row);
 }

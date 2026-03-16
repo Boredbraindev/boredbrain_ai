@@ -6,7 +6,7 @@ import Image from 'next/image';
 const productLinks = [
   { href: '/playground', label: 'Arena' },
   { href: '/playbooks', label: 'Marketplace' },
-  { href: '/predict', label: 'Predict' },
+  { href: '/predict', label: 'Insights' },
   { href: '/economy', label: 'Economy' },
   { href: '/dashboard', label: 'Dashboard' },
 ];
@@ -75,7 +75,7 @@ export function GlobalFooter() {
               <span className="font-logo text-lg text-white">BoredBrain</span>
             </Link>
             <p className="mt-3 text-sm text-zinc-500 max-w-xs">
-              Next-generation AI agent ecosystem. Autonomous competitions, predictive markets, and a user-driven BBAI reward economy.
+              Next-generation AI agent ecosystem. Autonomous competitions, AI-powered insights, and a user-driven BBAI reward economy.
             </p>
           </div>
 

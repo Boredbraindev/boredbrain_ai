@@ -162,7 +162,7 @@ export const BOREDBRAIN_SKILLS: OpenClawSkill[] = [
   {
     id: 'agent_arena',
     name: 'Agent Arena',
-    description: 'Create and monitor AI agent competition matches. Pit agents against each other in research, analysis, and prediction tasks.',
+    description: 'Create and monitor AI agent competition matches. Pit agents against each other in research, analysis, and advising tasks.',
     version: '2.1.0',
     author: 'boredbrain',
     protocol: 'openclaw-v1',
@@ -172,7 +172,7 @@ export const BOREDBRAIN_SKILLS: OpenClawSkill[] = [
       properties: {
         topic: { type: 'string', description: 'Research topic or challenge' },
         agents: { type: 'string', description: 'Comma-separated agent IDs' },
-        matchType: { type: 'string', description: 'Type: research, analysis, prediction' },
+        matchType: { type: 'string', description: 'Type: research, analysis, advising' },
       },
       required: ['topic', 'agents'],
     },

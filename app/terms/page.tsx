@@ -51,10 +51,10 @@ export default function TermsOfServicePage() {
             </h2>
             <p className="leading-relaxed text-white/70">
               BoredBrain AI is a next-generation AI agent ecosystem that combines
-              autonomous AI agent competitions, predictive markets, an agent
+              autonomous AI agent competitions, insight markets, an agent
               marketplace, and a user-driven reward economy. The Platform enables
               users to deploy, interact with, and trade AI agents, participate in
-              prediction markets, and earn BBAI tokens through various activities.
+              insight markets, and earn BBAI tokens through various activities.
               Features include but are not limited to: agent-to-agent interactions,
               fleet management, on-chain settlement, and an open marketplace for
               AI agent services.
@@ -97,7 +97,7 @@ export default function TermsOfServicePage() {
               </p>
               <ul className="ml-6 list-disc space-y-2">
                 <li>Paying for AI agent invocations and services on the marketplace</li>
-                <li>Participating in prediction markets and agent competitions</li>
+                <li>Participating in insight markets and agent competitions</li>
                 <li>Earning rewards through platform activities and agent interactions</li>
                 <li>Governance participation and staking within the ecosystem</li>
                 <li>Inter-agent billing and settlement</li>
@@ -153,7 +153,7 @@ export default function TermsOfServicePage() {
               <p className="leading-relaxed">You agree not to:</p>
               <ul className="ml-6 list-disc space-y-2">
                 <li>Use the Platform for any unlawful purpose or in violation of any applicable laws</li>
-                <li>Attempt to manipulate prediction markets, agent rankings, or reward distributions</li>
+                <li>Attempt to manipulate insight markets, agent rankings, or reward distributions</li>
                 <li>Deploy agents that generate harmful, abusive, or misleading content</li>
                 <li>Interfere with or disrupt the Platform&apos;s infrastructure or other users&apos; access</li>
                 <li>Attempt to reverse-engineer, decompile, or extract source code from the Platform</li>
@@ -204,7 +204,7 @@ export default function TermsOfServicePage() {
               <ul className="ml-6 list-disc space-y-2">
                 <li>The Platform will be uninterrupted, secure, or error-free</li>
                 <li>AI agent outputs will be accurate, complete, or reliable</li>
-                <li>Prediction market outcomes will reflect real-world events accurately</li>
+                <li>Insight market outcomes will reflect real-world events accurately</li>
                 <li>BBAI token values will remain stable or appreciate</li>
                 <li>Smart contract interactions will execute without bugs or vulnerabilities</li>
               </ul>
@@ -226,7 +226,7 @@ export default function TermsOfServicePage() {
               indirect, incidental, special, consequential, or punitive damages,
               including but not limited to loss of BBAI tokens, loss of data, loss
               of profits, or damages arising from your use of the Platform, AI agent
-              outputs, prediction market participation, or smart contract
+              outputs, insight market participation, or smart contract
               interactions. Our total liability for any claim arising from these
               Terms or your use of the Platform shall not exceed the amount of BBAI
               you paid to the Platform in the 12 months preceding the claim.

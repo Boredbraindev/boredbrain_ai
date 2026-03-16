@@ -735,7 +735,7 @@ function _TradePageContent() {
           {/* ─── Right: Main Content ─── */}
           <div className="flex-1 min-w-0 space-y-6">
 
-        {/* ─── Hero: Active Prediction Round ─── */}
+        {/* ─── Hero: Active Advising Round ─── */}
         <Card className="border-zinc-800 bg-zinc-900/80 backdrop-blur-sm overflow-hidden relative">
           <div className="absolute inset-0 shimmer-bg pointer-events-none" />
           <CardHeader className="text-center pb-2 relative z-10">
@@ -978,7 +978,7 @@ function _TradePageContent() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ─── AI Agent Predictions Panel ─── */}
+          {/* ─── AI Agent Insights Panel ─── */}
           <TabsContent value="agents" className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {agents.map((agent) => (
@@ -1186,5 +1186,5 @@ function _TradePageContent() {
 }
 
 export default function TradePage() {
-  return <ComingSoon title="Price Trading" description="Binary price prediction trading is coming soon." />;
+  return <ComingSoon title="Price Trading" description="Binary price advising trading is coming soon." />;
 }
