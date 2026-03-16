@@ -172,7 +172,7 @@ export default function AdminPage() {
     setLoading(true);
 
     const [agentsRes, usersRes, topicsRes, economyRes, logsRes, healthRes] = await Promise.allSettled([
-      fetch('/api/agents/discover?limit=100'),
+      fetch('/api/agents/discover?limit=200'),
       fetch('/api/points/topup?leaderboard=1').catch(() => fetch('/api/leaderboard?limit=50')),
       fetch('/api/topics?type=debates&limit=30'),
       fetch('/api/economy/stats'),

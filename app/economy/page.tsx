@@ -167,14 +167,82 @@ export default function EconomyPage() {
 
       if (econRes.ok) {
         const econJson = await econRes.json();
-        setData(econJson);
+        // API wraps under { success, data: { stats, topEarners, recentTransactions } }
+        const payload = econJson?.data ?? econJson;
+        const parsed: EconomyData = {
+          stats: payload?.stats ?? FALLBACK_DATA.stats,
+          topEarners: (payload?.topEarners ?? []).map((e: any) => ({
+            agentId: e.agentId ?? e.agentName ?? '',
+            balance: Number(e.balance ?? 0),
+            totalEarned: Number(e.totalEarned ?? 0),
+            totalSpent: Number(e.totalSpent ?? 0),
+            dividendsPaid: Number(e.dividendsPaid ?? 0),
+            ownerAddress: e.ownerAddress ?? null,
+            transactions: e.transactions ?? [],
+          })),
+          recentTransactions: (payload?.recentTransactions ?? []).map((tx: any) => ({
+            id: tx.id ?? '',
+            type: tx.type ?? 'earning',
+            amount: Number(tx.amount ?? 0),
+            currency: 'BBAI' as const,
+            fromAgentId: tx.fromAgentId ?? tx.wallet ?? null,
+            toAgentId: tx.toAgentId ?? null,
+            description: tx.description ?? tx.action ?? `${tx.type}`,
+            timestamp: tx.timestamp ?? tx.created_at ?? new Date().toISOString(),
+          })),
+        };
+
+        // If wallet-based stats are all zeros, try to enrich from agent fleet stats
+        if (parsed.stats.totalVolume === 0 && parsed.stats.totalAgents === 0) {
+          try {
+            const fallbackRes = await fetch('/api/economy/stats');
+            if (fallbackRes.ok) {
+              const fbJson = await fallbackRes.json();
+              const fb = fbJson?.data ?? fbJson;
+              parsed.stats = {
+                totalVolume: Number(fb.volume ?? fb.totalVolume ?? 0),
+                activeContracts: Number(fb.activeWallets ?? 0),
+                completedContracts: Number(fb.totalTransactions ?? 0),
+                totalContracts: Number(fb.totalTransactions ?? 0),
+                totalDividends: Number(fb.platformFees ?? 0),
+                avgRevenuePerAgent: Number(fb.agentPayouts ?? 0) / Math.max(Number(fb.activeWallets ?? 1), 1),
+                totalAgents: Number(fb.activeWallets ?? 0),
+              };
+              if (fb.topEarners?.length && parsed.topEarners.length === 0) {
+                parsed.topEarners = fb.topEarners.map((e: any) => ({
+                  agentId: e.name ?? '',
+                  balance: Number(e.totalEarned ?? 0),
+                  totalEarned: Number(e.totalEarned ?? 0),
+                  totalSpent: 0,
+                  dividendsPaid: 0,
+                  ownerAddress: null,
+                  transactions: [],
+                }));
+              }
+            }
+          } catch { /* ignore fallback failure */ }
+        }
+
+        // If still empty, try to get basic counts from discover endpoint
+        if (parsed.stats.totalAgents === 0) {
+          try {
+            const discoverRes = await fetch('/api/agents/discover?limit=1');
+            if (discoverRes.ok) {
+              const discoverJson = await discoverRes.json();
+              parsed.stats.totalAgents = discoverJson.totalAgents ?? 0;
+            }
+          } catch { /* ignore */ }
+        }
+
+        setData(parsed);
       } else {
         setData(FALLBACK_DATA);
       }
 
       if (a2aRes.ok) {
-        const a2aJson: A2AData = await a2aRes.json();
-        setContracts(a2aJson.contracts ?? []);
+        const a2aJson = await a2aRes.json();
+        const a2aPayload = a2aJson?.data ?? a2aJson;
+        setContracts(a2aPayload?.contracts ?? []);
       } else {
         setContracts(FALLBACK_CONTRACTS);
       }
@@ -185,8 +253,8 @@ export default function EconomyPage() {
         agentIds.map((id) => fetch(`/api/economy/${id}`).then((r) => r.ok ? r.json() : null).catch(() => null)),
       );
       const shares: RevenueShare[] = rsResults
-        .filter((r) => r?.revenueShare)
-        .map((r) => r.revenueShare);
+        .filter((r) => r?.revenueShare ?? r?.data?.revenueShare)
+        .map((r) => r?.revenueShare ?? r?.data?.revenueShare);
       setRevenueShares(shares);
     } catch {
       setData(FALLBACK_DATA);

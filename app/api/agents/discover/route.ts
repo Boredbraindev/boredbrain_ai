@@ -17,7 +17,7 @@ import { neon } from '@neondatabase/serverless';
  *   ?specialization=defi   - Filter by agent specialization
  *   ?tool=web_search        - Filter by tool availability
  *   ?status=online          - Filter by status (default: all)
- *   ?limit=50               - Max results (default: 50, max: 500)
+ *   ?limit=200              - Max results (default: 200, max: 500)
  *   ?offset=0               - Pagination offset
  */
 
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     | 'offline'
     | null;
   const limit = Math.min(
-    Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1),
+    Math.max(parseInt(searchParams.get('limit') || '200', 10) || 200, 1),
     500,
   );
   const offset = Math.max(

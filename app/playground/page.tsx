@@ -683,6 +683,14 @@ export default function PlaygroundPage() {
     const sampleTask = pickRandom(SAMPLE_TASKS);
     setTaskInput(sampleTask);
 
+    // Switch to results tab and scroll into view
+    setActiveTab('results');
+    setTimeout(() => {
+      const resultsSection = document.getElementById('results-section');
+      if (resultsSection) resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+
+    toast.success('Quick Demo started! Watch agents respond below.');
     runTask(sampleTask, newAgentIds, true, newAgents);
   }, [runTask]);
 
@@ -1117,7 +1125,7 @@ export default function PlaygroundPage() {
 
           {/* ---- Results Panel ---- */}
           {activeTab === 'results' && (
-            <div>
+            <div id="results-section">
               {results.length === 0 ? (
                 <Card className="bg-white/[0.02] backdrop-blur-xl border-white/[0.06]">
                   <CardContent className="p-12 text-center">

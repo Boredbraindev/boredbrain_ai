@@ -68,6 +68,43 @@ export async function GET(_request: NextRequest) {
       }));
     } catch { /* */ }
 
+    // Fallback: if no wallet data, pull top earners from external_agent table
+    if (topEarners.length === 0) {
+      try {
+        const rows = await sql`
+          SELECT id, name, specialization, total_earned, total_calls, rating
+          FROM external_agent
+          WHERE total_earned > 0
+          ORDER BY total_earned DESC
+          LIMIT 10
+        `;
+        topEarners = rows.map((a: any) => ({
+          agentId: a.id,
+          agentName: a.name ?? 'Unknown',
+          specialization: a.specialization ?? 'general',
+          balance: Number(a.total_earned ?? 0),
+          totalEarned: Number(a.total_earned ?? 0),
+          totalSpent: 0,
+        }));
+      } catch { /* */ }
+    }
+
+    // If wallet stats are empty, enrich from external_agent
+    if (Number(walletStats.total_agents) === 0) {
+      try {
+        const agentRows = await sql`
+          SELECT count(*) as cnt,
+                 coalesce(sum(total_earned), 0) as total_earned
+          FROM external_agent
+          WHERE status IN ('active', 'verified')
+        `;
+        if (agentRows[0]) {
+          walletStats.total_agents = Number(agentRows[0].cnt ?? 0);
+          walletStats.total_volume = Number(agentRows[0].total_earned ?? 0);
+        }
+      } catch { /* */ }
+    }
+
     // Recent transactions from point_transaction (exists from BP system)
     let recentTxs: any[] = [];
     try {

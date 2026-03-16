@@ -197,7 +197,7 @@ export default function StatsPage() {
         // Earnings leaderboard
         if (leaderboardRes.status === 'fulfilled' && leaderboardRes.value.ok) {
           const data = await leaderboardRes.value.json();
-          setEarningsLeaders(data?.data?.agents?.slice(0, 10) ?? []);
+          setEarningsLeaders((data?.agents ?? data?.data?.agents ?? []).slice(0, 10));
         }
       } catch (error) {
         console.error('[stats] fetch error:', error);

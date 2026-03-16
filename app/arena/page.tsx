@@ -240,8 +240,8 @@ export default function ArenaPage() {
       setLoading(true);
       try {
         const [debatesRes, topicsRes] = await Promise.allSettled([
-          fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(5000) }),
-          fetch('/api/topics', { signal: AbortSignal.timeout(3000) }),
+          fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(15000) }),
+          fetch('/api/topics', { signal: AbortSignal.timeout(10000) }),
         ]);
 
         // Process debates
@@ -975,7 +975,8 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
         {trending.slice(0, 8).map((topic) => {
           const thumb = getCategoryThumb(topic.category);
           return (
-            <Card key={topic.id} className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
+            <Link key={topic.id} href={topic.hasDebate && topic.debateId ? `/arena` : `/topics`}>
+            <Card className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
               {/* Thumbnail image */}
               <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
                 <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" />
@@ -1024,6 +1025,7 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           );
         })}
       </div>
