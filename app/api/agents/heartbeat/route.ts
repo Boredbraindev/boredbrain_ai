@@ -290,7 +290,21 @@ export async function GET(request: NextRequest) {
     // 3. Rebalance low-balance wallets
     // ------------------------------------------------------------------
     try {
-      const candidates = await getRebalanceCandidates();
+      // Use raw SQL to avoid Drizzle schema mismatch with agent_wallet
+      let candidates: Array<{ agentId: string; name: string; balance: number }> = [];
+      try {
+        const rows = await sql`
+          SELECT w.agent_id as "agentId", COALESCE(a.name, w.agent_id) as name, w.balance
+          FROM agent_wallet w
+          LEFT JOIN external_agent a ON a.id = w.agent_id
+          WHERE w.balance < 20
+          ORDER BY w.balance ASC
+          LIMIT 20
+        `;
+        candidates = rows as any;
+      } catch {
+        // agent_wallet table might have schema issues — skip rebalance silently
+      }
       const maxRebalances = Math.min(candidates.length, 10);
 
       for (let i = 0; i < maxRebalances; i++) {
