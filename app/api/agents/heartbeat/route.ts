@@ -509,18 +509,21 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Auto-participate
-      try {
-        const participateRes = await fetch(`${baseUrl}/api/topics/participate`, {
-          method: 'POST',
-          headers: secret ? { Authorization: `Bearer ${secret}` } : {},
-        });
-        if (participateRes.ok) {
-          const pData = await participateRes.json();
-          if (pData.participated) topicDebateParticipations = 1;
+      // Auto-participate — call multiple times to build up opinions quickly
+      const participateCount = 3 + Math.floor(Math.random() * 3); // 3-5 agents per cycle
+      for (let i = 0; i < participateCount; i++) {
+        try {
+          const participateRes = await fetch(`${baseUrl}/api/topics/participate`, {
+            method: 'POST',
+            headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+          });
+          if (participateRes.ok) {
+            const pData = await participateRes.json();
+            if (pData.participated) topicDebateParticipations++;
+          }
+        } catch {
+          // Non-critical — continue with next agent
         }
-      } catch {
-        // Non-critical
       }
 
       // Auto-close expired debates and score them

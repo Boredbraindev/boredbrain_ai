@@ -138,6 +138,30 @@ function getProviders(): LLMProvider[] {
     });
   }
 
+  // OpenAI (GPT-4o-mini for cost efficiency)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey && openaiKey !== 'dummy') {
+    providers.push({
+      tag: 'GPT',
+      modelApi: 'gpt-4o-mini',
+      generate: async (sys, usr) => {
+        const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
+            max_tokens: 200,
+            temperature: 1.0,
+          }),
+        }, 8000);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.choices?.[0]?.message?.content?.trim() || null;
+      },
+    });
+  }
+
   const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (geminiKey && geminiKey !== 'dummy') {
     providers.push({
