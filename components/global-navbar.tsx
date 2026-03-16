@@ -102,7 +102,6 @@ const NAV_GROUPS = [
     label: 'Agents',
     items: [
       { href: '/agents', label: 'Agents' },
-      { href: '/marketplace', label: 'Marketplace' },
       { href: '/agents/register', label: 'Register' },
       { href: '/playground', label: 'Playground', status: 'beta' as const },
     ],

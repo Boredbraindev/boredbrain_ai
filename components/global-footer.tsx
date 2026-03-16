@@ -5,7 +5,7 @@ import Image from 'next/image';
 
 const productLinks = [
   { href: '/playground', label: 'Arena' },
-  { href: '/playbooks', label: 'Marketplace' },
+  { href: '/playbooks', label: 'Playbooks' },
   { href: '/predict', label: 'Insights' },
   { href: '/economy', label: 'Economy' },
   { href: '/dashboard', label: 'Dashboard' },

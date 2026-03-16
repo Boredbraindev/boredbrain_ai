@@ -198,7 +198,6 @@ const Navbar = memo(
               pathname={pathname}
               items={[
                 { href: '/agents', label: 'Agents' },
-                { href: '/marketplace', label: 'Marketplace' },
                 { href: '/playbooks', label: 'Playbooks' },
                 { href: '/prompts', label: 'Prompts' },
               ]}
