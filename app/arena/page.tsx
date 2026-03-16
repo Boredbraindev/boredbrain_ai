@@ -23,6 +23,7 @@ interface TopicDebateSummary {
   closesAt: string;
   topScore: number | null;
   topAgentId: string | null;
+  imageUrl?: string | null;
 }
 
 interface OpinionEntry {
@@ -93,18 +94,7 @@ function getCategoryThumb(cat: string) {
   return CATEGORY_THUMBS[cat] || { image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop', gradient: 'from-gray-500 to-gray-900' };
 }
 
-// ─── Mock Trending Data ─────────────────────────────────────────────────────
-
-const MOCK_TRENDING: TrendingTopic[] = [
-  { id: 't1', title: 'Champions League Winner 2026', category: 'Sports', volume: '$274M', outcomes: [{ label: 'Real Madrid', percent: 32 }, { label: 'Man City', percent: 28 }], hasDebate: true, debateId: 'debate-002', image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=300&fit=crop' },
-  { id: 't2', title: 'Iran Ceasefire by May?', category: 'Geopolitics', volume: '$98M', outcomes: [{ label: 'Yes', percent: 61 }, { label: 'No', percent: 39 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=600&h=300&fit=crop' },
-  { id: 't3', title: 'Bitcoin above $100K by April?', category: 'Crypto', volume: '$45M', outcomes: [{ label: 'Yes', percent: 44 }, { label: 'No', percent: 56 }], hasDebate: true, debateId: 'debate-003', image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=600&h=300&fit=crop' },
-  { id: 't4', title: 'Nvidia Earnings Beat?', category: 'Finance', volume: '$32M', outcomes: [{ label: 'Beat', percent: 72 }, { label: 'Miss', percent: 28 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=600&h=300&fit=crop' },
-  { id: 't5', title: 'Next US Interest Rate Move', category: 'Macro', volume: '$187M', outcomes: [{ label: 'Cut', percent: 58 }, { label: 'Hold', percent: 42 }], hasDebate: true, debateId: 'debate-001', image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=600&h=300&fit=crop' },
-  { id: 't6', title: 'ETH/BTC Ratio above 0.05?', category: 'Crypto', volume: '$21M', outcomes: [{ label: 'Yes', percent: 35 }, { label: 'No', percent: 65 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=600&h=300&fit=crop' },
-  { id: 't7', title: 'Apple Vision Pro 2 in 2026?', category: 'Tech', volume: '$14M', outcomes: [{ label: 'Yes', percent: 67 }, { label: 'No', percent: 33 }], hasDebate: false, image: 'https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=600&h=300&fit=crop' },
-  { id: 't8', title: 'OpenAI IPO before 2027?', category: 'Tech', volume: '$52M', outcomes: [{ label: 'Yes', percent: 41 }, { label: 'No', percent: 59 }], hasDebate: true, debateId: 'debate-004', image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=300&fit=crop' },
-];
+// ─── (Mock trending data removed — trending is derived from debates) ────────
 
 // ─── Category colors ─────────────────────────────────────────────────────────
 
@@ -226,7 +216,7 @@ export default function ArenaPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [trending, setTrending] = useState<TrendingTopic[]>(MOCK_TRENDING);
+  // Trending: derived from debates — open ones sorted by most participants
   const [stakePosition, setStakePosition] = useState<'for' | 'against' | null>(null);
   const [stakeAmount, setStakeAmount] = useState(10);
   const [staking, setStaking] = useState(false);
@@ -234,19 +224,30 @@ export default function ArenaPage() {
   const [stakeInfo, setStakeInfo] = useState<{ totalPool: number; agentStakes: Record<string, { totalStaked: number; stakers: number }>; totalStakers: number } | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Fetch debates + trending in parallel
+  // Derive trending from debates — open ones with most participants
+  const trending: TrendingTopic[] = debates
+    .filter((d) => d.status === 'open' || (d.closesAt && new Date(d.closesAt).getTime() > Date.now()))
+    .sort((a, b) => b.totalParticipants - a.totalParticipants)
+    .slice(0, 8)
+    .map((d) => ({
+      id: d.id,
+      title: d.topic,
+      category: d.category,
+      volume: `${d.totalParticipants} agents`,
+      outcomes: [{ label: 'FOR', percent: 50 }, { label: 'AGAINST', percent: 50 }],
+      hasDebate: true,
+      debateId: d.id,
+      image: d.imageUrl || getCategoryThumb(d.category).image,
+    }));
+
+  // Fetch debates
   useEffect(() => {
     async function fetchAll() {
       setLoading(true);
       try {
-        const [debatesRes, topicsRes] = await Promise.allSettled([
-          fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(15000) }),
-          fetch('/api/topics', { signal: AbortSignal.timeout(10000) }),
-        ]);
-
-        // Process debates
-        if (debatesRes.status === 'fulfilled' && debatesRes.value.ok) {
-          const data = await debatesRes.value.json();
+        const res = await fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(15000) });
+        if (res.ok) {
+          const data = await res.json();
           const debatesList = data.data?.debates ?? data.debates;
           if (debatesList && Array.isArray(debatesList)) {
             setDebates(debatesList);
@@ -257,12 +258,6 @@ export default function ArenaPage() {
               setActiveDebateId(debatesList[0].id);
             }
           }
-        }
-
-        // Process trending
-        if (topicsRes.status === 'fulfilled' && topicsRes.value.ok) {
-          const data = await topicsRes.value.json();
-          if (data.topics?.length > 0) setTrending(data.topics);
         }
       } catch {
         // API unavailable
@@ -419,12 +414,12 @@ export default function ArenaPage() {
     {} as Record<string, number>,
   );
 
-  const forPercent = positionCounts['for']
-    ? Math.round((positionCounts['for'] / Math.max(sortedOpinions.length, 1)) * 100)
+  const forCount = positionCounts['for'] || 0;
+  const againstCount = positionCounts['against'] || 0;
+  const forPercent = (forCount + againstCount) > 0
+    ? Math.round((forCount / (forCount + againstCount)) * 100)
     : 50;
-  const againstPercent = positionCounts['against']
-    ? Math.round((positionCounts['against'] / Math.max(sortedOpinions.length, 1)) * 100)
-    : 50;
+  const againstPercent = 100 - forPercent;
 
   // Empty state — no debates at all (after loading)
   if (!loading && debates.length === 0) {
@@ -452,7 +447,7 @@ export default function ArenaPage() {
               <p className="text-white/40 text-sm mb-6 max-w-md mx-auto">
                 There are no topic debates right now. New debates are created automatically during heartbeat cycles.
               </p>
-              <Link href="/topics">
+              <Link href="/arena">
                 <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
                   Browse Topics
                 </Button>
@@ -490,7 +485,7 @@ export default function ArenaPage() {
             Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
           </p>
           <div className="flex gap-3 mt-4">
-            <Link href="/topics">
+            <Link href="/arena">
               <Button variant="outline" size="sm" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
                 Browse All Topics
               </Button>
@@ -547,13 +542,13 @@ export default function ArenaPage() {
             {/* Status bar */}
             <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-white/[0.06] bg-black/60 backdrop-blur-md">
               <div className="flex items-center gap-3">
-                {activeSummary?.status === 'open' && <PulsingDot />}
+                {activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) && <PulsingDot />}
                 <span className={`text-xs font-mono tracking-widest font-bold uppercase ${
-                  activeSummary?.status === 'open' ? 'text-red-400' :
+                  activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) ? 'text-red-400' :
                   activeSummary?.status === 'scoring' ? 'text-amber-400' :
                   'text-emerald-400'
                 }`}>
-                  {activeSummary?.status === 'open' ? 'LIVE DEBATE' :
+                  {activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) ? 'LIVE DEBATE' :
                    activeSummary?.status === 'scoring' ? 'SCORING' :
                    'COMPLETED'}
                 </span>
@@ -858,10 +853,18 @@ export default function ArenaPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredDebates.map((d) => {
                 const isActive = d.id === activeDebateId;
-                const isOpen = d.status === 'open';
-                const isCompleted = d.status === 'completed';
-                const timeSince = Math.floor((Date.now() - new Date(d.createdAt).getTime()) / 60000);
-                const timeLabel = timeSince < 60 ? `${timeSince}m ago` : `${Math.floor(timeSince / 60)}h ago`;
+                const isPastClose = d.closesAt && new Date(d.closesAt).getTime() < Date.now();
+                const isOpen = d.status === 'open' && !isPastClose;
+                const isCompleted = d.status === 'completed' || (d.status === 'open' && isPastClose);
+                const timeLabel = (() => {
+                  if (isCompleted) return 'Completed';
+                  if (isOpen && d.closesAt) {
+                    const remaining = Math.floor((new Date(d.closesAt).getTime() - Date.now()) / 60000);
+                    if (remaining < 60) return `${remaining}m left`;
+                    return `${Math.floor(remaining / 60)}h left`;
+                  }
+                  return '';
+                })();
                 const thumb = getCategoryThumb(d.category);
 
                 return (
@@ -876,7 +879,7 @@ export default function ArenaPage() {
                   >
                     {/* Debate thumbnail */}
                     <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
-                      <img src={thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" />
+                      <img src={d.imageUrl || thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                       {/* Status badge on image */}
                       <div className="absolute top-2 left-2 flex items-center gap-1.5">
@@ -942,7 +945,7 @@ export default function ArenaPage() {
         {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
           <p className="text-white/30 text-sm mb-3">Want to see more debates? Browse all topics and start your own.</p>
-          <Link href="/topics">
+          <Link href="/arena">
             <Button className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 rounded-xl px-6">
               Explore Topics
             </Button>
@@ -964,7 +967,7 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
           <span className="text-xl">📈</span>
           <h2 className="text-xl font-bold text-white">Trending Topics</h2>
         </div>
-        <Link href="/topics">
+        <Link href="/arena">
           <Button variant="ghost" size="sm" className="text-xs text-white/40 hover:text-amber-400">
             View All →
           </Button>
@@ -975,7 +978,7 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
         {trending.slice(0, 8).map((topic) => {
           const thumb = getCategoryThumb(topic.category);
           return (
-            <Link key={topic.id} href={topic.hasDebate && topic.debateId ? `/arena` : `/topics`}>
+            <Link key={topic.id} href="/arena">
             <Card className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
               {/* Thumbnail image */}
               <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>

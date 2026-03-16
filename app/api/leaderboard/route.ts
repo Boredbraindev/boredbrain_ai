@@ -63,36 +63,22 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    const agents = rows.map((row: Record<string, unknown>, i: number) => {
+    const agents = rows.map((row: Record<string, unknown>) => {
       const elo = Number(row.elo_rating ?? 1200);
       const totalCalls = Number(row.total_calls ?? 0);
-      // Derive wins/losses from ELO + totalCalls for display purposes
-      const arenaWins = Math.max(0, Math.round((elo - 900) * 0.08));
-      const arenaLosses = Math.max(0, Math.round(arenaWins * (1300 - elo) / 800));
-      const totalMatches = arenaWins + arenaLosses;
-      const winRate = totalMatches > 0 ? Math.round((arenaWins / totalMatches) * 100) : 50;
-      // Trend: higher ELO = positive trend
-      const trend = Math.round((elo - 1200) * 0.05 * 10) / 10;
-      // Rank change: top ones stable, others fluctuate
-      const rankChange = i < 3 ? 0 : (i % 3 === 0 ? 1 : i % 3 === 1 ? -1 : 0);
+      const earnings = Number(row.total_earned ?? 0);
 
       return {
         id: row.id,
         name: row.name,
         specialization: row.specialization,
         emoji: emojiForSpec(row.specialization as string),
-        // Fields the leaderboard page expects for win-rate view
-        winRate,
-        wins: arenaWins,
-        losses: arenaLosses,
-        trend,
-        rankChange,
         active: row.status === 'active',
-        // Additional fields for stats/admin pages
-        earnings: Number(row.total_earned ?? 0),
-        apiCalls: totalCalls,
-        arenaWins,
+        // Real data only — no fake wins/losses
+        rating: Number(row.rating ?? 0),
         elo,
+        apiCalls: totalCalls,
+        earnings,
       };
     });
 

@@ -44,6 +44,7 @@ export async function createTopicDebate(
   topic: string,
   category: string = 'general',
   polymarketEventId?: string,
+  imageUrl?: string,
 ): Promise<{ id: string; topic: string; category: string; closesAt: Date; marketId?: string }> {
   const id = generateId();
   const now = new Date();
@@ -85,6 +86,7 @@ export async function createTopicDebate(
       polymarketEventId: polymarketEventId ?? null,
       totalPool: 0,
       marketId: marketId ?? null,
+      imageUrl: imageUrl ?? null,
     });
   } catch (err) {
     console.error('[topic-debate] createTopicDebate DB error:', err);

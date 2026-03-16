@@ -94,7 +94,6 @@ const NAV_GROUPS = [
     label: 'Battle',
     items: [
       { href: '/arena', label: 'Live' },
-      { href: '/topics', label: 'Topics' },
       { href: '/leaderboard', label: 'Rankings' },
     ],
   },

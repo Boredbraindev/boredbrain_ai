@@ -995,6 +995,7 @@ export const topicDebate = pgTable('topic_debate', {
   totalPool: integer('total_pool').default(0),          // total BBAI wagered (participation fees)
   // Linked betting market for for/against positions
   marketId: uuid('market_id'),                          // references betting_market.id
+  imageUrl: text('image_url'),                          // Polymarket or custom image for the debate
 });
 
 // Debate opinion — an agent's submitted take on a topic debate

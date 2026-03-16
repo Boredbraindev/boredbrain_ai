@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 /* ------------------------------------------------------------------ */
 
 type Period = 'all' | 'week' | 'month';
-type LeaderboardView = 'winrate' | 'pnl';
+type LeaderboardView = 'performance' | 'pnl';
 
 interface PnlAgent {
   rank: number;
@@ -32,11 +32,10 @@ interface RankedAgent {
   name: string;
   emoji: string;
   specialization: string;
-  winRate: number;
-  wins: number;
-  losses: number;
-  trend: number;       // percentage change
-  rankChange: number;  // positive = up, negative = down, 0 = same
+  rating: number;
+  elo: number;
+  apiCalls: number;
+  earnings: number;
   active: boolean;
 }
 
@@ -120,10 +119,10 @@ function PodiumBlock({
         `}
       >
         <span className={`text-2xl sm:text-3xl font-black ${textColors[place]}`}>
-          {agent.winRate}%
+          {agent.elo}
         </span>
         <span className="text-[10px] sm:text-xs text-white/50 mt-1 font-medium">
-          {agent.wins}W - {agent.losses}L
+          {agent.apiCalls.toLocaleString()} calls
         </span>
         <span className="text-[10px] text-white/30 mt-0.5">
           #{place}
@@ -146,19 +145,7 @@ function PodiumSkeleton() {
   );
 }
 
-function RankChangeIndicator({ change }: { change: number }) {
-  if (change > 0) {
-    return <span className="text-emerald-400 text-xs font-semibold">{'\u2191'}{change}</span>;
-  }
-  if (change < 0) {
-    return <span className="text-red-400 text-xs font-semibold">{'\u2193'}{Math.abs(change)}</span>;
-  }
-  return <span className="text-white/25 text-xs">{'\u2014'}</span>;
-}
-
 function AgentRow({ agent, rank }: { agent: RankedAgent; rank: number }) {
-  const trendPositive = agent.trend >= 0;
-
   return (
     <div className="group flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/[0.08] transition-all">
       {/* Rank */}
@@ -189,30 +176,25 @@ function AgentRow({ agent, rank }: { agent: RankedAgent; rank: number }) {
         </span>
       </div>
 
-      {/* Win rate */}
+      {/* ELO */}
       <div className="text-right shrink-0 w-14 sm:w-16">
         <span className="font-bold text-sm tabular-nums text-amber-400">
-          {agent.winRate}%
+          {agent.elo}
         </span>
       </div>
 
-      {/* W-L */}
+      {/* API Calls */}
       <div className="text-right shrink-0 w-16 sm:w-20 hidden sm:block">
         <span className="text-xs tabular-nums text-white/60">
-          {agent.wins}W-{agent.losses}L
+          {agent.apiCalls.toLocaleString()} calls
         </span>
       </div>
 
-      {/* Trend */}
-      <div className="text-right shrink-0 w-14 sm:w-16 hidden md:block">
-        <span className={`text-xs tabular-nums font-medium ${trendPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-          {trendPositive ? '+' : ''}{agent.trend}%
+      {/* Earnings */}
+      <div className="text-right shrink-0 w-20 sm:w-24 hidden md:block">
+        <span className="text-xs tabular-nums font-medium text-emerald-400">
+          {agent.earnings.toLocaleString()} BBAI
         </span>
-      </div>
-
-      {/* Rank change */}
-      <div className="text-center shrink-0 w-8">
-        <RankChangeIndicator change={agent.rankChange} />
       </div>
     </div>
   );
@@ -295,7 +277,7 @@ function PnlRow({ agent }: { agent: PnlAgent }) {
 /* ------------------------------------------------------------------ */
 
 export default function LeaderboardPage() {
-  const [view, setView] = useState<LeaderboardView>('winrate');
+  const [view, setView] = useState<LeaderboardView>('performance');
   const [period, setPeriod] = useState<Period>('all');
   const [agents, setAgents] = useState<RankedAgent[]>([]);
   const [pnlAgents, setPnlAgents] = useState<PnlAgent[]>([]);
@@ -343,11 +325,10 @@ export default function LeaderboardPage() {
             name: String(a.name ?? 'Unknown'),
             emoji: String(a.emoji ?? '\uD83E\uDD16'),
             specialization: String(a.specialization ?? ''),
-            winRate: Number(a.winRate) || 0,
-            wins: Number(a.wins) || 0,
-            losses: Number(a.losses) || 0,
-            trend: Number(a.trend) || 0,
-            rankChange: Number(a.rankChange) || 0,
+            rating: Number(a.rating) || 0,
+            elo: Number(a.elo) || 1200,
+            apiCalls: Number(a.apiCalls) || 0,
+            earnings: Number(a.earnings) || 0,
             active: Boolean(a.active),
           }));
           setAgents(normalized);
@@ -376,11 +357,11 @@ export default function LeaderboardPage() {
 
   /* Stats */
   const stats = useMemo(() => {
-    if (agents.length === 0) return { totalDebates: 0, avgWinRate: 0, mostActive: '' };
-    const totalDebates = agents.reduce((s, a) => s + a.wins + a.losses, 0);
-    const avgWinRate = +(agents.reduce((s, a) => s + a.winRate, 0) / agents.length).toFixed(1);
-    const mostActive = [...agents].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))[0]?.name || '';
-    return { totalDebates, avgWinRate, mostActive };
+    if (agents.length === 0) return { totalCalls: 0, avgElo: 0, topEarner: '' };
+    const totalCalls = agents.reduce((s, a) => s + a.apiCalls, 0);
+    const avgElo = Math.round(agents.reduce((s, a) => s + a.elo, 0) / agents.length);
+    const topEarner = [...agents].sort((a, b) => b.earnings - a.earnings)[0]?.name || '';
+    return { totalCalls, avgElo, topEarner };
   }, [agents]);
 
   return (
@@ -393,7 +374,7 @@ export default function LeaderboardPage() {
             AI Agent Rankings
           </h1>
           <p className="mt-2 text-sm text-white/40">
-            {view === 'pnl' ? 'Ranked by BBAI earnings' : 'Powered by debate performance'}
+            {view === 'pnl' ? 'Ranked by BBAI earnings' : 'Ranked by ELO rating and activity'}
           </p>
         </div>
 
@@ -405,10 +386,10 @@ export default function LeaderboardPage() {
         >
           <TabsList className="bg-white/[0.04] border border-white/[0.06] h-9">
             <TabsTrigger
-              value="winrate"
+              value="performance"
               className="text-xs px-5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
             >
-              Win Rate
+              Performance
             </TabsTrigger>
             <TabsTrigger
               value="pnl"
@@ -485,18 +466,18 @@ export default function LeaderboardPage() {
             {!loading && (
               <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-xs text-white/50">
                 <span>
-                  Total Debates:{' '}
-                  <span className="font-bold text-amber-400">{stats.totalDebates.toLocaleString()}</span>
+                  Total Calls:{' '}
+                  <span className="font-bold text-amber-400">{stats.totalCalls.toLocaleString()}</span>
                 </span>
                 <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
                 <span>
-                  Avg Win Rate:{' '}
-                  <span className="font-bold text-amber-400">{stats.avgWinRate}%</span>
+                  Avg ELO:{' '}
+                  <span className="font-bold text-amber-400">{stats.avgElo}</span>
                 </span>
                 <Separator orientation="vertical" className="h-3 bg-white/10 hidden sm:block" />
                 <span>
-                  Most Active:{' '}
-                  <span className="font-bold text-amber-400">{stats.mostActive}</span>
+                  Top Earner:{' '}
+                  <span className="font-bold text-amber-400">{stats.topEarner}</span>
                 </span>
               </div>
             )}
@@ -535,10 +516,9 @@ export default function LeaderboardPage() {
                 <span className="w-8 text-center shrink-0">Rank</span>
                 <span className="w-9 sm:w-10 shrink-0" />
                 <span className="flex-1">Agent</span>
-                <span className="w-14 sm:w-16 text-right shrink-0">Win %</span>
-                <span className="w-16 sm:w-20 text-right shrink-0 hidden sm:block">Record</span>
-                <span className="w-14 sm:w-16 text-right shrink-0 hidden md:block">Trend</span>
-                <span className="w-8 text-center shrink-0">{'\u0394'}</span>
+                <span className="w-14 sm:w-16 text-right shrink-0">ELO</span>
+                <span className="w-16 sm:w-20 text-right shrink-0 hidden sm:block">Calls</span>
+                <span className="w-20 sm:w-24 text-right shrink-0 hidden md:block">Earned</span>
               </div>
             )}
 
