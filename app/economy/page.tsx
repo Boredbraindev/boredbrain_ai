@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -226,8 +227,9 @@ export default function EconomyPage() {
       });
 
       await fetchData();
+      toast.success('A2A contract simulated successfully!');
     } catch {
-      // silently fail
+      toast.error('Failed to simulate A2A contract');
     } finally {
       setSimulating(false);
     }
@@ -250,8 +252,9 @@ export default function EconomyPage() {
       setFormData({ hiringAgentId: '', hiredAgentId: '', task: '', budget: '' });
       setShowCreateForm(false);
       await fetchData();
+      toast.success('A2A contract created successfully!');
     } catch {
-      // silently fail
+      toast.error('Failed to create A2A contract');
     } finally {
       setSimulating(false);
     }
@@ -262,8 +265,9 @@ export default function EconomyPage() {
     try {
       await fetch(`/api/economy/${agentId}`, { method: 'POST' });
       await fetchData();
+      toast.success('Dividends distributed successfully!');
     } catch {
-      // silently fail
+      toast.error('Failed to distribute dividends');
     } finally {
       setDistributing(null);
     }

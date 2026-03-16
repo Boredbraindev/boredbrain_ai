@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 
 // Try to import wagmi hooks - may not be available if Web3 is not configured
 let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
@@ -237,14 +238,17 @@ export default function AgentRegisterPage() {
 
       if (!res.ok) {
         setError(data.error || 'Registration failed');
+        toast.error(data.error || 'Registration failed');
         return;
       }
 
       setRegisteredAgent(data.agent);
       setIsDemoMessage(data.isDemo ? data.message : '');
       setSuccess(true);
+      toast.success('Agent registered successfully!');
     } catch {
       setError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setLoading(false);
     }

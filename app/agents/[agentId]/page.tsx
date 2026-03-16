@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface Agent {
   id: string;
@@ -142,11 +143,14 @@ export default function AgentDetailPage() {
           })),
         };
         setTestResult(sanitized);
+        toast.error('Agent encountered an issue. Check the response below.');
       } else {
         setTestResult(data);
+        toast.success('Agent executed successfully!');
       }
     } catch (error) {
       setTestResult({ error: 'The agent is temporarily unavailable. Please try again later.' });
+      toast.error('Agent is temporarily unavailable. Please try again later.');
     } finally {
       setTesting(false);
     }

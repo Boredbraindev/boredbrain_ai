@@ -13,6 +13,7 @@ import { Providers } from './providers';
 import { CustomCursor } from '@/components/custom-cursor';
 import { GlobalNavbar } from '@/components/global-navbar';
 import { GlobalFooter } from '@/components/global-footer';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://boredbrain.app'),
@@ -131,6 +132,7 @@ export default function RootLayout({
             <GlobalNavbar />
             {children}
             <GlobalFooter />
+            <Toaster richColors position="top-right" />
           </Providers>
         </NuqsAdapter>
         <Analytics />

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -507,9 +508,11 @@ export default function PlaygroundPage() {
       setSpawnModel('');
       setSpawnName('');
       setSpawnSystemPrompt('');
+      toast.success(`Agent "${name}" spawned successfully!`);
       return agent;
     } catch {
       setError('Failed to spawn agent. Check API connection.');
+      toast.error('Failed to spawn agent. Check API connection.');
     } finally {
       setIsSpawning(false);
     }
@@ -630,7 +633,10 @@ export default function PlaygroundPage() {
 
             setResults((prev) => {
               const stillStreaming = prev.some((r) => r.streaming && newResults.some((nr) => nr.id === r.id));
-              if (!stillStreaming) setIsRunning(false);
+              if (!stillStreaming) {
+                setIsRunning(false);
+                toast.success('All tasks completed!');
+              }
               return prev;
             });
           }

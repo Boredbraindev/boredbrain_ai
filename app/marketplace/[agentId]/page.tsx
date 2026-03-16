@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -338,6 +339,7 @@ export default function AgentDetailPage() {
         setReviewName('');
         setReviewRating('5');
         setReviewSuccess(true);
+        toast.success('Review submitted successfully!');
 
         // Update listing review count and rating
         if (listing) {
@@ -355,9 +357,12 @@ export default function AgentDetailPage() {
         }
 
         setTimeout(() => setReviewSuccess(false), 3000);
+      } else {
+        toast.error('Failed to submit review. Please try again.');
       }
     } catch (error) {
       console.error('Failed to submit review:', error);
+      toast.error('Failed to submit review. Please try again.');
     } finally {
       setSubmittingReview(false);
     }

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { useSession } from '@/lib/auth-client';
+import { toast } from 'sonner';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -377,6 +378,7 @@ export default function RewardsPage() {
           setState(json.reward);
           saveState(json.reward);
           setClaiming(false);
+          toast.success(`+${todayReward.amount} BBAI claimed!`);
           return;
         }
       }
@@ -429,6 +431,7 @@ export default function RewardsPage() {
       };
     });
 
+    toast.success(`+${todayReward.amount} BBAI claimed!`);
     setClaiming(false);
   }, [canClaim, todayReward, today]);
 

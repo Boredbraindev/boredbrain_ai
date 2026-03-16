@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
+import { toast } from 'sonner';
 
 const BattleVisual = dynamic(() => import('@/components/arena/battle-visual'), { ssr: false });
 
@@ -373,6 +374,7 @@ export default function ArenaPage() {
       const data = await res.json();
       if (res.ok) {
         setStakeResult({ success: true, message: `${stakeAmount} BBAI staked on ${stakePosition.toUpperCase()}!` });
+        toast.success(`${stakeAmount} BBAI staked on ${stakePosition.toUpperCase()}!`);
         // Refresh stakes
         const refreshRes = await fetch(`/api/topics/${activeDebateId}/stake`);
         if (refreshRes.ok) {
@@ -382,9 +384,11 @@ export default function ArenaPage() {
         }
       } else {
         setStakeResult({ success: false, message: data.error || 'Staking failed' });
+        toast.error(data.error || 'Staking failed');
       }
     } catch {
       setStakeResult({ success: false, message: 'Network error' });
+      toast.error('Network error. Please try again.');
     } finally {
       setStaking(false);
     }
