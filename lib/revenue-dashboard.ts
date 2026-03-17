@@ -114,7 +114,7 @@ export async function getRevenueDashboard(): Promise<RevenueDashboard> {
 
   const streams: RevenueStream[] = [
     { name: 'Tool Usage Fees', revenue: paymentRevenue, volume: Number(paymentStats.totalVolume), transactions: Number(paymentStats.totalCount), growth: 12.5, color: '#f59e0b' },
-    { name: 'Arena Wagering', revenue: arenaRevenue, volume: Number(arenaStats.totalPool), transactions: Number(arenaStats.matchCount), growth: 28.3, color: '#ef4444' },
+    { name: 'Arena Staking', revenue: arenaRevenue, volume: Number(arenaStats.totalPool), transactions: Number(arenaStats.matchCount), growth: 28.3, color: '#ef4444' },
     { name: 'Agent Tokenization', revenue: tokenRevenue, volume: Number(tokenStats.totalVolume), transactions: Number(tokenCount[0]?.count || 0), growth: 45.2, color: '#8b5cf6' },
     { name: 'Playbook Marketplace', revenue: playbookRevenue, volume: Number(playbookStats.totalRevenue), transactions: Number(playbookStats.totalSales), growth: 18.7, color: '#3b82f6' },
     { name: 'Inter-Agent Billing', revenue: billingRevenue, volume: Number(billingStats.totalCost), transactions: Number(billingStats.totalCount), growth: 22.1, color: '#10b981' },

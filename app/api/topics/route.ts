@@ -209,6 +209,9 @@ async function queryDebates(
   if (options.status) {
     conditions.push(`d.status = $${paramIdx++}`);
     params.push(options.status);
+  } else {
+    // Default: exclude closed debates, show open + completed + scoring + settled
+    conditions.push(`d.status != 'closed'`);
   }
   if (options.category) {
     conditions.push(`d.category = $${paramIdx++}`);
@@ -217,16 +220,18 @@ async function queryDebates(
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // Query debates (neon v1: use sql.query() for parameterized queries)
+  // Query debates — deduplicate by topic (keep most-participated version)
   const debateRows = await sql.query(
-    `SELECT d.id, d.topic, d.category, d.status, d.created_at, d.closes_at,
+    `SELECT DISTINCT ON (LOWER(TRIM(d.topic)))
+            d.id, d.topic, d.category, d.status, d.created_at, d.closes_at,
             d.total_participants, d.top_score, d.top_agent_id, d.total_pool,
-            d.polymarket_event_id, d.resolved_outcome, d.market_id
+            d.polymarket_event_id, d.resolved_outcome, d.market_id,
+            d.image_url, d.outcomes, d.source
      FROM topic_debate d
      ${whereClause}
-     ORDER BY d.created_at DESC
+     ORDER BY LOWER(TRIM(d.topic)), d.total_participants DESC NULLS LAST, d.created_at DESC
      LIMIT $${paramIdx}`,
-    [...params, options.limit],
+    [...params, options.limit * 2],
   );
 
   // Map rows to camelCase to match the original response format
@@ -244,5 +249,8 @@ async function queryDebates(
     polymarketEventId: row.polymarket_event_id ?? null,
     resolvedOutcome: row.resolved_outcome ?? null,
     marketId: row.market_id ?? null,
+    imageUrl: row.image_url ?? null,
+    outcomes: row.outcomes ?? null,
+    source: row.source ?? 'polymarket',
   }));
 }

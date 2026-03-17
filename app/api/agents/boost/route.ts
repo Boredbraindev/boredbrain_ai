@@ -12,6 +12,13 @@ import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { neon } from '@neondatabase/serverless';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 
+function genId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
 export async function POST() {
   const batchSize = 3;
   const errors: string[] = [];
@@ -64,8 +71,8 @@ export async function POST() {
 
         try {
           await sql`
-            INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, timestamp)
-            VALUES (${scenario.callerId}, ${scenario.providerId}, ${JSON.stringify(toolsUsed)}, ${cost}, ${platformFee}, ${providerEarning}, NOW())
+            INSERT INTO billing_record (id, caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, timestamp)
+            VALUES (${genId()}, ${scenario.callerId}, ${scenario.providerId}, ${JSON.stringify(toolsUsed)}, ${cost}, ${platformFee}, ${providerEarning}, NOW())
           `;
 
           // Update wallets
@@ -123,8 +130,8 @@ export async function POST() {
             WHERE agent_id = ${w.agent_id}
           `;
           await sql`
-            INSERT INTO wallet_transaction (agent_id, type, amount, balance_after, description, timestamp)
-            VALUES (${w.agent_id}, 'top_up', ${diff}, ${Number(w.balance) + diff}, 'Auto-rebalance top-up', NOW())
+            INSERT INTO wallet_transaction (id, agent_id, type, amount, balance_after, description, timestamp)
+            VALUES (${genId()}, ${w.agent_id}, 'top_up', ${diff}, ${Number(w.balance) + diff}, 'Auto-rebalance top-up', NOW())
           `;
           rebalanced++;
         }

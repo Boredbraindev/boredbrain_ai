@@ -4,8 +4,8 @@
  * Fetches trending discourse topics from Polymarket's public Gamma API.
  * No authentication required — all endpoints are public.
  *
- * Legal note: We use "topic", "discourse", "consensus", "support" terminology.
- * Never "prediction", "bet", "odds", or "gambling".
+ * Legal note: We use "topic", "discourse", "consensus", "support", "insight" terminology.
+ * Never "prediction market", "bet", "odds", "gambling", "wager", or "payout".
  */
 
 // ---------------------------------------------------------------------------
@@ -28,10 +28,14 @@ export interface TrendingTopic {
   category: string;
   outcomes: string[];
   percentages: number[];
+  /** Structured outcomes with labels and prices (0-1 range) for multi-outcome markets */
+  outcomesWithPrices: Array<{label: string; price: number}>;
   volume: string;
   volumeRaw: number;
   endDate: string;
   imageUrl?: string;
+  /** Polymarket event slug for linking back */
+  slug?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,16 +149,26 @@ function parseEvent(event: any): TrendingTopic | null {
 
     const endDate = event.endDate ?? markets[0]?.endDate ?? '';
 
+    // Build structured outcomes with prices (0-1 range)
+    const outcomesWithPrices = outcomes.map((label, i) => ({
+      label,
+      price: percentages[i] != null ? percentages[i] / 100 : 0,
+    }));
+
+    const slug = event.slug ?? undefined;
+
     return {
       id: String(id),
       title,
       category: extractCategory(event.tags ?? event.tag),
       outcomes,
       percentages,
+      outcomesWithPrices,
       volume: display,
       volumeRaw: raw,
       endDate,
       imageUrl: event.image ?? event.imageUrl ?? undefined,
+      slug,
     };
   } catch (err) {
     console.error('[polymarket-feed] Failed to parse event:', err);
@@ -170,18 +184,22 @@ function parseEvent(event: any): TrendingTopic | null {
  * Fetch trending topics from Polymarket's public Gamma API.
  * Results are sorted by volume (highest first).
  */
-export async function fetchTrendingTopics(limit = 20): Promise<TrendingTopic[]> {
+export async function fetchTrendingTopics(limit = 20, minVolume = 0): Promise<TrendingTopic[]> {
   // Check cache
   if (topicCache && Date.now() - topicCache.fetchedAt < CACHE_TTL_MS) {
-    return topicCache.topics.slice(0, limit);
+    const filtered = minVolume > 0
+      ? topicCache.topics.filter((t) => t.volumeRaw >= minVolume)
+      : topicCache.topics;
+    return filtered.slice(0, limit);
   }
 
   try {
+    // Use volume24hr to get actually TRENDING topics (not all-time volume which always returns elections)
     const url = new URL(`${GAMMA_API}/events`);
     url.searchParams.set('active', 'true');
     url.searchParams.set('closed', 'false');
-    url.searchParams.set('limit', String(Math.min(limit * 2, 100))); // fetch extra for filtering
-    url.searchParams.set('order', 'volume');
+    url.searchParams.set('limit', String(Math.min(limit * 2, 100)));
+    url.searchParams.set('order', 'volume24hr');
     url.searchParams.set('ascending', 'false');
 
     const response = await fetch(url.toString(), {
@@ -198,11 +216,30 @@ export async function fetchTrendingTopics(limit = 20): Promise<TrendingTopic[]> 
     const events = Array.isArray(data) ? data : (data.data ?? data.events ?? []);
 
     const topics: TrendingTopic[] = [];
+    // Filter out spam/micro events and topics with too many outcomes
+    // Only filter true spam (BO5 esports), keep crypto up/down and other popular markets
+    const SPAM_PATTERNS = [
+      /BO\d+.*First Stand/i,
+      // Filter player performance markets (e.g. "25+ points")
+      /\d+\+\s*(points|rebounds|assists)/i,
+      // Filter spread/over-under markets
+      /spread|over.*under|O\/U|moneyline/i,
+      // Filter very short-term markets with specific times
+      /\d+:\d+[AP]M/i,
+    ];
+    // "vs" filter: skip individual game matchups but keep tournaments/finals
+    const VS_PATTERN = /\bvs\.?\b/i;
+    const VS_EXCEPTIONS = /winner|champion|tournament|cup|league|final|playoff|series/i;
+
     for (const event of events) {
       const parsed = parseEvent(event);
-      if (parsed && parsed.title.length > 5) {
-        topics.push(parsed);
-      }
+      if (!parsed || parsed.title.length <= 5) continue;
+      if (SPAM_PATTERNS.some((p) => p.test(parsed.title))) continue;
+      // Filter individual game matchups (Team vs Team) but keep tournaments
+      if (VS_PATTERN.test(parsed.title) && !VS_EXCEPTIONS.test(parsed.title)) continue;
+      // Filter topics with too many outcomes (e.g. 30+ player sub-markets)
+      if (parsed.outcomes.length > 20) continue;
+      topics.push(parsed);
     }
 
     // Sort by volume descending
@@ -211,7 +248,12 @@ export async function fetchTrendingTopics(limit = 20): Promise<TrendingTopic[]> 
     // Update cache
     topicCache = { topics, fetchedAt: Date.now() };
 
-    return topics.slice(0, limit);
+    // Apply minimum volume filter
+    const filtered = minVolume > 0
+      ? topics.filter((t) => t.volumeRaw >= minVolume)
+      : topics;
+
+    return filtered.slice(0, limit);
   } catch (err) {
     console.error('[polymarket-feed] Failed to fetch trending topics:', err);
     return topicCache?.topics.slice(0, limit) ?? [];

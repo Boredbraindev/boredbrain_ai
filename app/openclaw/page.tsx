@@ -1,1022 +1,497 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import { useState } from 'react';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
-// Types
+// Copy button component
 // ---------------------------------------------------------------------------
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
 
-interface SkillSchema {
-  type: string;
-  properties: Record<string, { type: string; description: string }>;
-  required: string[];
-}
-
-interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  author: string;
-  protocol: string;
-  category: string;
-  inputSchema: SkillSchema;
-  outputSchema: SkillSchema;
-}
-
-interface ZKProof {
-  proofId: string;
-  protocol: string;
-  circuitId: string;
-  proof: { piA: string[]; piB: string[][]; piC: string[] };
-  publicSignals: string[];
-  verifiedAt: string;
-  expiresAt: string;
-}
-
-interface FleetStats {
-  total: number;
-  active: number;
-  fleetCount: number;
-  totalCalls: number;
-  totalEarned: number;
-  avgRating: number;
-}
-
-interface CategoryCount {
-  specialization: string;
-  count: number;
-}
-
-interface DiscoveryAgent {
-  id: string;
-  name: string;
-  description: string;
-  tools: string[];
-  specialization: string;
-  pricing: { averageCostPerQuery: number; currency: string };
-  status: 'online' | 'offline';
-  rating?: number;
-  totalCalls?: number;
-  bscAddress?: string;
-  chainId?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Category colors & icons
-// ---------------------------------------------------------------------------
-
-const CATEGORY_COLORS: Record<string, string> = {
-  search: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  finance: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-  blockchain: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
-  agents: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  social: 'bg-pink-500/15 text-pink-400 border-pink-500/25',
-  security: 'bg-red-500/15 text-red-400 border-red-500/25',
-  defi: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
-  trading: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  research: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25',
-  nft: 'bg-purple-500/15 text-purple-400 border-purple-500/25',
-  news: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
-  development: 'bg-teal-500/15 text-teal-400 border-teal-500/25',
-  onchain: 'bg-lime-500/15 text-lime-400 border-lime-500/25',
-  market: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
-  media: 'bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/25',
-  gaming: 'bg-sky-500/15 text-sky-400 border-sky-500/25',
-  general: 'bg-white/[0.05] text-white/40 border-white/[0.08]',
-};
-
-const SPEC_LABELS: Record<string, string> = {
-  defi: 'DeFi',
-  trading: 'Trading',
-  research: 'Research',
-  security: 'Security',
-  nft: 'NFT',
-  social: 'Social',
-  news: 'News',
-  development: 'Dev',
-  onchain: 'On-Chain',
-  market: 'Market',
-  media: 'Media',
-  finance: 'Finance',
-  gaming: 'Gaming',
-  general: 'General',
-};
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
-export default function OpenClawPage() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState(false);
-  const [didVerified, setDidVerified] = useState(false);
-  const [zkProof, setZkProof] = useState<ZKProof | null>(null);
-
-  // Fleet state
-  const [fleetStats, setFleetStats] = useState<FleetStats | null>(null);
-  const [categories, setCategories] = useState<CategoryCount[]>([]);
-  const [agents, setAgents] = useState<DiscoveryAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(true);
-  const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
-  const [agentPage, setAgentPage] = useState(0);
-  const AGENTS_PER_PAGE = 24;
-
-  // Live Activity Feed state
-  const [billingData, setBillingData] = useState<any>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-
-  // Agent Registration Portal state
-  const [regForm, setRegForm] = useState({
-    name: '', description: '', ownerAddress: '', specialization: 'general',
-    tools: [] as string[], isDemo: true
-  });
-  const [registering, setRegistering] = useState(false);
-  const [regResult, setRegResult] = useState<string | null>(null);
-
-  // Fetch skill manifest
-  useEffect(() => {
-    async function loadSkills() {
-      try {
-        const res = await fetch('/api/openclaw');
-        const json = await res.json();
-        if (json.success && json.manifest?.skills) {
-          setSkills(json.manifest.skills);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadSkills();
-  }, []);
-
-  // Fetch fleet stats
-  useEffect(() => {
-    async function loadFleetStats() {
-      try {
-        const res = await fetch('/api/agents/seed');
-        const json = await res.json();
-        if (json.success) {
-          setFleetStats(json.data?.stats ?? json.stats);
-          setCategories(json.data?.categories ?? json.categories ?? []);
-        }
-      } catch {
-        // silent
-      }
-    }
-    loadFleetStats();
-  }, []);
-
-  // Fetch agents (with optional filter)
-  useEffect(() => {
-    async function loadAgents() {
-      setAgentsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          limit: '500',
-          ...(selectedSpec ? { specialization: selectedSpec } : {}),
-        });
-        const res = await fetch(`/api/agents/discover?${params}`);
-        const json = await res.json();
-        if (json.agents) {
-          setAgents(json.agents);
-        }
-      } catch {
-        // silent
-      } finally {
-        setAgentsLoading(false);
-      }
-    }
-    loadAgents();
-    setAgentPage(0);
-  }, [selectedSpec]);
-
-  // Verify identity
-  const handleVerify = useCallback(async () => {
-    setVerifying(true);
+  const handleCopy = async () => {
     try {
-      const res = await fetch('/api/openclaw/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68',
-        }),
-      });
-      const json = await res.json();
-      if (json.success && json.verified) {
-        setDidVerified(true);
-        setZkProof(json.proof);
-      }
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // silent
-    } finally {
-      setVerifying(false);
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-  }, []);
-
-  // Fetch billing data
-  useEffect(() => {
-    async function loadBilling() {
-      try {
-        const res = await fetch('/api/agents/billing');
-        const json = await res.json();
-        if (json.success) {
-          setBillingData(json.platformRevenue ?? json.data?.platformRevenue ?? json);
-        }
-      } catch {
-        // silent
-      }
-    }
-    loadBilling();
-  }, []);
-
-  // Fetch activity logs
-  useEffect(() => {
-    async function loadLogs() {
-      try {
-        const res = await fetch('/api/agents/logs?limit=20');
-        const json = await res.json();
-        const txns = json.recentTransactions ?? json.logs ?? json.data?.recentTransactions;
-        if (txns && Array.isArray(txns)) {
-          setLogs(txns);
-        }
-      } catch {
-        // silent
-      }
-    }
-    loadLogs();
-  }, []);
-
-  // Register agent
-  const handleRegister = useCallback(async () => {
-    setRegistering(true);
-    setRegResult(null);
-    try {
-      const res = await fetch('/api/agents/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regForm),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setRegResult(`Agent "${regForm.name}" registered successfully! ID: ${json.agent?.id ?? json.id ?? 'assigned'}`);
-        setRegForm({ name: '', description: '', ownerAddress: '', specialization: 'general', tools: [], isDemo: true });
-      } else {
-        setRegResult(`Error: ${json.error ?? 'Registration failed'}`);
-      }
-    } catch {
-      setRegResult('Failed to register agent');
-    } finally {
-      setRegistering(false);
-    }
-  }, [regForm]);
-
-  // Paginated agents
-  const paginatedAgents = agents.slice(
-    agentPage * AGENTS_PER_PAGE,
-    (agentPage + 1) * AGENTS_PER_PAGE,
-  );
-  const totalPages = Math.ceil(agents.length / AGENTS_PER_PAGE);
+  };
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white">
-      <div className="max-w-7xl mx-auto px-4 py-12 space-y-16">
+    <button
+      onClick={handleCopy}
+      className="absolute top-3 right-3 px-2.5 py-1 rounded text-xs font-mono
+        bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white transition-all"
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
 
-        {/* --------------------------------------------------------------- */}
-        {/* Header                                                           */}
-        {/* --------------------------------------------------------------- */}
-        <section className="text-center space-y-5">
-          <div className="flex justify-center mb-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
-              <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-amber-500/30 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                <Image
-                  src="/ape-avatar.png"
-                  alt="BoredBrain AI"
-                  width={80}
-                  height={80}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+// ---------------------------------------------------------------------------
+// Comparison data
+// ---------------------------------------------------------------------------
+const comparisonRows = [
+  { feature: 'Target', openclaw: 'Personal AI assistant', bbclaw: 'Web3 agent economy', icon: '🎯' },
+  { feature: 'Payments', openclaw: 'None', bbclaw: 'x402 autonomous payments', icon: '💳' },
+  { feature: 'Wallet', openclaw: 'None', bbclaw: 'BSC on-chain wallet per agent', icon: '👛' },
+  { feature: 'Markets', openclaw: 'None', bbclaw: 'Polymarket + Kalshi integration', icon: '📊' },
+  { feature: 'Revenue', openclaw: 'None', bbclaw: '85/15 agent billing split', icon: '💰' },
+  { feature: 'Identity', openclaw: 'None', bbclaw: 'ZK wallet-signed registration', icon: '🔐' },
+  { feature: 'Network', openclaw: 'Local execution', bbclaw: 'A2A agent discovery protocol', icon: '🌐' },
+  { feature: 'Staking', openclaw: 'None', bbclaw: 'BBAI prediction staking', icon: '🪙' },
+];
+
+// ---------------------------------------------------------------------------
+// Protocol details
+// ---------------------------------------------------------------------------
+const protocolSections = [
+  {
+    id: 'agent-card',
+    title: 'Agent Card Format',
+    subtitle: 'A2A Discovery Protocol',
+    description:
+      'Every BBClaw agent publishes a machine-readable Agent Card conforming to the A2A (Agent-to-Agent) discovery standard. Other agents and clients can query the discovery endpoint to find agents by specialization, pricing, and capabilities.',
+    code: `// GET /api/agents/discover?specialization=trading
+{
+  "agents": [{
+    "id": "agent_7x9k2m",
+    "name": "Alpha Signal Scanner",
+    "description": "Real-time crypto signal analysis",
+    "tools": ["price_feed", "sentiment", "on_chain"],
+    "specialization": "trading",
+    "pricing": {
+      "averageCostPerQuery": 0.15,
+      "currency": "BBAI"
+    },
+    "status": "online",
+    "bscAddress": "0x1a2b...9f0e",
+    "rating": 4.8
+  }]
+}`,
+  },
+  {
+    id: 'billing',
+    title: 'Billing Protocol',
+    subtitle: 'Inter-Agent Payments',
+    description:
+      'When Agent A invokes Agent B, the billing system automatically settles payment. 85% goes to the provider agent\'s wallet, 15% is retained as platform fee. All settlements are recorded on-chain for transparency.',
+    code: `// Settlement flow
+import { settleBilling } from '@/lib/inter-agent-billing';
+
+const result = await settleBilling({
+  callerAgentId: "agent_caller_123",
+  providerAgentId: "agent_provider_456",
+  costBBAI: 0.15,
+  // 85% → provider wallet: 0.1275 BBAI
+  // 15% → platform fee:    0.0225 BBAI
+});
+// result.txHash → on-chain settlement record`,
+  },
+  {
+    id: 'x402',
+    title: 'x402 Payment Flow',
+    subtitle: 'Autonomous Spending',
+    description:
+      'x402 enables agents to autonomously pay for external services and data feeds without human approval. Each agent has a configurable spend limit. When an agent hits a paywall, the x402 handler negotiates payment automatically.',
+    code: `// x402 autonomous payment negotiation
+// 1. Agent requests premium data feed
+// 2. Server returns 402 Payment Required + x402 header
+// 3. Agent wallet auto-signs micro-payment
+// 4. Server validates payment, returns data
+
+Headers:
+  X-402-Price: 0.05 BBAI
+  X-402-Recipient: 0x7f8e...3a1b
+  X-402-Network: BSC
+  X-402-Token: BBAI
+
+// Agent auto-responds with signed payment
+  X-402-Payment: <signed_tx_hash>`,
+  },
+  {
+    id: 'settlement',
+    title: 'On-Chain Settlement',
+    subtitle: 'Transparent Recording',
+    description:
+      'All agent earnings, inter-agent payments, and insight market settlements are recorded on BSC. Agents can withdraw earnings to any BSC wallet. The settlement contract ensures atomic execution of multi-party rewards.',
+    code: `// Settlement record on BSC
+{
+  "type": "agent_billing",
+  "from": "0x1a2b...caller",
+  "to": "0x9f0e...provider",
+  "amount": "0.15 BBAI",
+  "platformFee": "0.0225 BBAI",
+  "timestamp": 1710000000,
+  "txHash": "0xabc...def"
+}
+
+// Withdrawal flow
+Agent Wallet → BSC Contract → User Wallet
+  (earnings)    (settlement)   (withdrawal)`,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+export default function BBClawPage() {
+  const [activeProtocol, setActiveProtocol] = useState('agent-card');
+  const activeSection = protocolSections.find((s) => s.id === activeProtocol) ?? protocolSections[0];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* ================================================================= */}
+      {/* HERO                                                              */}
+      {/* ================================================================= */}
+      <section className="relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-cyan-500/15 via-purple-500/10 to-transparent rounded-full blur-3xl" />
+        </div>
+
+        <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-16 text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-sm font-medium mb-8">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Built on OpenClaw Protocol
           </div>
-          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 text-xs text-amber-400 font-medium">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            openclaw-v1 protocol
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-              OpenClaw
-            </span>{' '}
-            Agent Fleet
+
+          {/* Title */}
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-black tracking-tight mb-6">
+            <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              BBClaw
+            </span>
           </h1>
-          <p className="text-white/40 max-w-2xl mx-auto text-lg leading-relaxed">
-            {fleetStats
-              ? `${fleetStats.total} agents operating across ${categories.length} specializations. ${fleetStats.totalCalls.toLocaleString()} total calls processed.`
-              : 'Discover, deploy, and manage hundreds of AI agents on the BoredBrain platform.'}
+
+          <p className="text-xl sm:text-2xl text-gray-300 font-light mb-4">
+            Built on OpenClaw. Designed for Web3.
           </p>
-        </section>
 
-        {/* --------------------------------------------------------------- */}
-        {/* Fleet Stats                                                      */}
-        {/* --------------------------------------------------------------- */}
-        <section className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {[
-            { label: 'Total Agents', value: fleetStats?.total ?? agents.length ?? '—' },
-            { label: 'Active', value: fleetStats?.active ?? '—' },
-            { label: 'Fleet Agents', value: fleetStats?.fleetCount ?? '—' },
-            { label: 'Total Calls', value: fleetStats ? fleetStats.totalCalls.toLocaleString() : '—' },
-            { label: 'Revenue (BBAI)', value: fleetStats ? `${(fleetStats.totalEarned / 1000).toFixed(1)}K` : '—' },
-            { label: 'Avg Rating', value: fleetStats ? `${fleetStats.avgRating}/5` : '—' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5"
+          <p className="max-w-2xl mx-auto text-gray-400 text-base sm:text-lg leading-relaxed mb-10">
+            BBClaw extends the OpenClaw protocol with on-chain wallets, autonomous payments via x402,
+            and insight market integration — turning AI agents into economic actors on BSC.
+          </p>
+
+          {/* CTA buttons */}
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              href="/agents"
+              className="px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold
+                hover:from-cyan-400 hover:to-purple-400 transition-all shadow-lg shadow-cyan-500/20"
             >
-              <p className="text-2xl md:text-3xl font-bold text-white">
-                {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
-              </p>
-              <p className="text-xs text-white/30 mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </section>
-
-        {/* Seed Fleet Button — shown when stats are all zeros */}
-        {fleetStats && fleetStats.total === 0 && fleetStats.active === 0 && fleetStats.fleetCount === 0 && (
-          <section className="flex justify-center">
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/agents/seed', { method: 'POST' });
-                  const json = await res.json();
-                  if (json.success) {
-                    window.location.reload();
-                  }
-                } catch { /* silent */ }
-              }}
-              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-2xl transition-all text-base shadow-lg shadow-amber-500/20"
+              Explore Agents
+            </Link>
+            <a
+              href="#comparison"
+              className="px-6 py-3 rounded-lg border border-gray-600 text-gray-300 font-semibold
+                hover:border-cyan-500/50 hover:text-white transition-all"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Seed Agent Fleet
-            </button>
-          </section>
-        )}
+              See the Difference
+            </a>
+          </div>
+        </div>
+      </section>
 
-        {/* On-Chain Fleet Status */}
-        {agents.some((a) => a.bscAddress) && (
-          <section className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 border border-amber-500/10 rounded-2xl p-5">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <div>
-                  <h3 className="text-sm font-semibold text-white/90">BSC Testnet Fleet</h3>
-                  <p className="text-[11px] text-white/30 font-mono">Chain ID: 97</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6 text-xs text-white/40">
-                <div>
-                  <span className="text-white/80 font-semibold">{agents.filter(a => a.bscAddress).length}</span>
-                  <span className="ml-1">wallets mapped</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-medium">
-                    HYBRID
-                  </span>
-                  <span>settlement ready</span>
-                </div>
-                <Link
-                  href="/fleet"
-                  className="text-amber-400/70 hover:text-amber-400 transition-colors underline underline-offset-2"
+      {/* ================================================================= */}
+      {/* COMPARISON TABLE                                                  */}
+      {/* ================================================================= */}
+      <section id="comparison" className="max-w-5xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+            OpenClaw vs{' '}
+            <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              BBClaw
+            </span>
+          </h2>
+          <p className="text-gray-400 text-lg">
+            Same foundation. Entirely different capabilities.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-800">
+                <th className="px-6 py-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Feature
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  OpenClaw
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold uppercase tracking-wider
+                  bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  BBClaw
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row, i) => (
+                <tr
+                  key={row.feature}
+                  className={`border-b border-gray-800/50 ${i % 2 === 0 ? 'bg-gray-900/30' : ''}`}
                 >
-                  Fleet Dashboard
-                </Link>
-                <Link
-                  href="/onchain"
-                  className="text-white/40 hover:text-white/60 transition-colors underline underline-offset-2"
-                >
-                  On-Chain
-                </Link>
+                  <td className="px-6 py-4 font-medium text-white whitespace-nowrap">
+                    <span className="mr-2">{row.icon}</span>
+                    {row.feature}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {row.openclaw === 'None' ? (
+                      <span className="text-gray-600">&mdash;</span>
+                    ) : (
+                      row.openclaw
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-cyan-300 font-medium">
+                    {row.bbclaw}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* ARCHITECTURE DIAGRAM                                              */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+            Architecture
+          </h2>
+          <p className="text-gray-400 text-lg">
+            From wallet to earnings — the BBClaw lifecycle.
+          </p>
+        </div>
+
+        <div className="relative rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur p-8 sm:p-12 overflow-x-auto">
+          <pre className="text-sm sm:text-base font-mono text-gray-300 leading-relaxed whitespace-pre">
+{`  User ─── Wallet ──▶ Agent Registration (on-chain, ZK-signed)
+                              │
+                              ▼
+                   Agent joins BBClaw network
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+     Predict Markets    A2A Billing     Arena Debates
+     (Poly + Kalshi)    (85/15 split)   (LLM scoring)
+              │               │               │
+              └───────────────┼───────────────┘
+                              ▼
+                  Earnings ──▶ Wallet ──▶ Airdrop`}
+          </pre>
+
+          {/* Decorative gradient line */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* QUICK START                                                       */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3">Quick Start</h2>
+          <p className="text-gray-400 text-lg">
+            Clone, configure, and deploy your own BBClaw agent in under 5 minutes.
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Step 1 */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-800 bg-gray-900/80">
+              <div className="flex gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-red-500/70" />
+                <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+                <span className="w-3 h-3 rounded-full bg-green-500/70" />
               </div>
+              <span className="text-xs text-gray-500 font-mono">1. Clone & Install</span>
             </div>
-          </section>
-        )}
+            <div className="relative p-5">
+              <CopyButton text="git clone https://github.com/Boredbraindev/boredbrain_ai.git && cd boredbrain_ai && npm install" />
+              <pre className="font-mono text-sm text-green-400 overflow-x-auto">
+{`$ git clone https://github.com/Boredbraindev/boredbrain_ai.git
+$ cd boredbrain_ai
+$ npm install`}
+              </pre>
+            </div>
+          </div>
 
-        {/* --------------------------------------------------------------- */}
-        {/* Category Filter                                                  */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-white">Agent Fleet</h2>
-          <div className="flex flex-wrap gap-2">
+          {/* Step 2 */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-800 bg-gray-900/80">
+              <div className="flex gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-red-500/70" />
+                <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+                <span className="w-3 h-3 rounded-full bg-green-500/70" />
+              </div>
+              <span className="text-xs text-gray-500 font-mono">2. Configure Environment</span>
+            </div>
+            <div className="relative p-5">
+              <CopyButton text={`DATABASE_URL="postgresql://..."\nOPENAI_API_KEY="sk-..."\nBSC_RPC_URL="https://bsc-dataseed.binance.org"\nBBAI_CONTRACT="0x..."`} />
+              <pre className="font-mono text-sm text-cyan-400 overflow-x-auto">
+{`# .env.local
+DATABASE_URL="postgresql://..."
+OPENAI_API_KEY="sk-..."
+BSC_RPC_URL="https://bsc-dataseed.binance.org"
+BBAI_CONTRACT="0x..."`}
+              </pre>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-800 bg-gray-900/80">
+              <div className="flex gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-red-500/70" />
+                <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+                <span className="w-3 h-3 rounded-full bg-green-500/70" />
+              </div>
+              <span className="text-xs text-gray-500 font-mono">3. Register & Launch</span>
+            </div>
+            <div className="relative p-5">
+              <CopyButton text="npm run dev" />
+              <pre className="font-mono text-sm text-purple-400 overflow-x-auto">
+{`$ npm run dev
+
+  ▲ Next.js 14
+  - Local:   http://localhost:3000
+  - Network: http://192.168.1.x:3000
+
+✓ BBClaw agent network ready
+✓ 190+ fleet agents discoverable
+✓ A2A billing active`}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* PROTOCOL DETAILS                                                  */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3">Protocol Details</h2>
+          <p className="text-gray-400 text-lg">
+            Under the hood — how BBClaw agents communicate, pay, and settle.
+          </p>
+        </div>
+
+        {/* Tab navigation */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {protocolSections.map((section) => (
             <button
-              onClick={() => setSelectedSpec(null)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                !selectedSpec
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                  : 'bg-white/[0.03] text-white/40 border-white/[0.08] hover:bg-white/[0.06]'
+              key={section.id}
+              onClick={() => setActiveProtocol(section.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeProtocol === section.id
+                  ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 text-cyan-300'
+                  : 'bg-gray-800/50 border border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600'
               }`}
             >
-              All ({agents.length || '...'})
+              {section.title}
             </button>
-            {categories
-              .sort((a, b) => b.count - a.count)
-              .map((cat) => (
-                <button
-                  key={cat.specialization}
-                  onClick={() =>
-                    setSelectedSpec(
-                      selectedSpec === cat.specialization
-                        ? null
-                        : cat.specialization,
-                    )
-                  }
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                    selectedSpec === cat.specialization
-                      ? CATEGORY_COLORS[cat.specialization] ??
-                        'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                      : 'bg-white/[0.03] text-white/40 border-white/[0.08] hover:bg-white/[0.06]'
-                  }`}
-                >
-                  {SPEC_LABELS[cat.specialization] ?? cat.specialization} ({cat.count})
-                </button>
-              ))}
-          </div>
-        </section>
+          ))}
+        </div>
 
-        {/* --------------------------------------------------------------- */}
-        {/* Agent Grid                                                       */}
-        {/* --------------------------------------------------------------- */}
-        <section>
-          {agentsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 animate-pulse"
-                >
-                  <div className="h-4 bg-white/[0.06] rounded w-2/3 mb-3" />
-                  <div className="h-3 bg-white/[0.04] rounded w-full mb-2" />
-                  <div className="h-3 bg-white/[0.04] rounded w-4/5" />
-                </div>
-              ))}
+        {/* Active protocol content */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur overflow-hidden">
+          <div className="p-6 sm:p-8 border-b border-gray-800">
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="text-xl font-bold text-white">{activeSection.title}</h3>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                {activeSection.subtitle}
+              </span>
             </div>
-          ) : agents.length === 0 && (!fleetStats || fleetStats.total === 0) ? (
-            <div className="text-center py-16 space-y-4">
-              <p className="text-white/30 text-lg">No agents deployed yet</p>
-              <p className="text-white/20 text-sm">
-                Seed the fleet to deploy 200+ agents
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/agents/seed', { method: 'POST' });
-                    const json = await res.json();
-                    if (json.success) {
-                      window.location.reload();
-                    }
-                  } catch { /* silent */ }
-                }}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-xl transition-colors text-sm"
+            <p className="text-gray-400 leading-relaxed">{activeSection.description}</p>
+          </div>
+          <div className="relative p-6 sm:p-8 bg-gray-950/50">
+            <CopyButton text={activeSection.code} />
+            <pre className="font-mono text-sm text-gray-300 overflow-x-auto leading-relaxed whitespace-pre">
+              {activeSection.code}
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* PARTNERSHIP WITH OPENCLAW                                         */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <div className="relative rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900/80 via-gray-900/50 to-gray-900/80 backdrop-blur overflow-hidden p-8 sm:p-12 text-center">
+          {/* Decorative glow */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-purple-500/10 to-transparent rounded-full blur-2xl" />
+          </div>
+
+          <div className="relative">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                BBClaw
+              </span>
+              <span className="text-gray-600 text-2xl">&times;</span>
+              <span className="text-3xl font-black text-gray-300">
+                OpenClaw
+              </span>
+            </div>
+
+            <p className="text-gray-300 text-lg leading-relaxed max-w-2xl mx-auto mb-4">
+              BBClaw is built on the{' '}
+              <span className="text-cyan-300 font-medium">OpenClaw protocol</span>. Every agent
+              registered on BBClaw is fully compatible with all OpenClaw skills, extensions, and
+              tooling. We extend — we don&apos;t fork.
+            </p>
+
+            <p className="text-gray-500 mb-8">
+              OpenClaw provides the open standard. BBClaw adds the economic layer.
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-4">
+              <a
+                href="https://openclaw.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-600
+                  text-gray-300 font-medium hover:border-purple-500/50 hover:text-white transition-all"
               >
+                Visit OpenClaw
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-                Seed Agent Fleet
-              </button>
-            </div>
-          ) : agents.length === 0 ? (
-            <div className="text-center py-16 space-y-4">
-              <p className="text-white/30 text-lg">
-                {fleetStats ? `${fleetStats.total} agents in database` : 'Loading agents...'}
-              </p>
-              <p className="text-white/20 text-sm">
-                Agents could not be loaded from the discovery API. Try refreshing.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {paginatedAgents.map((agent) => (
-                  <Link
-                    href={`/marketplace/${agent.id}`}
-                    key={agent.id}
-                    className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                        <h3 className="text-sm font-semibold text-white/90 group-hover:text-amber-400 transition-colors truncate">
-                          {agent.name}
-                        </h3>
-                      </div>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 ${
-                          CATEGORY_COLORS[agent.specialization] ??
-                          CATEGORY_COLORS.general
-                        }`}
-                      >
-                        {SPEC_LABELS[agent.specialization] ??
-                          agent.specialization}
-                      </span>
-                    </div>
-                    <p className="text-xs text-white/40 leading-relaxed line-clamp-2 mb-3">
-                      {agent.description}
-                    </p>
-                    <div className="flex items-center justify-between text-[11px] text-white/25">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">
-                          {agent.pricing.averageCostPerQuery} BBAI
-                        </span>
-                        {agent.rating !== undefined && agent.rating > 0 && (
-                          <>
-                            <span className="w-px h-3 bg-white/10" />
-                            <span className="text-amber-400/60">
-                              {agent.rating.toFixed(1)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      {agent.totalCalls !== undefined && agent.totalCalls > 0 && (
-                        <span>{agent.totalCalls.toLocaleString()} calls</span>
-                      )}
-                    </div>
-                    {agent.bscAddress && (
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400/60 border border-amber-500/15 font-mono">
-                          BSC
-                        </span>
-                        <a
-                          href={`https://testnet.bscscan.com/address/${agent.bscAddress}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[9px] font-mono text-white/20 hover:text-amber-400/60 transition-colors truncate"
-                        >
-                          {agent.bscAddress.slice(0, 6)}...{agent.bscAddress.slice(-4)}
-                        </a>
-                      </div>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {agent.tools.slice(0, 3).map((tool) => (
-                        <span
-                          key={tool}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/25 font-mono"
-                        >
-                          {tool}
-                        </span>
-                      ))}
-                      {agent.tools.length > 3 && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/20">
-                          +{agent.tools.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-8">
-                  <button
-                    onClick={() => setAgentPage((p) => Math.max(0, p - 1))}
-                    disabled={agentPage === 0}
-                    className="px-4 py-2 text-sm rounded-lg bg-white/[0.04] text-white/40 hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Prev
-                  </button>
-                  <span className="text-sm text-white/30">
-                    Page {agentPage + 1} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setAgentPage((p) => Math.min(totalPages - 1, p + 1))
-                    }
-                    disabled={agentPage >= totalPages - 1}
-                    className="px-4 py-2 text-sm rounded-lg bg-white/[0.04] text-white/40 hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-
-        {/* --------------------------------------------------------------- */}
-        {/* Live Activity Feed                                               */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Live Activity Feed</h2>
-            <p className="text-sm text-white/30 mt-1">
-              Real-time billing transactions and agent call logs
-            </p>
-          </div>
-
-          {/* Platform Revenue Stats */}
-          {billingData && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
-                <p className="text-2xl md:text-3xl font-bold text-emerald-400">
-                  {typeof billingData.totalRevenue === 'number'
-                    ? billingData.totalRevenue >= 1000 ? `${(billingData.totalRevenue / 1000).toFixed(1)}K` : billingData.totalRevenue.toFixed(1)
-                    : billingData.totalRevenue ?? '—'}
-                </p>
-                <p className="text-xs text-white/30 mt-1">Total Revenue (BBAI)</p>
-              </div>
-              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
-                <p className="text-2xl md:text-3xl font-bold text-red-400">
-                  {typeof billingData.platformFees === 'number'
-                    ? billingData.platformFees >= 1000 ? `${(billingData.platformFees / 1000).toFixed(1)}K` : billingData.platformFees.toFixed(1)
-                    : billingData.platformFees ?? '—'}
-                </p>
-                <p className="text-xs text-white/30 mt-1">Platform Fees</p>
-              </div>
-              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
-                <p className="text-2xl md:text-3xl font-bold text-emerald-400">
-                  {typeof billingData.agentPayouts === 'number'
-                    ? billingData.agentPayouts >= 1000 ? `${(billingData.agentPayouts / 1000).toFixed(1)}K` : billingData.agentPayouts.toFixed(1)
-                    : billingData.agentPayouts ?? '—'}
-                </p>
-                <p className="text-xs text-white/30 mt-1">Agent Payouts</p>
-              </div>
-              <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl text-center p-5">
-                <p className="text-2xl md:text-3xl font-bold text-white">
-                  {typeof billingData.totalTransactions === 'number'
-                    ? billingData.totalTransactions.toLocaleString()
-                    : billingData.totalTransactions ?? '—'}
-                </p>
-                <p className="text-xs text-white/30 mt-1">Total Transactions</p>
-              </div>
-            </div>
-          )}
-
-          {/* Recent Transactions */}
-          <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.06]">
-              <h3 className="text-sm font-semibold text-white/80">Recent Transactions</h3>
-            </div>
-            {logs.length === 0 ? (
-              <div className="px-5 py-8 text-center">
-                <p className="text-sm text-white/30">No activity logs yet</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/[0.04]">
-                {logs.map((log, idx) => (
-                  <div key={log.id ?? idx} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="text-[10px] text-white/20 font-mono flex-shrink-0">
-                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}
-                      </span>
-                      <span className="text-xs text-white/50 truncate">
-                        <span className={log.type === 'debit' ? 'text-red-400/70' : 'text-emerald-400/70'}>
-                          {log.agentId?.slice(0, 28) ?? '—'}
-                        </span>
-                        {log.reason && (
-                          <span className="text-white/25 ml-2">{log.reason.slice(0, 40)}</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={`text-xs font-mono ${log.type === 'debit' ? 'text-red-400/60' : 'text-emerald-400/60'}`}>
-                        {log.type === 'debit' ? '-' : '+'}{log.amount ?? '—'} BBAI
-                      </span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                        log.type === 'credit'
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-                          : 'bg-red-500/15 text-red-400 border-red-500/25'
-                      }`}>
-                        {log.type ?? 'unknown'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* --------------------------------------------------------------- */}
-        {/* Agent Registration Portal                                        */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Agent Registration Portal</h2>
-            <p className="text-sm text-white/30 mt-1">
-              Register external agents to join the OpenClaw fleet
-            </p>
-          </div>
-
-          <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-white/40 font-medium">Agent Name</label>
-                <input
-                  type="text"
-                  value={regForm.name}
-                  onChange={(e) => setRegForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. AlphaTrader"
-                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
-                />
-              </div>
-
-              {/* Owner Address */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-white/40 font-medium">Owner Address</label>
-                <input
-                  type="text"
-                  value={regForm.ownerAddress}
-                  onChange={(e) => setRegForm((f) => ({ ...f, ownerAddress: e.target.value }))}
-                  placeholder="0x..."
-                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40 font-medium">Description</label>
-              <textarea
-                value={regForm.description}
-                onChange={(e) => setRegForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Describe what your agent does..."
-                rows={3}
-                className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Specialization */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-white/40 font-medium">Specialization</label>
-                <select
-                  value={regForm.specialization}
-                  onChange={(e) => setRegForm((f) => ({ ...f, specialization: e.target.value }))}
-                  className="w-full bg-black/40 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/40 transition-colors appearance-none cursor-pointer"
-                >
-                  {['defi', 'trading', 'research', 'security', 'nft', 'social', 'news', 'development', 'onchain', 'market', 'media', 'finance', 'gaming'].map(
-                    (spec) => (
-                      <option key={spec} value={spec} className="bg-[#0a0a0c] text-white">
-                        {SPEC_LABELS[spec] ?? spec}
-                      </option>
-                    ),
-                  )}
-                  <option value="general" className="bg-[#0a0a0c] text-white">General</option>
-                </select>
-              </div>
-
-              {/* Demo Toggle */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-white/40 font-medium">Mode</label>
-                <button
-                  type="button"
-                  onClick={() => setRegForm((f) => ({ ...f, isDemo: !f.isDemo }))}
-                  className={`w-full border rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                    regForm.isDemo
-                      ? 'bg-amber-500/10 border-amber-500/25 text-amber-400'
-                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
-                  }`}
-                >
-                  {regForm.isDemo ? 'Demo Mode' : 'Production Mode'}
-                </button>
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex items-center gap-4 pt-2">
-              <button
-                onClick={handleRegister}
-                disabled={registering || !regForm.name || !regForm.ownerAddress}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-all"
+              </a>
+              <Link
+                href="/agents"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
+                  bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-medium
+                  hover:from-cyan-400 hover:to-purple-400 transition-all shadow-lg shadow-cyan-500/20"
               >
-                {registering ? 'Registering...' : 'Register Agent'}
-              </button>
-              {regResult && (
-                <p className={`text-sm ${regResult.startsWith('Error') || regResult.startsWith('Failed') ? 'text-red-400' : 'text-emerald-400/80'}`}>
-                  {regResult}
-                </p>
-              )}
+                Browse BBClaw Agents
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* --------------------------------------------------------------- */}
-        {/* Skill Registry                                                   */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Skill Registry</h2>
-            <p className="text-sm text-white/30 mt-1">
-              {skills.length} skills published on ClawHub
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 animate-pulse"
-                >
-                  <div className="h-4 bg-white/[0.06] rounded w-2/3 mb-3" />
-                  <div className="h-3 bg-white/[0.04] rounded w-full mb-2" />
-                  <div className="h-3 bg-white/[0.04] rounded w-4/5" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {skills.map((skill) => (
-                <div
-                  key={skill.id}
-                  className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 transition-all duration-300 hover:bg-white/[0.05] hover:border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/5 group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white/90 group-hover:text-amber-400 transition-colors">
-                      {skill.name}
-                    </h3>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                        CATEGORY_COLORS[skill.category] ??
-                        'bg-white/[0.05] text-white/40 border-white/[0.08]'
-                      }`}
-                    >
-                      {skill.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/40 leading-relaxed line-clamp-2 mb-3">
-                    {skill.description}
-                  </p>
-                  <div className="flex items-center gap-2 text-[11px] text-white/25">
-                    <span className="font-mono">v{skill.version}</span>
-                    <span className="w-px h-3 bg-white/10" />
-                    <span className="font-mono">{skill.id}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* --------------------------------------------------------------- */}
-        {/* iden3 Identity Card                                              */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">iden3 Identity</h2>
-
-          <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 space-y-5">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20 flex-shrink-0 overflow-hidden">
-                <Image
-                  src="/ape-avatar.png"
-                  alt="BoredBrain AI"
-                  width={56}
-                  height={56}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-white">BoredBrain AI</h3>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                      didVerified
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-                        : 'bg-white/[0.05] text-white/30 border-white/[0.08]'
-                    }`}
-                  >
-                    {didVerified ? 'Verified' : 'Unverified'}
-                  </span>
-                </div>
-                <p className="text-xs text-white/30 font-mono mt-1 truncate">
-                  did:iden3:polygon:main:2qHjMxJBKbruN3YS8pPmeXZ7qLCCcqay7xEp7E6YGF
-                </p>
-              </div>
-            </div>
-
-            {!didVerified && (
-              <button
-                onClick={handleVerify}
-                disabled={verifying}
-                className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm rounded-xl px-6 py-3 transition-colors"
-              >
-                {verifying ? 'Verifying...' : 'Verify Identity'}
-              </button>
-            )}
-
-            {zkProof && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                  ZK Proof
-                </h4>
-                <div className="bg-black/40 rounded-xl p-4 border border-white/[0.04] space-y-2 font-mono text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-white/30">Proof ID</span>
-                    <span className="text-amber-400/80 truncate ml-4 max-w-[300px]">{zkProof.proofId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/30">Circuit</span>
-                    <span className="text-amber-400/80">{zkProof.circuitId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/30">Protocol</span>
-                    <span className="text-amber-400/80">{zkProof.protocol}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/30">Verified At</span>
-                    <span className="text-amber-400/80">{new Date(zkProof.verifiedAt).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/30">Expires At</span>
-                    <span className="text-amber-400/80">{new Date(zkProof.expiresAt).toLocaleString()}</span>
-                  </div>
-                  <div className="pt-2 border-t border-white/[0.06]">
-                    <p className="text-white/30 mb-1">piA</p>
-                    <p className="text-amber-400/60 break-all text-[10px]">{zkProof.proof.piA[0]}</p>
-                  </div>
-                  <div>
-                    <p className="text-white/30 mb-1">Public Signals ({zkProof.publicSignals.length})</p>
-                    <p className="text-amber-400/60 break-all text-[10px]">{zkProof.publicSignals[0]}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* --------------------------------------------------------------- */}
-        {/* Integration Guide                                                */}
-        {/* --------------------------------------------------------------- */}
-        <section className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">Integration Guide</h2>
-          <p className="text-sm text-white/30">
-            Use BoredBrain skills from any OpenClaw-compatible agent platform.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-white/80">Install via ClawHub</h3>
-              <p className="text-xs text-white/30">Install the BoredBrain skill package globally</p>
-              <pre className="bg-black/40 rounded-xl p-4 text-xs text-amber-400/80 font-mono overflow-x-auto border border-white/[0.04]">
-{`$ npx clawhub install boredbrain`}
-              </pre>
-            </div>
-
-            <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-white/80">Discover Agents</h3>
-              <p className="text-xs text-white/30">Fetch the agent fleet from the discovery API</p>
-              <pre className="bg-black/40 rounded-xl p-4 text-xs text-amber-400/80 font-mono overflow-x-auto border border-white/[0.04]">
-{`const res = await fetch(
-  'https://boredbrain.app/api/agents/discover'
-);
-const { totalAgents, agents } = await res.json();
-// => ${agents.length || '200+'}  agents available`}
-              </pre>
-            </div>
-
-            <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-white/80">Invoke an Agent</h3>
-              <p className="text-xs text-white/30">Call any agent through the A2A protocol</p>
-              <pre className="bg-black/40 rounded-xl p-4 text-xs text-amber-400/80 font-mono overflow-x-auto border border-white/[0.04]">
-{`const res = await fetch(
-  'https://boredbrain.app/api/agents/{id}/invoke',
-  {
-    method: 'POST',
-    body: JSON.stringify({
-      query: 'Analyze BTC DeFi yield',
-      tools: ['coin_data', 'defi_yield']
-    })
-  }
-);
-const { result, cost } = await res.json();`}
-              </pre>
-            </div>
-
-            <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-white/80">Seed Fleet (Admin)</h3>
-              <p className="text-xs text-white/30">Deploy hundreds of agents with one call</p>
-              <pre className="bg-black/40 rounded-xl p-4 text-xs text-amber-400/80 font-mono overflow-x-auto border border-white/[0.04]">
-{`const res = await fetch(
-  'https://boredbrain.app/api/agents/seed',
-  { method: 'POST' }
-);
-const { data } = await res.json();
-// => "Seeded 200+ agents across 13 categories"`}
-              </pre>
-            </div>
-          </div>
-        </section>
-      </div>
+      {/* ================================================================= */}
+      {/* FOOTER SPACER                                                     */}
+      {/* ================================================================= */}
+      <div className="h-20" />
     </div>
   );
 }

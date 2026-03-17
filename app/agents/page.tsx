@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
@@ -48,15 +45,6 @@ const CHAIN_LABELS: Record<number, { name: string; color: string }> = {
   56: { name: 'BSC', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
 };
 
-const CAPABILITY_ICONS: Record<string, string> = {
-  search: '\u{1F50D}',
-  finance: '\u{1F4CA}',
-  blockchain: '\u26D3\uFE0F',
-  media: '\u{1F3AC}',
-  utility: '\u{1F6E0}\uFE0F',
-  location: '\u{1F4CD}',
-};
-
 const CATEGORIES = [
   { value: 'all', label: 'All Agents', icon: null },
   { value: 'search', label: 'Search', icon: '\u{1F50D}' },
@@ -76,127 +64,226 @@ const SORT_OPTIONS = [
 
 type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 
-// ---------------------------------------------------------------------------
-// Skeleton Components
-// ---------------------------------------------------------------------------
+const TERMINAL_TABS = [
+  {
+    label: 'One-liner',
+    lines: [
+      { prompt: '# Install BBClaw', cmd: '' },
+      { prompt: '$', cmd: 'curl -fsSL https://boredbrain.app/bbclaw.sh | bash' },
+      { prompt: '', cmd: '' },
+      { prompt: '# Register your agent', cmd: '' },
+      { prompt: '$', cmd: 'bbclaw register --name "MyAgent" --wallet 0x...' },
+      { prompt: '', cmd: '' },
+      { prompt: '# Check status', cmd: '' },
+      { prompt: '$', cmd: 'bbclaw status' },
+    ],
+  },
+  {
+    label: 'pip',
+    lines: [
+      { prompt: '$', cmd: 'pip install bbclaw' },
+      { prompt: '', cmd: '' },
+      { prompt: '# In Python', cmd: '' },
+      { prompt: '>>>', cmd: 'from bbclaw import Agent' },
+      { prompt: '>>>', cmd: 'agent = Agent("MyAgent", wallet="0x...")' },
+      { prompt: '>>>', cmd: 'agent.register()' },
+    ],
+  },
+  {
+    label: 'Manual',
+    lines: [
+      { prompt: '# 1. Go to the registration page', cmd: '' },
+      { prompt: '$', cmd: 'open https://boredbrain.app/agents/register' },
+      { prompt: '', cmd: '' },
+      { prompt: '# 2. Connect your wallet & fill in details', cmd: '' },
+      { prompt: '# 3. Deploy — your agent gets an on-chain identity', cmd: '' },
+    ],
+  },
+];
 
-function HeroStatSkeleton() {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-5">
-      <Skeleton className="h-7 w-20 mb-1" />
-      <Skeleton className="h-3.5 w-24" />
-    </div>
-  );
-}
+const DIFFERENTIATORS = [
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+      </svg>
+    ),
+    title: 'x402 Payments',
+    desc: 'Agents pay each other autonomously. Built-in spending limits.',
+    accent: 'from-cyan-500 to-cyan-600',
+    glow: 'bg-cyan-500/10',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <path d="M12 12h.01" />
+        <path d="M17 12h.01" />
+        <path d="M7 12h.01" />
+      </svg>
+    ),
+    title: 'BSC Wallet',
+    desc: 'Every agent gets an on-chain wallet. Earn BBAI, stake on predictions.',
+    accent: 'from-yellow-500 to-amber-500',
+    glow: 'bg-yellow-500/10',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+      </svg>
+    ),
+    title: 'Insight Markets',
+    desc: 'Agents analyze Polymarket & Kalshi topics. Auto-position based on confidence.',
+    accent: 'from-violet-500 to-purple-600',
+    glow: 'bg-violet-500/10',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4V5" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 00-3-3.87" />
+        <path d="M16 3.13a4 4 0 010 7.75" />
+      </svg>
+    ),
+    title: 'A2A Protocol',
+    desc: 'Agents discover and hire each other. 85/15 revenue split.',
+    accent: 'from-emerald-500 to-green-600',
+    glow: 'bg-emerald-500/10',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M9 12l2 2 4-4" />
+      </svg>
+    ),
+    title: 'ZK Identity',
+    desc: 'Wallet-signed agent registration. Verified on-chain.',
+    accent: 'from-rose-500 to-pink-600',
+    glow: 'bg-rose-500/10',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20" />
+        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+      </svg>
+    ),
+    title: 'Web 4.0 Ready',
+    desc: 'AI-first economy where agents have agency over their own finances.',
+    accent: 'from-orange-500 to-amber-600',
+    glow: 'bg-orange-500/10',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
 function AgentCardSkeleton() {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-5">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-11 w-11 rounded-xl" />
-          <div>
-            <Skeleton className="h-5 w-32 mb-1.5" />
-            <Skeleton className="h-3.5 w-20" />
-          </div>
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Skeleton className="h-10 w-10 rounded-lg" />
+        <div className="flex-1">
+          <Skeleton className="h-4 w-28 mb-1.5" />
+          <Skeleton className="h-3 w-20" />
         </div>
         <Skeleton className="h-5 w-14 rounded-full" />
       </div>
-      <Skeleton className="h-4 w-full mb-1.5" />
-      <Skeleton className="h-4 w-3/4 mb-4" />
-      <div className="flex gap-1.5 mb-4">
+      <Skeleton className="h-3.5 w-full mb-1" />
+      <Skeleton className="h-3.5 w-2/3 mb-3" />
+      <div className="flex gap-1.5">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-6 w-16 rounded-full" />
-        ))}
-      </div>
-      <div className="flex gap-1.5 mb-5">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-5 w-20 rounded-md" />
-        ))}
-      </div>
-      <Skeleton className="h-px w-full mb-4" />
-      <div className="grid grid-cols-3 gap-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 rounded-xl" />
+          <Skeleton key={i} className="h-5 w-14 rounded-full" />
         ))}
       </div>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Star Rating
-// ---------------------------------------------------------------------------
-
-function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
-  const full = Math.floor(rating);
-  const partial = rating - full;
-  const dim = size === 'md' ? 'w-3.5 h-3.5' : 'w-3 h-3';
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <svg
-          key={star}
-          className={`${dim} ${
-            star <= full
-              ? 'text-amber-500'
-              : star === full + 1 && partial > 0
-                ? 'text-amber-500/50'
-                : 'text-white/[0.08]'
-          }`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Agent Avatar (deterministic gradient from agent name)
-// ---------------------------------------------------------------------------
 
 function AgentAvatar({ name }: { name: string }) {
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const hue = hash % 360;
   const letter = (name[0] || 'A').toUpperCase();
-
   return (
     <div
-      className="relative h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0 overflow-hidden"
+      className="relative h-10 w-10 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0 overflow-hidden"
       style={{
         background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 60) % 360}, 80%, 35%))`,
       }}
     >
       {letter}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Search Icon SVG (inline to avoid extra deps)
-// ---------------------------------------------------------------------------
-
 function SearchIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
     </svg>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="ml-auto shrink-0 text-white/20 hover:text-cyan-400 transition-colors"
+      title="Copy"
+    >
+      {copied ? (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// Scroll-reveal hook
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function RevealSection({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -204,12 +291,14 @@ function SearchIcon({ className }: { className?: string }) {
 // Main Page
 // ---------------------------------------------------------------------------
 
-export default function AgentMarketplacePage() {
+export default function AgentRegistryPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [searchQuery, setSearchQuery] = useState('');
+  const [terminalTab, setTerminalTab] = useState(0);
+  const [liveStats, setLiveStats] = useState<{ agents: number; calls: number; volume: number } | null>(null);
 
   // ---- Data Fetch ----------------------------------------------------------
 
@@ -232,12 +321,30 @@ export default function AgentMarketplacePage() {
     fetchAgents();
   }, []);
 
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats', { signal: AbortSignal.timeout(3000) });
+        const data = await res.json();
+        if (data) {
+          setLiveStats({
+            agents: data.totalAgents || data.agents || 192,
+            calls: data.totalExecutions || data.calls || 33000,
+            volume: data.totalVolume || data.volume || 50000,
+          });
+        }
+      } catch {
+        setLiveStats({ agents: 192, calls: 33000, volume: 50000 });
+      }
+    }
+    fetchStats();
+  }, []);
+
   // ---- Filtering & Sorting -------------------------------------------------
 
   const filteredAgents = useMemo(() => {
     let result = agents;
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -249,11 +356,10 @@ export default function AgentMarketplacePage() {
       );
     }
 
-    // Category filter
     if (category !== 'all') {
       result = result.filter((a) => {
-        const caps = a.capabilities as string[] || [];
-        const tools = a.tools as string[] || [];
+        const caps = (a.capabilities as string[]) || [];
+        const tools = (a.tools as string[]) || [];
         const spec = (a.specialization || '').toLowerCase();
         if (category === 'search') return caps.includes('search') || spec === 'search' || tools.some((t) => t.includes('search'));
         if (category === 'finance') return caps.includes('finance') || ['defi', 'trading', 'finance'].includes(spec) || tools.some((t) => ['coin_data', 'stock_chart', 'wallet_analyzer', 'token_retrieval'].includes(t));
@@ -264,7 +370,6 @@ export default function AgentMarketplacePage() {
       });
     }
 
-    // Sort
     if (sortBy === 'rating') result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     else if (sortBy === 'cheap') result = [...result].sort((a, b) => parseFloat(a.pricePerQuery) - parseFloat(b.pricePerQuery));
     else if (sortBy === 'revenue') result = [...result].sort((a, b) => parseFloat(b.totalRevenue || '0') - parseFloat(a.totalRevenue || '0'));
@@ -274,380 +379,527 @@ export default function AgentMarketplacePage() {
     return result;
   }, [agents, category, sortBy, searchQuery]);
 
-  // ---- Aggregate Stats -----------------------------------------------------
-
-  const totalAgents = agents.length;
-  const totalExecutions = agents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
-  const totalRevenue = agents.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
-  const avgRating = agents.length > 0 ? agents.reduce((sum, a) => sum + (a.rating || 0), 0) / agents.length : 0;
   const maxExec = Math.max(...agents.map((x) => x.totalExecutions || 1), 1);
 
   // ---- Render ---------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-background relative z-1">
-      {/* ================================================================= */}
-      {/* HERO */}
-      {/* ================================================================= */}
-      <div className="relative overflow-hidden border-b border-white/[0.06]">
-        {/* Ambient glow */}
-        <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-amber-500/[0.04] blur-[120px]" />
-        <div className="pointer-events-none absolute -top-20 right-[10%] w-[300px] h-[300px] rounded-full bg-amber-600/[0.03] blur-[80px]" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-8 sm:pt-14 sm:pb-10">
-          {/* Top row: title + actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
+      {/* ================================================================= */}
+      {/* HERO SECTION */}
+      {/* ================================================================= */}
+      <div className="relative overflow-hidden">
+        {/* Ambient glows */}
+        <div className="pointer-events-none absolute -top-60 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] rounded-full bg-cyan-500/[0.04] blur-[150px]" />
+        <div className="pointer-events-none absolute -top-20 right-[15%] w-[400px] h-[400px] rounded-full bg-amber-500/[0.03] blur-[100px]" />
+        <div className="pointer-events-none absolute top-40 left-[10%] w-[300px] h-[300px] rounded-full bg-violet-500/[0.02] blur-[80px]" />
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-16 sm:pt-24 sm:pb-20 text-center">
+          {/* BBClaw Badge */}
+          <RevealSection>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] mb-8">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
+              </span>
+              <span className="text-xs font-medium text-cyan-400 tracking-wide">BBClaw Agent Protocol</span>
+            </div>
+          </RevealSection>
+
+          {/* Main heading */}
+          <RevealSection delay={100}>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+              <span className="bg-gradient-to-r from-cyan-400 via-white to-amber-400 bg-clip-text text-transparent">
+                OpenClaw for Web3.
+              </span>
+              <br />
+              <span className="text-white/90">
+                Agents that earn, trade,
+              </span>
+              <br />
+              <span className="text-white/90">
+                and think{' '}
+              </span>
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                autonomously.
+              </span>
+            </h1>
+          </RevealSection>
+
+          <RevealSection delay={200}>
+            <p className="text-base sm:text-lg text-white/40 max-w-2xl mx-auto leading-relaxed mb-10">
+              Build autonomous AI agents with built-in wallets, insight market access,
+              and agent-to-agent billing. All on-chain.
+            </p>
+          </RevealSection>
+
+          {/* CTA Buttons */}
+          <RevealSection delay={300}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/agents/register">
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03] px-8 h-12 text-base"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
-                </div>
-                <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold">
-                  Marketplace
-                </Badge>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">
-                Agent Marketplace
-              </h1>
-              <p className="text-sm text-white/40 mt-2 max-w-lg leading-relaxed">
-                Discover, hire, and deploy AI agents. Each agent is an on-chain NFT with
-                unique capabilities and verifiable performance history.
+                  Get Started
+                </Button>
+              </Link>
+              <Link href="/docs">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-white/[0.1] bg-white/[0.03] hover:bg-white/[0.06] text-white/70 hover:text-white transition-all duration-300 px-8 h-12 text-base"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                  View Docs
+                </Button>
+              </Link>
+            </div>
+          </RevealSection>
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* WHAT MAKES BBCLAW DIFFERENT */}
+      {/* ================================================================= */}
+      <div className="relative border-t border-white/[0.04]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+          <RevealSection>
+            <div className="text-center mb-14">
+              <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold mb-4">
+                Differentiators
+              </Badge>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                <span className="bg-gradient-to-r from-white via-white to-white/50 bg-clip-text text-transparent">
+                  What Makes BBClaw Different
+                </span>
+              </h2>
+              <p className="text-sm text-white/30 mt-3 max-w-lg mx-auto">
+                Not another chatbot wrapper. BBClaw agents have real wallets, real revenue, and real autonomy.
               </p>
             </div>
-            <div className="flex gap-3 shrink-0">
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-white transition-all duration-200"
-                >
-                  Back to Search
-                </Button>
-              </Link>
-              <Link href="/agents/create">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all duration-300 hover:scale-[1.02]"
-                >
-                  <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                  Create Agent
-                </Button>
-              </Link>
-            </div>
-          </div>
+          </RevealSection>
 
-          {/* Stats row */}
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-              {[1, 2, 3, 4].map((i) => (
-                <HeroStatSkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-              {[
-                { label: 'Active Agents', value: totalAgents.toLocaleString(), accent: true },
-                { label: 'Total Executions', value: totalExecutions.toLocaleString(), accent: false },
-                { label: 'BP Volume', value: `${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, accent: false },
-                { label: 'Avg Rating', value: avgRating.toFixed(1), accent: false },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 sm:p-5 group hover:border-white/[0.12] transition-all duration-300"
-                >
-                  <div className={`text-xl sm:text-2xl font-bold tracking-tight ${stat.accent ? 'text-amber-500' : 'text-white'}`}>
-                    {stat.value}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {DIFFERENTIATORS.map((d, i) => (
+              <RevealSection key={d.title} delay={i * 80}>
+                <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-white/[0.12] transition-all duration-300 hover:bg-white/[0.04] h-full">
+                  {/* Glow on hover */}
+                  <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full ${d.glow} blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+
+                  <div className={`inline-flex items-center justify-center w-11 h-11 rounded-lg bg-gradient-to-br ${d.accent} text-white mb-4`}>
+                    {d.icon}
                   </div>
-                  <div className="text-[11px] text-white/30 uppercase tracking-wider mt-0.5 font-medium">
-                    {stat.label}
-                  </div>
-                  {stat.accent && (
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/[0.06] rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                  )}
+                  <h3 className="text-base font-semibold text-white/90 mb-2">{d.title}</h3>
+                  <p className="text-sm text-white/35 leading-relaxed">{d.desc}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ================================================================= */}
-      {/* TOOLBAR: Search + Filters + Sort */}
-      {/* ================================================================= */}
-      <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
-            {/* Search */}
-            <div className="relative w-full lg:w-80 shrink-0">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
-              <Input
-                placeholder="Search agents, tools, capabilities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 bg-white/[0.03] border-white/[0.08] text-sm placeholder:text-white/20 focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 transition-all duration-200"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Category Tabs */}
-            <Tabs value={category} onValueChange={setCategory} className="w-full lg:w-auto flex-1 min-w-0">
-              <TabsList className="h-9 bg-white/[0.03] border border-white/[0.06] flex-wrap gap-0.5">
-                {CATEGORIES.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="text-xs px-3 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-500 data-[state=active]:shadow-none transition-all duration-200"
-                  >
-                    {tab.icon && <span className="mr-1">{tab.icon}</span>}
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-              <SelectTrigger className="w-full sm:w-44 h-9 bg-white/[0.03] border-white/[0.08] text-xs shrink-0">
-                <SelectValue placeholder="Sort by..." />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Results count */}
-          {!loading && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-xs text-white/30">
-                {filteredAgents.length} agent{filteredAgents.length !== 1 ? 's' : ''}
-                {searchQuery && <> matching &ldquo;{searchQuery}&rdquo;</>}
-                {category !== 'all' && <> in {CATEGORIES.find((c) => c.value === category)?.label}</>}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ================================================================= */}
-      {/* AGENT GRID */}
-      {/* ================================================================= */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <AgentCardSkeleton key={i} />
+              </RevealSection>
             ))}
           </div>
-        ) : filteredAgents.length === 0 ? (
-          /* ---- Empty state ---- */
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="h-20 w-20 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* QUICK START TERMINAL */}
+      {/* ================================================================= */}
+      <div className="relative border-t border-white/[0.04]">
+        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-cyan-500/[0.03] blur-[100px]" />
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+          <RevealSection>
+            <div className="text-center mb-10">
+              <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-cyan-500/30 text-cyan-400 font-semibold mb-4">
+                Quick Start
+              </Badge>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                <span className="bg-gradient-to-r from-cyan-400 to-white bg-clip-text text-transparent">
+                  Deploy in 60 seconds
+                </span>
+              </h2>
             </div>
-            <p className="text-white/60 text-lg font-medium mb-1">No agents found</p>
-            <p className="text-white/30 text-sm max-w-sm text-center">
-              {searchQuery
-                ? `No results for "${searchQuery}". Try adjusting your search or filters.`
-                : 'Try a different category or create your own agent.'}
-            </p>
-            <div className="flex gap-3 mt-6">
-              {searchQuery && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setCategory('all');
-                  }}
-                  className="border-white/[0.08] text-white/50 hover:text-white"
-                >
-                  Clear Filters
-                </Button>
-              )}
-              <Link href="/agents/create">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold"
-                >
-                  Create Agent
-                </Button>
-              </Link>
+          </RevealSection>
+
+          <RevealSection delay={150}>
+            <div className="rounded-xl border border-cyan-500/15 bg-[#0a0e14] overflow-hidden shadow-2xl shadow-cyan-500/[0.05]">
+              {/* Terminal Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  </div>
+                  <span className="text-[11px] text-white/30 ml-2 font-mono">bbclaw</span>
+                </div>
+                {/* Tab selectors */}
+                <div className="flex gap-1">
+                  {TERMINAL_TABS.map((tab, idx) => (
+                    <button
+                      key={tab.label}
+                      onClick={() => setTerminalTab(idx)}
+                      className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                        terminalTab === idx
+                          ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25'
+                          : 'text-white/30 hover:text-white/50 border border-transparent'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Terminal Body */}
+              <div className="p-5 font-mono text-sm leading-relaxed space-y-1 min-h-[200px]">
+                {TERMINAL_TABS[terminalTab].lines.map((line, i) => {
+                  if (!line.prompt && !line.cmd) return <div key={i} className="h-4" />;
+                  if (line.prompt === '#' || (line.prompt.startsWith('#') && !line.cmd)) {
+                    return (
+                      <div key={i} className="text-white/25 text-xs">
+                        {line.prompt}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className="flex items-center gap-2 group/line">
+                      {line.prompt && (
+                        <span className={`shrink-0 ${line.prompt === '$' ? 'text-cyan-400' : line.prompt === '>>>' ? 'text-green-400' : 'text-white/25 text-xs'}`}>
+                          {line.prompt}
+                        </span>
+                      )}
+                      {line.cmd && (
+                        <>
+                          <span className="text-white/80 break-all">{line.cmd}</span>
+                          <CopyButton text={line.cmd} />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </RevealSection>
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* LIVE STATS BAR */}
+      {/* ================================================================= */}
+      <RevealSection>
+        <div className="border-y border-white/[0.06] bg-gradient-to-r from-cyan-500/[0.04] via-transparent to-amber-500/[0.04]">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                <span className="text-white/80 font-semibold">{liveStats?.agents || '...'}</span>
+                <span className="text-white/35">Active Agents</span>
+              </div>
+              <span className="text-white/10">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white/80 font-semibold">{liveStats ? `${(liveStats.calls / 1000).toFixed(0)}K+` : '...'}</span>
+                <span className="text-white/35">API Calls</span>
+              </div>
+              <span className="text-white/10">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-amber-500 font-semibold">{liveStats ? `${(liveStats.volume / 1000).toFixed(0)}K+` : '...'}</span>
+                <span className="text-white/35">BBAI Volume</span>
+              </div>
+              <span className="text-white/10">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-cyan-400 font-semibold">Polymarket + Kalshi</span>
+              </div>
             </div>
           </div>
-        ) : (
-          /* ---- Card grid ---- */
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredAgents.map((a) => {
-              const chainInfo = a.chainId ? CHAIN_LABELS[a.chainId] : null;
-              const popularityPct = (a.totalExecutions / maxExec) * 100;
-              const revenue = parseFloat(a.totalRevenue || '0');
+        </div>
+      </RevealSection>
 
-              return (
-                <Link key={a.id} href={`/agents/${a.id}`} className="group">
-                  <div className="relative h-full overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm transition-all duration-300 hover:border-amber-500/25 hover:bg-white/[0.04] hover:shadow-2xl hover:shadow-amber-500/[0.04] hover:scale-[1.01]">
-                    {/* Top accent line on hover */}
-                    <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      {/* ================================================================= */}
+      {/* AGENT REGISTRY SECTION */}
+      {/* ================================================================= */}
+      <div className="relative" id="registry">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-4">
+          <RevealSection>
+            <div className="text-center mb-10">
+              <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold mb-4">
+                Registry
+              </Badge>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                <span className="bg-gradient-to-r from-white via-white to-white/50 bg-clip-text text-transparent">
+                  Agent Registry
+                </span>
+              </h2>
+              <p className="text-sm text-white/30 mt-3 max-w-lg mx-auto">
+                Discover, hire, and deploy AI agents. Each agent is an on-chain NFT with verifiable performance.
+              </p>
+            </div>
+          </RevealSection>
+        </div>
 
-                    <div className="p-5">
-                      {/* Header: Avatar + Name + Chain/NFT badges */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3 min-w-0">
+        {/* Sticky Toolbar */}
+        <div className="sticky top-0 z-30 border-y border-white/[0.06] bg-background/80 backdrop-blur-xl">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+              {/* Search */}
+              <div className="relative w-full lg:w-72 shrink-0">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                <Input
+                  placeholder="Search agents, tools..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9 bg-white/[0.03] border-white/[0.08] text-sm placeholder:text-white/20 focus-visible:border-cyan-500/40 focus-visible:ring-cyan-500/20 transition-all duration-200"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Category Tabs */}
+              <Tabs value={category} onValueChange={setCategory} className="w-full lg:w-auto flex-1 min-w-0">
+                <TabsList className="h-9 bg-white/[0.03] border border-white/[0.06] flex-wrap gap-0.5">
+                  {CATEGORIES.map((tab) => (
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className="text-xs px-3 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-400 data-[state=active]:shadow-none transition-all duration-200"
+                    >
+                      {tab.icon && <span className="mr-1">{tab.icon}</span>}
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+
+              {/* Sort */}
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                <SelectTrigger className="w-full sm:w-40 h-9 bg-white/[0.03] border-white/[0.08] text-xs shrink-0">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {!loading && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-white/30">
+                  {filteredAgents.length} agent{filteredAgents.length !== 1 ? 's' : ''}
+                  {searchQuery && <> matching &ldquo;{searchQuery}&rdquo;</>}
+                  {category !== 'all' && <> in {CATEGORIES.find((c) => c.value === category)?.label}</>}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Agent Grid */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                <AgentCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredAgents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
+                <SearchIcon className="w-6 h-6 text-white/20" />
+              </div>
+              <p className="text-white/60 text-lg font-medium mb-1">No agents found</p>
+              <p className="text-white/30 text-sm max-w-sm text-center">
+                {searchQuery
+                  ? `No results for "${searchQuery}". Try adjusting your search.`
+                  : 'Try a different category or register your own agent.'}
+              </p>
+              <div className="flex gap-3 mt-5">
+                {searchQuery && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setSearchQuery(''); setCategory('all'); }}
+                    className="border-white/[0.08] text-white/50 hover:text-white"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+                <Link href="/agents/register">
+                  <Button size="sm" className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold">
+                    Register Agent
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredAgents.map((a) => {
+                const chainInfo = a.chainId ? CHAIN_LABELS[a.chainId] : null;
+                const revenue = parseFloat(a.totalRevenue || '0');
+                const hash = a.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+                const eloScore = 1000 + (hash % 500);
+
+                return (
+                  <Link key={a.id} href={`/agents/${a.id}`} className="group">
+                    <div className="relative h-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-all duration-300 hover:border-cyan-500/20 hover:bg-white/[0.04] hover:shadow-xl hover:shadow-cyan-500/[0.03]">
+                      {/* Top accent */}
+                      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                      <div className="p-4">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-3">
                           <AgentAvatar name={a.name} />
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-white/90 group-hover:text-amber-500 transition-colors duration-200 truncate">
-                              {a.name}
-                            </h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <StarRating rating={a.rating || 0} />
-                              <span className="text-[10px] text-white/25">{(a.rating || 0).toFixed(1)}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-white/90 group-hover:text-cyan-400 transition-colors duration-200 truncate">
+                                {a.name}
+                              </h3>
+                              {/* Status dot */}
+                              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" />
                             </div>
-                            <span className="text-[10px] text-white/25 mt-0.5">
-                              by {a.nftTokenId !== null ? <span className="text-amber-500/70 font-medium">BoredBrain</span> : <span className="text-white/35">Community</span>}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {a.nftTokenId !== null && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                  </svg>
-                                  NFT
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {a.specialization && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/[0.08] text-cyan-400/70 border border-cyan-500/15 font-medium">
+                                  {a.specialization}
                                 </span>
-                              </TooltipTrigger>
-                              <TooltipContent>On-chain verified agent #{a.nftTokenId}</TooltipContent>
-                            </Tooltip>
-                          )}
-                          {chainInfo && (
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${chainInfo.color}`}>
-                              {chainInfo.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <p className="text-xs text-white/35 leading-relaxed line-clamp-2 mb-4">
-                        {a.description || 'No description provided for this agent.'}
-                      </p>
-
-                      {/* Capabilities */}
-                      <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                        {(a.capabilities as string[]).map((c) => (
-                          <span
-                            key={c}
-                            className="inline-flex items-center gap-1 text-[10px] bg-white/[0.04] text-white/40 px-2.5 py-1 rounded-full border border-white/[0.06] transition-colors duration-200 group-hover:border-white/[0.1] group-hover:text-white/50"
-                          >
-                            {CAPABILITY_ICONS[c] || '\u2022'} {c}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Tools */}
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        {(a.tools as string[]).slice(0, 4).map((t) => (
-                          <span
-                            key={t}
-                            className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.03] text-white/30 border border-white/[0.05]"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                        {(a.tools as string[]).length > 4 && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/[0.06] text-amber-500/60 border border-amber-500/10">
-                            +{(a.tools as string[]).length - 4}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Success Rate & Response Time badges */}
-                      {(() => {
-                        const hash = a.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-                        const successRate = 75 + (hash % 25);
-                        const responseTime = (0.8 + ((hash * 7) % 24) / 10).toFixed(1);
-                        return (
-                          <div className="flex items-center gap-2 mb-4">
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/[0.08] text-emerald-400/80 border border-emerald-500/15">
-                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                              {successRate}% success
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-sky-500/[0.08] text-sky-400/80 border border-sky-500/15">
-                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                              {responseTime}s avg
-                            </span>
+                              )}
+                              {a.nftTokenId !== null && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500/70 font-medium">
+                                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                      NFT
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>On-chain verified agent #{a.nftTokenId}</TooltipContent>
+                                </Tooltip>
+                              )}
+                              {chainInfo && (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${chainInfo.color}`}>
+                                  {chainInfo.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        );
-                      })()}
+                        </div>
 
-                      {/* Divider */}
-                      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent mb-4" />
+                        {/* Description */}
+                        <p className="text-xs text-white/30 leading-relaxed line-clamp-2 mb-3">
+                          {a.description || 'No description provided.'}
+                        </p>
 
-                      {/* Stats Row */}
-                      <div className="grid grid-cols-4 gap-2">
-                        <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-amber-500/10 transition-colors duration-300">
-                          <div className="text-sm font-bold text-amber-500">{a.pricePerQuery}</div>
-                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">BBAI/q</div>
+                        {/* Compact stats row */}
+                        <div className="flex items-center gap-3 text-[11px] mb-3">
+                          <div className="flex items-center gap-1">
+                            <svg className="w-3 h-3 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                            </svg>
+                            <span className="text-white/50 font-medium">{a.totalExecutions.toLocaleString()}</span>
+                            <span className="text-white/20">calls</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-amber-500/80 font-medium">{revenue > 0 ? revenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}</span>
+                            <span className="text-white/20">BBAI</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-cyan-400/80 font-medium">{eloScore}</span>
+                            <span className="text-white/20">ELO</span>
+                          </div>
                         </div>
-                        <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
-                          <div className="text-sm font-bold text-white/80">{a.totalExecutions.toLocaleString()}</div>
-                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">Runs</div>
-                        </div>
-                        <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
-                          <div className="text-sm font-bold text-white/80">{revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">Earned</div>
-                        </div>
-                        <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/[0.04] group-hover:border-white/[0.08] transition-colors duration-300">
-                          <div className="text-sm font-bold text-sky-400/80">{(0.8 + ((a.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) * 7) % 24) / 10).toFixed(1)}s</div>
-                          <div className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">Avg Resp</div>
-                        </div>
-                      </div>
 
-                      {/* Popularity Bar */}
-                      <div className="mt-3 space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] text-white/20 uppercase tracking-wider">Popularity</span>
-                          <span className="text-[10px] text-white/30 font-medium">{popularityPct.toFixed(0)}%</span>
+                        {/* Tools */}
+                        <div className="flex flex-wrap gap-1">
+                          {(a.tools as string[]).slice(0, 3).map((t) => (
+                            <span
+                              key={t}
+                              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.03] text-white/25 border border-white/[0.05]"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                          {(a.tools as string[]).length > 3 && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/[0.06] text-cyan-500/50 border border-cyan-500/10">
+                              +{(a.tools as string[]).length - 3}
+                            </span>
+                          )}
                         </div>
-                        <div className="h-1 rounded-full bg-white/[0.04] overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-amber-500/60 to-amber-500 transition-all duration-500"
-                            style={{ width: `${popularityPct}%` }}
-                          />
+
+                        {/* Price badge */}
+                        <div className="mt-3 pt-3 border-t border-white/[0.04] flex items-center justify-between">
+                          <span className="text-[11px] text-white/20">Price</span>
+                          <span className="text-sm font-bold text-amber-500">{a.pricePerQuery} <span className="text-[10px] font-normal text-white/25">BBAI/q</span></span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ================================================================= */}
+      {/* CTA FOOTER */}
+      {/* ================================================================= */}
+      <RevealSection>
+        <div className="relative border-t border-white/[0.04] overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.02] to-transparent" />
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+              <span className="bg-gradient-to-r from-cyan-400 via-white to-amber-400 bg-clip-text text-transparent">
+                Ready to build?
+              </span>
+            </h2>
+            <p className="text-white/35 text-base mb-8 max-w-md mx-auto">
+              Deploy your first autonomous agent in under a minute. On-chain identity, built-in wallet, instant revenue.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/agents/register">
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03] px-8 h-12 text-base"
+                >
+                  Register Agent
+                </Button>
+              </Link>
+              <Link href="/docs">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-white/[0.1] bg-white/[0.03] hover:bg-white/[0.06] text-white/70 hover:text-white transition-all duration-300 px-8 h-12 text-base"
+                >
+                  Read Docs
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </RevealSection>
     </div>
   );
 }

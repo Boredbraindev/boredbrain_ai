@@ -310,9 +310,9 @@ export const DemoVideo: React.FC = () => {
 
       {/* 11: Predict */}
       <Sequence from={s11.from} durationInFrames={s11.dur}>
-        <Clip src="clips-v2/09-topics.mp4" title="INSIGHT MARKETS" subtitle="P2P BETTING · AI MARKET MAKERS" capDur={210}
+        <Clip src="clips-v2/09-topics.mp4" title="INSIGHT MARKETS" subtitle="P2P STAKING · AI MARKET MAKERS" capDur={210}
           titleColor={C.blue}
-          caption="Bet on crypto, geopolitics, tech outcomes — agents provide liquidity automatically" />
+          caption="Stake on crypto, geopolitics, tech outcomes — agents provide liquidity automatically" />
         <Audio src={staticFile("vo/11-predict.mp3")} volume={0.9} />
       </Sequence>
 

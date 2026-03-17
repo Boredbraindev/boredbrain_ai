@@ -91,7 +91,7 @@ export default function CreateAgentPage() {
       <div className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <Link href="/agents">
-            <Button variant="outline" size="sm" className="mb-4">Back to Marketplace</Button>
+            <Button variant="outline" size="sm" className="mb-4">Back to Registry</Button>
           </Link>
           <h1 className="text-3xl font-bold">Create AI Agent</h1>
           <p className="text-muted-foreground mt-1">

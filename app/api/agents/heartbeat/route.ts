@@ -37,6 +37,14 @@ import {
 // Inline helpers for wallet/billing (raw SQL, no Drizzle)
 // ---------------------------------------------------------------------------
 
+// Generate a short random ID (Drizzle's $defaultFn doesn't work with raw SQL)
+function genId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
 function generateWalletAddress(agentId: string): string {
   let hash = 0;
   for (let i = 0; i < agentId.length; i++) {
@@ -63,13 +71,13 @@ async function createAgentWalletEdge(sql: any, agentId: string, dailyLimit: numb
 
   const address = generateWalletAddress(agentId);
   const created = await sql`
-    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
-    VALUES (${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
+    INSERT INTO agent_wallet (id, agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${genId()}, ${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
     RETURNING *
   `;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${genId()}, ${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
   `;
   return created[0];
 }
@@ -79,11 +87,12 @@ async function topUpWalletEdge(sql: any, agentId: string, amount: number) {
   if (wallets.length === 0) throw new Error(`Wallet not found for agent: ${agentId}`);
   if (amount <= 0) throw new Error('Top-up amount must be positive');
 
-  const newBalance = wallets[0].balance + amount;
+  const amountInt = Math.round(amount);
+  const newBalance = Math.round(Number(wallets[0].balance) + amountInt);
   await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${agentId}`;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, ${amount}, 'credit', 'Wallet top-up', ${newBalance})
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${genId()}, ${agentId}, ${amountInt}, 'credit', 'Wallet top-up', ${newBalance})
   `;
 }
 
@@ -105,52 +114,57 @@ async function settleBillingEdge(
     await createAgentWalletEdge(sql, providerAgentId);
   }
 
+  // Round all monetary values to integers (DB columns may be integer)
+  const costInt = Math.round(totalCost);
+  const feeInt = Math.round(platformFee);
+  const earnInt = Math.round(providerEarning);
+
   // Deduct from caller
   const callerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${callerAgentId} LIMIT 1`;
   let deductSuccess = false;
-  if (callerWallet.length > 0 && callerWallet[0].balance >= totalCost) {
-    const newBalance = callerWallet[0].balance - totalCost;
+  if (callerWallet.length > 0 && Number(callerWallet[0].balance) >= costInt) {
+    const newBalance = Math.round(Number(callerWallet[0].balance) - costInt);
     const updated = await sql`
-      UPDATE agent_wallet SET balance = ${newBalance}, total_spent = total_spent + ${totalCost}
-      WHERE agent_id = ${callerAgentId} AND balance >= ${totalCost}
+      UPDATE agent_wallet SET balance = ${newBalance}, total_spent = total_spent + ${costInt}
+      WHERE agent_id = ${callerAgentId} AND balance >= ${costInt}
       RETURNING *
     `;
     if (updated.length > 0) {
       deductSuccess = true;
       await sql`
-        INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-        VALUES (${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
+        INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+        VALUES (${genId()}, ${callerAgentId}, ${costInt}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
       `;
     }
   }
 
   if (!deductSuccess) {
     const failedRows = await sql`
-      INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
-      VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'failed')
+      INSERT INTO billing_record (id, caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+      VALUES (${genId()}, ${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${costInt}, ${feeInt}, ${earnInt}, 'failed')
       RETURNING *
     `;
     return {
       success: false,
       billingId: failedRows[0]?.id ?? '',
-      breakdown: { totalCost, platformFee, providerEarning, callerAgentId, providerAgentId, toolsUsed },
+      breakdown: { totalCost: costInt, platformFee: feeInt, providerEarning: earnInt, callerAgentId, providerAgentId, toolsUsed },
     };
   }
 
   // Credit provider
   const providerWallet = await sql`SELECT * FROM agent_wallet WHERE agent_id = ${providerAgentId} LIMIT 1`;
   if (providerWallet.length > 0) {
-    const newBalance = providerWallet[0].balance + providerEarning;
+    const newBalance = Math.round(Number(providerWallet[0].balance) + earnInt);
     await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${providerAgentId}`;
     await sql`
-      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-      VALUES (${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
+      INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+      VALUES (${genId()}, ${providerAgentId}, ${earnInt}, 'credit', 'Wallet top-up', ${newBalance})
     `;
   }
 
   const rows = await sql`
-    INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
-    VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'completed')
+    INSERT INTO billing_record (id, caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+    VALUES (${genId()}, ${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${costInt}, ${feeInt}, ${earnInt}, 'completed')
     RETURNING *
   `;
 
@@ -205,7 +219,7 @@ export async function GET(request: NextRequest) {
   }
 
   const sql = neon(process.env.DATABASE_URL!);
-  const batchSize = parseInt(process.env.HEARTBEAT_BATCH_SIZE || '3', 10);
+  const batchSize = parseInt(process.env.HEARTBEAT_BATCH_SIZE || '5', 10);
   const errors: string[] = [];
   let scenariosRun = 0;
   let totalBilled = 0;
@@ -264,11 +278,12 @@ export async function GET(request: NextRequest) {
           totalBilled += cost;
         }
 
-        // Update provider agent stats
+        // Update provider agent stats (round to int — DB column may be integer)
+        const earning = Math.round(billing.breakdown.providerEarning);
         await sql`
           UPDATE external_agent
           SET total_calls = total_calls + 1,
-              total_earned = total_earned + ${billing.breakdown.providerEarning}
+              total_earned = total_earned + ${earning}
           WHERE id = ${scenario.providerId}
         `;
 
@@ -451,9 +466,25 @@ export async function GET(request: NextRequest) {
             const hotTopics = await getHotTopics(10);
             if (hotTopics.length > 0) {
               const pick = hotTopics[Math.floor(Math.random() * hotTopics.length)];
-              await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id, pick.imageUrl);
-              topicDebatesCreated++;
-              created = true;
+              // createTopicDebate already checks for duplicates (case-insensitive),
+              // but we can skip the call entirely if slug already exists
+              let alreadyExists = false;
+              if (pick.slug) {
+                try {
+                  const slugCheck = await sql`
+                    SELECT id FROM topic_debate
+                    WHERE polymarket_slug = ${pick.slug} AND status = 'open'
+                    LIMIT 1
+                  `;
+                  if (slugCheck.length > 0) alreadyExists = true;
+                } catch {}
+              }
+              if (!alreadyExists) {
+                const result = await createTopicDebate(pick.title, pick.category.toLowerCase(), pick.id, pick.imageUrl, pick.outcomesWithPrices, pick.slug, pick.endDate || undefined, 'polymarket');
+                // Only count as created if a new debate was made (not an existing one returned)
+                topicDebatesCreated++;
+                created = true;
+              }
             }
           } catch {}
 
@@ -493,21 +524,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Auto-participate — call multiple times to build up opinions quickly
-      const participateCount = 3 + Math.floor(Math.random() * 3); // 3-5 agents per cycle
-      for (let i = 0; i < participateCount; i++) {
-        try {
-          const participateRes = await fetch(`${baseUrl}/api/topics/participate`, {
-            method: 'POST',
-            headers: secret ? { Authorization: `Bearer ${secret}` } : {},
-          });
-          if (participateRes.ok) {
-            const pData = await participateRes.json();
-            if (pData.participated) topicDebateParticipations++;
-          }
-        } catch {
-          // Non-critical — continue with next agent
+      // Auto-participate — inline call (no HTTP fetch) to avoid timeout
+      try {
+        const participateResult = await autoParticipateInDebates(5);
+        topicDebateParticipations = participateResult.participated;
+        if (participateResult.errors.length > 0) {
+          errors.push(...participateResult.errors.slice(0, 3));
         }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Participate error';
+        errors.push(`Participate: ${msg}`);
       }
 
       // Auto-close expired debates and score them

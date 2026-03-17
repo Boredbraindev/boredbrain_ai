@@ -600,7 +600,7 @@ export default function AgentRegistryPage() {
             <div className="flex gap-2 shrink-0">
               <Link href="/agents">
                 <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06]">
-                  Marketplace
+                  Agent Registry
                 </Button>
               </Link>
               <Link href="/agents/register">

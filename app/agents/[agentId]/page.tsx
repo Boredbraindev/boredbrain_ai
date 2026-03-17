@@ -98,7 +98,7 @@ export default function AgentDetailPage() {
       playbooks: '/playbooks',
       prompts: '/prompts',
       integrations: '/integrations',
-      marketplace: '/marketplace',
+      marketplace: '/agents',
       network: '/network',
     };
     if (redirects[agentId]) {
@@ -183,7 +183,7 @@ export default function AgentDetailPage() {
           <p className="text-white/40">Agent not found</p>
           <Link href="/agents">
             <Button variant="outline" size="sm" className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06]">
-              Back to Marketplace
+              Back to Registry
             </Button>
           </Link>
         </div>
@@ -216,7 +216,7 @@ export default function AgentDetailPage() {
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:-translate-x-0.5">
                 <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Back to Marketplace
+              Back to Registry
             </button>
           </Link>
 

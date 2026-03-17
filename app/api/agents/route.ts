@@ -8,7 +8,7 @@ import { neon } from '@neondatabase/serverless';
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+  const limit = Math.min(parseInt(searchParams.get('limit') || '200'), 300);
   const offset = parseInt(searchParams.get('offset') || '0');
 
   const dbUrl = process.env.DATABASE_URL;

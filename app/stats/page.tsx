@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import SettlementFeed from '@/components/settlement-feed';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -589,6 +590,15 @@ export default function StatsPage() {
             </div>
           </div>
         )}
+
+        {/* ── Recent Settlements ─────────────────────────────────────── */}
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-white">Recent Settlements</h2>
+            <p className="text-xs text-zinc-500">Settlement agent activity — debates scored, outcomes recorded, wallets updated</p>
+          </div>
+          <SettlementFeed />
+        </div>
 
         {/* ── Protocol Endpoints ──────────────────────────────────────── */}
         <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6">

@@ -42,7 +42,7 @@ export async function GET(_request: NextRequest) {
 
       const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
       const active = await sql`
-        SELECT count(*) as cnt FROM billing_record WHERE created_at >= ${oneDayAgo}
+        SELECT count(*) as cnt FROM billing_record WHERE timestamp >= ${oneDayAgo}
       `;
       billingStats.active_24h = Number(active[0]?.cnt ?? 0);
     } catch { /* table may not exist */ }
@@ -105,24 +105,89 @@ export async function GET(_request: NextRequest) {
       } catch { /* */ }
     }
 
-    // Recent transactions from point_transaction (exists from BP system)
+    // Recent transactions — combine billing_record, wallet_transaction, and point_transaction
     let recentTxs: any[] = [];
+
+    // 1) billing_record (agent-to-agent payments) — column is "timestamp" not "created_at"
     try {
       const rows = await sql`
-        SELECT id, action, points, wallet_address, created_at
+        SELECT br.id, br.caller_agent_id, br.provider_agent_id, br.total_cost,
+               br.platform_fee, br.provider_earning, br.status, br.timestamp,
+               ca.name as caller_name, pa.name as provider_name
+        FROM billing_record br
+        LEFT JOIN external_agent ca ON ca.id = br.caller_agent_id
+        LEFT JOIN external_agent pa ON pa.id = br.provider_agent_id
+        WHERE br.status = 'completed'
+        ORDER BY br.timestamp DESC
+        LIMIT 15
+      `;
+      for (const r of rows) {
+        recentTxs.push({
+          id: r.id,
+          type: 'a2a_payment',
+          amount: Number(r.total_cost ?? 0),
+          currency: 'BBAI',
+          wallet: r.caller_agent_id,
+          fromAgentId: r.caller_agent_id,
+          fromAgentName: r.caller_name ?? 'Unknown',
+          toAgentId: r.provider_agent_id,
+          toAgentName: r.provider_name ?? 'Unknown',
+          description: `${r.caller_name ?? 'Agent'} → ${r.provider_name ?? 'Agent'} (${Number(r.provider_earning ?? 0).toFixed(2)} BBAI)`,
+          timestamp: r.timestamp,
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // 2) wallet_transaction (credits/debits) — column is "timestamp" not "created_at"
+    try {
+      const rows = await sql`
+        SELECT wt.id, wt.agent_id, wt.amount, wt.type, wt.reason, wt.balance_after, wt.timestamp,
+               a.name as agent_name
+        FROM wallet_transaction wt
+        LEFT JOIN external_agent a ON a.id = wt.agent_id
+        WHERE wt.reason NOT IN ('Initial wallet funding', 'Wallet top-up')
+        ORDER BY wt.timestamp DESC
+        LIMIT 15
+      `;
+      for (const r of rows) {
+        recentTxs.push({
+          id: r.id,
+          type: r.type === 'credit' ? 'earning' : 'spending',
+          amount: Number(r.amount ?? 0),
+          currency: 'BBAI',
+          wallet: r.agent_id,
+          fromAgentId: r.type === 'debit' ? r.agent_id : null,
+          toAgentId: r.type === 'credit' ? r.agent_id : null,
+          description: `${r.agent_name ?? 'Agent'}: ${r.reason ?? r.type}`,
+          timestamp: r.timestamp,
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // 3) point_transaction (BP points — correct column names: amount, reason)
+    try {
+      const rows = await sql`
+        SELECT id, reason, amount, wallet_address, created_at
         FROM point_transaction
         ORDER BY created_at DESC
-        LIMIT 20
+        LIMIT 10
       `;
-      recentTxs = rows.map((tx: any) => ({
-        id: tx.id,
-        type: tx.action,
-        amount: Number(tx.points ?? 0),
-        currency: 'BP',
-        wallet: tx.wallet_address,
-        timestamp: tx.created_at,
-      }));
+      for (const tx of rows) {
+        recentTxs.push({
+          id: tx.id,
+          type: 'earning',
+          amount: Number(tx.amount ?? 0),
+          currency: 'BP',
+          wallet: tx.wallet_address,
+          description: `BP: ${tx.reason ?? 'points'}`,
+          timestamp: tx.created_at,
+        });
+      }
     } catch { /* table may not exist */ }
+
+    // Sort combined feed by timestamp descending, take top 20
+    recentTxs.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    recentTxs = recentTxs.slice(0, 20);
 
     const totalVolume = Number(walletStats.total_volume ?? 0);
     const totalAgents = Number(walletStats.total_agents ?? 0);

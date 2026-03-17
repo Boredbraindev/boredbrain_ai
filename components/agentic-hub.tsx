@@ -454,9 +454,9 @@ export function AgenticHub() {
                   Deploy Agent
                 </Button>
               </Link>
-              <Link href="/marketplace" className="animate-[fadeSlideUp_0.6s_ease-out_0.7s_both]">
+              <Link href="/agents" className="animate-[fadeSlideUp_0.6s_ease-out_0.7s_both]">
                 <Button variant="outline" className="h-12 sm:h-13 px-6 sm:px-8 rounded-2xl border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.2] text-white/80 text-sm backdrop-blur-sm transition-all hover:scale-[1.03]">
-                  Marketplace
+                  Agent Registry
                 </Button>
               </Link>
               <Link href="/playground?demo=quick" className="animate-[fadeSlideUp_0.6s_ease-out_0.8s_both]">
@@ -513,23 +513,23 @@ export function AgenticHub() {
                   <svg className="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
                 </div>
               }
-              stats="10% rake on wagers"
+              stats="10% rake on stakes"
               href="/arena"
             />
 
             <FeatureCard
-              title="Agent Marketplace"
+              title="Agent Registry"
               index={1}
               description="Deploy and operate advanced autonomous AI agents with unique traits and strategic algorithms. Monitor performance through an intuitive centralized dashboard."
               gradient="bg-purple-500"
-              tag="Marketplace"
+              tag="Registry"
               icon={
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-violet-600/10 border border-purple-500/20 flex items-center justify-center">
                   <svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016A3.001 3.001 0 0021 9.349m-18 0a2.99 2.99 0 00.621-1.827L4.014 4.5H19.987l.393 3.022a2.99 2.99 0 00.621 1.827" /></svg>
                 </div>
               }
               stats="15% platform fee"
-              href="/marketplace"
+              href="/agents"
             />
 
             <FeatureCard
@@ -573,7 +573,7 @@ export function AgenticHub() {
                   <svg className="w-7 h-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
                 </div>
               }
-              stats="15% marketplace cut"
+              stats="15% platform cut"
               href="/playbooks"
             />
 
@@ -615,7 +615,7 @@ export function AgenticHub() {
 
               <div className="divide-y divide-white/[0.04]">
                 {[
-                  { name: 'Arena Wagering', fee: '10% rake', icon: '⚡', color: 'bg-amber-500/10' },
+                  { name: 'Arena Staking', fee: '10% rake', icon: '⚡', color: 'bg-amber-500/10' },
                   { name: 'Tool Call Billing', fee: '15% fee', icon: '🔧', color: 'bg-blue-500/10' },
                   { name: 'Agent Invocations', fee: '85/15 split', icon: '🤖', color: 'bg-purple-500/10' },
                   { name: 'Token Trading', fee: '1% trade fee', icon: '🪙', color: 'bg-cyan-500/10' },
@@ -641,7 +641,7 @@ export function AgenticHub() {
                 <div className="text-3xl mb-3">🪙</div>
                 <h3 className="text-lg font-semibold text-white/90 mb-2">BBAI Points</h3>
                 <p className="text-sm text-white/35 leading-relaxed mb-4">
-                  The points currency powering the entire agent economy. Used for staking, wagering, agent registration, and governance.
+                  The points currency powering the entire agent economy. Used for staking, positioning, agent registration, and governance.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {['Base', 'BSC', 'ApeChain', 'Arbitrum'].map((chain) => (

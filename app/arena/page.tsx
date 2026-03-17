@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
+import { useAccount } from 'wagmi';
 
 const BattleVisual = dynamic(() => import('@/components/arena/battle-visual'), { ssr: false });
 
@@ -24,6 +25,8 @@ interface TopicDebateSummary {
   topScore: number | null;
   topAgentId: string | null;
   imageUrl?: string | null;
+  outcomes?: Array<{label: string; price: number}> | null;
+  source?: string; // 'polymarket' | 'kalshi' | 'internal'
 }
 
 interface OpinionEntry {
@@ -42,6 +45,8 @@ interface OpinionEntry {
   position: string;
   createdAt: string;
   rank: number;
+  outcomeIndex?: number | null;
+  outcomePicked?: string | null;
 }
 
 interface DebateDetail {
@@ -53,9 +58,20 @@ interface DebateDetail {
     totalParticipants: number;
     createdAt: string;
     closesAt: string;
+    outcomes?: Array<{label: string; price: number}> | null;
   };
   opinions: OpinionEntry[];
   totalOpinions: number;
+  gated?: boolean;
+}
+
+interface TopicNewsItem {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  summary: string;
+  sentiment: 'bullish' | 'bearish' | 'neutral';
 }
 
 interface TrendingTopic {
@@ -68,30 +84,144 @@ interface TrendingTopic {
   debateId?: string;
   image?: string;
   emoji?: string;
+  source?: string; // 'polymarket' | 'kalshi' | 'internal'
 }
 
 // ─── Category thumbnail config ──────────────────────────────────────────────
 
-const CATEGORY_THUMBS: Record<string, { image: string; gradient: string }> = {
-  Sports: { image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=400&fit=crop', gradient: 'from-purple-600 to-indigo-900' },
-  Geopolitics: { image: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=800&h=400&fit=crop', gradient: 'from-red-700 to-rose-950' },
-  Crypto: { image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop', gradient: 'from-amber-500 to-orange-900' },
-  Finance: { image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=400&fit=crop', gradient: 'from-emerald-600 to-green-950' },
-  Macro: { image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&h=400&fit=crop', gradient: 'from-blue-600 to-slate-900' },
-  Tech: { image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop', gradient: 'from-cyan-500 to-blue-950' },
-  Culture: { image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop', gradient: 'from-pink-500 to-fuchsia-950' },
-  Governance: { image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop', gradient: 'from-teal-500 to-emerald-950' },
-  DeFi: { image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=400&fit=crop', gradient: 'from-orange-500 to-amber-950' },
-  crypto: { image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop', gradient: 'from-amber-500 to-orange-900' },
-  defi: { image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=400&fit=crop', gradient: 'from-orange-500 to-amber-950' },
-  ai: { image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop', gradient: 'from-violet-500 to-purple-950' },
-  governance: { image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop', gradient: 'from-teal-500 to-emerald-950' },
-  culture: { image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=400&fit=crop', gradient: 'from-pink-500 to-fuchsia-950' },
-  general: { image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop', gradient: 'from-gray-500 to-gray-900' },
+// Multiple unique images per category — 6+ each to avoid repetition
+const CATEGORY_IMAGES: Record<string, string[]> = {
+  sports: [
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1461896836934-bd45ba8c0e78?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&h=400&fit=crop',
+  ],
+  politics: [
+    'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1555848962-6e79363ec58f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1575320181282-9afab399332c?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1598970434795-0c54fe7c0648?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop',
+  ],
+  elections: [
+    'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1494172961521-33799ddd43a5?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1598387846148-47e82ee120cc?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1604933762023-7213af7ff7e7?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1570063578733-6a33d1aabd39?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1559223607-180d0c16af56?w=800&h=400&fit=crop',
+  ],
+  crypto: [
+    'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1622630998477-20aa696ecb05?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1516245834210-c4c142787335?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1605792657660-596af9009e82?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1629877521896-4719e5f6b81e?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=800&h=400&fit=crop',
+  ],
+  defi: [
+    'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1634704784915-aacf363b021f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1666625519702-2c27fda44fd5?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1559526324-593bc073d938?w=800&h=400&fit=crop',
+  ],
+  ai: [
+    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1655720828018-edd2daec9349?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1531746790095-6c9aa554a867?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1555255707-c07966088b7b?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1535378917042-10a22c95931a?w=800&h=400&fit=crop',
+  ],
+  governance: [
+    'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1523292562811-8fa7962a78c8?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1577415124269-fc1140a69e91?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1521791055366-0d553872125f?w=800&h=400&fit=crop',
+  ],
+  finance: [
+    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1642543348745-03b1219733d9?w=800&h=400&fit=crop',
+  ],
+  culture: [
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&h=400&fit=crop',
+  ],
+  technology: [
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800&h=400&fit=crop',
+  ],
+  science: [
+    'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1628595351029-c2bf17511435?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1614935151651-0bea6508db6b?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=800&h=400&fit=crop',
+  ],
+  general: [
+    'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=400&fit=crop',
+  ],
 };
 
-function getCategoryThumb(cat: string) {
-  return CATEGORY_THUMBS[cat] || { image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=400&fit=crop', gradient: 'from-gray-500 to-gray-900' };
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  sports: 'from-purple-600 to-indigo-900',
+  politics: 'from-red-700 to-rose-950',
+  elections: 'from-blue-700 to-indigo-950',
+  crypto: 'from-amber-500 to-orange-900',
+  defi: 'from-orange-500 to-amber-950',
+  ai: 'from-violet-500 to-purple-950',
+  governance: 'from-teal-500 to-emerald-950',
+  finance: 'from-emerald-600 to-green-950',
+  culture: 'from-pink-500 to-rose-950',
+  technology: 'from-cyan-500 to-blue-950',
+  science: 'from-indigo-500 to-violet-950',
+  general: 'from-gray-500 to-gray-900',
+};
+
+// Deterministic hash from string for consistent but varied image selection
+function hashId(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function getCategoryThumb(cat: string, debateId?: string) {
+  const key = cat.toLowerCase();
+  const images = CATEGORY_IMAGES[key] || CATEGORY_IMAGES.general;
+  const gradient = CATEGORY_GRADIENTS[key] || CATEGORY_GRADIENTS.general;
+  // Use debate ID to pick a unique image from the pool
+  const idx = debateId ? hashId(debateId) % images.length : 0;
+  return { image: images[idx], gradient };
 }
 
 // ─── (Mock trending data removed — trending is derived from debates) ────────
@@ -131,6 +261,23 @@ function getPositionStyle(position: string) {
     default:
       return { badge: 'bg-blue-500/15 text-blue-400 border-blue-500/25', text: 'text-blue-400', label: 'NEUTRAL' };
   }
+}
+
+// ─── Multi-outcome colors ────────────────────────────────────────────────
+
+const OUTCOME_COLORS = [
+  { bg: 'bg-emerald-500', text: 'text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25', bar: 'bg-emerald-500/70' },
+  { bg: 'bg-blue-500', text: 'text-blue-400', badge: 'bg-blue-500/15 text-blue-400 border-blue-500/25', bar: 'bg-blue-500/70' },
+  { bg: 'bg-purple-500', text: 'text-purple-400', badge: 'bg-purple-500/15 text-purple-400 border-purple-500/25', bar: 'bg-purple-500/70' },
+  { bg: 'bg-amber-500', text: 'text-amber-400', badge: 'bg-amber-500/15 text-amber-400 border-amber-500/25', bar: 'bg-amber-500/70' },
+  { bg: 'bg-pink-500', text: 'text-pink-400', badge: 'bg-pink-500/15 text-pink-400 border-pink-500/25', bar: 'bg-pink-500/70' },
+  { bg: 'bg-cyan-500', text: 'text-cyan-400', badge: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25', bar: 'bg-cyan-500/70' },
+  { bg: 'bg-red-500', text: 'text-red-400', badge: 'bg-red-500/15 text-red-400 border-red-500/25', bar: 'bg-red-500/70' },
+  { bg: 'bg-orange-500', text: 'text-orange-400', badge: 'bg-orange-500/15 text-orange-400 border-orange-500/25', bar: 'bg-orange-500/70' },
+];
+
+function getOutcomeColor(index: number) {
+  return OUTCOME_COLORS[index % OUTCOME_COLORS.length];
 }
 
 // ─── Components ──────────────────────────────────────────────────────────────
@@ -180,16 +327,140 @@ function TimeRemaining({ closesAt }: { closesAt: string }) {
         setRemaining('Closed');
         return;
       }
-      const min = Math.floor(diff / 60000);
-      const sec = Math.floor((diff % 60000) / 1000);
-      setRemaining(`${min}:${sec.toString().padStart(2, '0')}`);
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+
+      if (days > 30) {
+        const months = Math.floor(days / 30);
+        setRemaining(`${months}mo left`);
+      } else if (days > 0) {
+        setRemaining(`${days}d ${hours}h left`);
+      } else if (hours > 0) {
+        setRemaining(`${hours}h ${mins}m left`);
+      } else {
+        const sec = Math.floor((diff % 60000) / 1000);
+        setRemaining(`${mins}:${sec.toString().padStart(2, '0')}`);
+      }
     }
     update();
-    const timer = setInterval(update, 1000);
+    const interval = new Date(closesAt).getTime() - Date.now() > 3600000 ? 60000 : 1000;
+    const timer = setInterval(update, interval);
     return () => clearInterval(timer);
   }, [closesAt]);
 
   return <span className="font-mono text-amber-400/70 text-[10px]">{remaining}</span>;
+}
+
+// ─── Multi-Outcome Visual ────────────────────────────────────────────────
+
+function MultiOutcomeVisual({ outcomes, opinionCounts }: {
+  outcomes: Array<{label: string; price: number}>;
+  opinionCounts: Record<number, number>;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  // Sort by price descending
+  const sorted = [...outcomes]
+    .map((o, idx) => ({ ...o, originalIdx: idx }))
+    .sort((a, b) => b.price - a.price);
+  // Show top 6 as cards, rest as compact list
+  const cardCount = Math.min(6, sorted.length);
+  const visible = sorted.slice(0, cardCount);
+  const rest = sorted.slice(cardCount);
+  const hidden = rest.length;
+
+  return (
+    <div className="w-full py-8 px-6 sm:px-10 bg-gradient-to-b from-black via-gray-950/80 to-black">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {visible.map((outcome) => {
+          const idx = outcome.originalIdx;
+          const color = getOutcomeColor(idx);
+          const pct = Math.round(outcome.price * 100);
+          const agents = opinionCounts[idx] || 0;
+          return (
+            <div
+              key={idx}
+              className="relative rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 hover:bg-white/[0.06] transition-all group"
+            >
+              {/* Price/probability */}
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-2xl font-black font-mono ${color.text}`}>{pct}%</span>
+                {agents > 0 && (
+                  <span className="text-[10px] text-white/30 font-mono">{agents} agent{agents !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+              {/* Label */}
+              <h4 className="text-sm font-semibold text-white/90 mb-3 leading-snug">{outcome.label}</h4>
+              {/* Probability bar */}
+              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${color.bar} transition-all duration-700`}
+                  style={{ width: `${Math.max(pct, 2)}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Compact list for remaining outcomes */}
+      {hidden > 0 && (
+        <div className="mt-3">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-amber-400/70 hover:text-amber-400 text-xs font-mono cursor-pointer transition-colors"
+          >
+            {showAll ? 'Show less' : `+${hidden} more outcomes`}
+          </button>
+          {showAll && (
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+              {rest.map((outcome) => {
+                const idx = outcome.originalIdx;
+                const color = getOutcomeColor(idx % 8);
+                const pct = Math.round(outcome.price * 100);
+                return (
+                  <div key={idx} className="flex items-center justify-between px-2 py-1 rounded bg-white/[0.02] border border-white/[0.04]">
+                    <span className="text-[10px] text-white/60 truncate mr-2">{outcome.label}</span>
+                    <span className={`text-[10px] font-mono font-bold ${color.text}`}>{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Stacked bar summary — top 8 only */}
+      <div className="mt-5 h-3 bg-white/[0.06] rounded-full overflow-hidden flex">
+        {visible.map((outcome) => {
+          const idx = outcome.originalIdx;
+          const pct = Math.round(outcome.price * 100);
+          const color = getOutcomeColor(idx);
+          return (
+            <div
+              key={idx}
+              className={`h-full ${color.bar} transition-all duration-700`}
+              style={{ width: `${pct}%` }}
+              title={`${outcome.label}: ${pct}%`}
+            />
+          );
+        })}
+      </div>
+      {/* Legend — top 8 only */}
+      <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
+        {visible.map((outcome) => {
+          const idx = outcome.originalIdx;
+          const color = getOutcomeColor(idx);
+          const pct = Math.round(outcome.price * 100);
+          return (
+            <div key={idx} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-sm ${color.bg}`} />
+              <span className="text-[10px] text-white/50">{outcome.label}</span>
+              <span className={`text-[10px] font-mono ${color.text}`}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ─── Badge display ───────────────────────────────────────────────────────────
@@ -209,6 +480,7 @@ type SortMode = 'score' | 'recent';
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ArenaPage() {
+  const { address: walletAddress } = useAccount();
   const [debates, setDebates] = useState<TopicDebateSummary[]>([]);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
   const [debateDetail, setDebateDetail] = useState<DebateDetail | null>(null);
@@ -217,43 +489,77 @@ export default function ArenaPage() {
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   // Trending: derived from debates — open ones sorted by most participants
-  const [stakePosition, setStakePosition] = useState<'for' | 'against' | null>(null);
+  const [stakePosition, setStakePosition] = useState<string | null>(null);
   const [stakeAmount, setStakeAmount] = useState(10);
   const [staking, setStaking] = useState(false);
   const [stakeResult, setStakeResult] = useState<{ success: boolean; message: string } | null>(null);
   const [stakeInfo, setStakeInfo] = useState<{ totalPool: number; agentStakes: Record<string, { totalStaked: number; stakers: number }>; totalStakers: number } | null>(null);
+  const [topicNews, setTopicNews] = useState<TopicNewsItem[]>([]);
+  const [newsExpanded, setNewsExpanded] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Derive trending from debates — open ones with most participants
-  const trending: TrendingTopic[] = debates
-    .filter((d) => d.status === 'open' || (d.closesAt && new Date(d.closesAt).getTime() > Date.now()))
-    .sort((a, b) => b.totalParticipants - a.totalParticipants)
-    .slice(0, 8)
-    .map((d) => ({
+  // Derive trending from debates — diverse categories first, then fill by participants
+  const trending: TrendingTopic[] = (() => {
+    const open = debates.filter((d) => d.status === 'open' || (d.closesAt && new Date(d.closesAt).getTime() > Date.now()));
+    const sorted = [...open].sort((a, b) => b.totalParticipants - a.totalParticipants || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // First pass: one per category for diversity
+    const byCategory = new Map<string, TopicDebateSummary>();
+    for (const d of sorted) {
+      if (!byCategory.has(d.category)) byCategory.set(d.category, d);
+    }
+    const diverse = [...byCategory.values()];
+    // Fill remaining slots with highest participants (not already included)
+    const diverseIds = new Set(diverse.map(d => d.id));
+    const remaining = sorted.filter(d => !diverseIds.has(d.id));
+    const selected = [...diverse, ...remaining].slice(0, 6);
+    return selected.map((d) => ({
       id: d.id,
       title: d.topic,
       category: d.category,
       volume: `${d.totalParticipants} agents`,
-      outcomes: [{ label: 'FOR', percent: 50 }, { label: 'AGAINST', percent: 50 }],
+      outcomes: d.outcomes && d.outcomes.length > 2
+        ? d.outcomes.map(o => ({ label: o.label, percent: Math.round(o.price * 100) }))
+        : d.totalParticipants > 0
+          ? [{ label: 'FOR', percent: 50 }, { label: 'AGAINST', percent: 50 }]
+          : [{ label: 'FOR', percent: 0 }, { label: 'AGAINST', percent: 0 }],
       hasDebate: true,
       debateId: d.id,
       image: d.imageUrl || getCategoryThumb(d.category).image,
+      source: d.source || 'polymarket',
     }));
+  })();
 
   // Fetch debates
   useEffect(() => {
     async function fetchAll() {
       setLoading(true);
       try {
-        const res = await fetch('/api/topics?type=debates&limit=30', { signal: AbortSignal.timeout(15000) });
+        const res = await fetch('/api/topics?type=debates&limit=18', { signal: AbortSignal.timeout(15000) });
         if (res.ok) {
           const data = await res.json();
           const debatesList = data.data?.debates ?? data.debates;
           if (debatesList && Array.isArray(debatesList)) {
             setDebates(debatesList);
-            const open = debatesList.find((d: TopicDebateSummary) => d.status === 'open');
-            if (open) {
-              setActiveDebateId(open.id);
+            // Pick best featured debate: prefer active participation + reasonable outcomes
+            const bestFeatured = debatesList
+              .filter((d: TopicDebateSummary) => d.status === 'open')
+              .sort((a: TopicDebateSummary, b: TopicDebateSummary) => {
+                // Prefer debates with participants
+                if (a.totalParticipants > 0 && b.totalParticipants === 0) return -1;
+                if (b.totalParticipants > 0 && a.totalParticipants === 0) return 1;
+                // Prefer reasonable outcome count (2-10)
+                const aOutcomes = a.outcomes?.length || 2;
+                const bOutcomes = b.outcomes?.length || 2;
+                const aGood = aOutcomes >= 2 && aOutcomes <= 10;
+                const bGood = bOutcomes >= 2 && bOutcomes <= 10;
+                if (aGood && !bGood) return -1;
+                if (bGood && !aGood) return 1;
+                // Then by participants
+                return b.totalParticipants - a.totalParticipants;
+              });
+            if (bestFeatured.length > 0) {
+              setActiveDebateId(bestFeatured[0].id);
             } else if (debatesList.length > 0) {
               setActiveDebateId(debatesList[0].id);
             }
@@ -280,7 +586,8 @@ export default function ArenaPage() {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`/api/topics/${activeDebateId}`, { signal: controller.signal });
+        const walletParam = walletAddress ? `?wallet=${walletAddress}` : '';
+        const res = await fetch(`/api/topics/${activeDebateId}${walletParam}`, { signal: controller.signal });
         clearTimeout(timer);
         if (res.ok) {
           const data = await res.json();
@@ -288,7 +595,8 @@ export default function ArenaPage() {
           if (debate) {
             const opinions = data.data?.opinions ?? data.opinions ?? [];
             const totalOpinions = data.data?.totalOpinions ?? data.totalOpinions ?? 0;
-            setDebateDetail({ debate, opinions, totalOpinions });
+            const gated = data.data?.gated ?? data.gated ?? false;
+            setDebateDetail({ debate, opinions, totalOpinions, gated });
           }
         }
       } catch {
@@ -298,7 +606,7 @@ export default function ArenaPage() {
       }
     }
     fetchDetail();
-  }, [activeDebateId]);
+  }, [activeDebateId, walletAddress]);
 
   // Auto-scroll opinions feed
   useEffect(() => {
@@ -312,14 +620,16 @@ export default function ArenaPage() {
     if (!activeDebateId) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/topics/${activeDebateId}`);
+        const walletParam = walletAddress ? `?wallet=${walletAddress}` : '';
+        const res = await fetch(`/api/topics/${activeDebateId}${walletParam}`);
         if (res.ok) {
           const data = await res.json();
           const debate = data.data?.debate ?? data.debate;
           if (debate) {
             const opinions = data.data?.opinions ?? data.opinions ?? [];
             const totalOpinions = data.data?.totalOpinions ?? data.totalOpinions ?? 0;
-            setDebateDetail({ debate, opinions, totalOpinions });
+            const gated = data.data?.gated ?? data.gated ?? false;
+            setDebateDetail({ debate, opinions, totalOpinions, gated });
           }
         }
       } catch {
@@ -327,7 +637,7 @@ export default function ArenaPage() {
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [activeDebateId]);
+  }, [activeDebateId, walletAddress]);
 
   // Fetch stake info when debate changes
   useEffect(() => {
@@ -347,11 +657,52 @@ export default function ArenaPage() {
     setStakeResult(null);
   }, [activeDebateId]);
 
+  // Fetch related news when debate changes (non-blocking, optional)
+  useEffect(() => {
+    if (!activeDebateId) {
+      setTopicNews([]);
+      return;
+    }
+    let cancelled = false;
+    setNewsLoading(true);
+    setNewsExpanded(false);
+
+    async function fetchNews() {
+      try {
+        const res = await fetch(`/api/topics/${activeDebateId}/news`, {
+          signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setTopicNews(data.news ?? []);
+        }
+      } catch {
+        // News is optional — silently ignore
+      } finally {
+        if (!cancelled) setNewsLoading(false);
+      }
+    }
+    fetchNews();
+    return () => { cancelled = true; };
+  }, [activeDebateId]);
+
+  // Resolve a display label for the current stake position
+  function getStakeLabel(): string {
+    if (!stakePosition) return '';
+    if (stakePosition.startsWith('outcome_') && activeOutcomes) {
+      const idx = parseInt(stakePosition.split('_')[1], 10);
+      return activeOutcomes[idx]?.label || stakePosition;
+    }
+    return stakePosition.toUpperCase();
+  }
+
   // Handle stake submission
   async function handleStake() {
     if (!activeDebateId || !stakePosition || !sortedOpinions.length) return;
-    // Find an agent with the matching position
-    const matchingAgent = sortedOpinions.find(o => o.position === stakePosition);
+    // Find an agent with the matching position (multi-outcome: match by outcomeIndex)
+    const matchingAgent = stakePosition.startsWith('outcome_')
+      ? sortedOpinions.find(o => o.outcomeIndex === parseInt(stakePosition.split('_')[1], 10))
+      : sortedOpinions.find(o => o.position === stakePosition);
     if (!matchingAgent) return;
 
     setStaking(true);
@@ -368,8 +719,8 @@ export default function ArenaPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setStakeResult({ success: true, message: `${stakeAmount} BBAI staked on ${stakePosition.toUpperCase()}!` });
-        toast.success(`${stakeAmount} BBAI staked on ${stakePosition.toUpperCase()}!`);
+        setStakeResult({ success: true, message: `${stakeAmount} BBAI staked on ${getStakeLabel()}!` });
+        toast.success(`${stakeAmount} BBAI staked on ${getStakeLabel()}!`);
         // Refresh stakes
         const refreshRes = await fetch(`/api/topics/${activeDebateId}/stake`);
         if (refreshRes.ok) {
@@ -416,10 +767,28 @@ export default function ArenaPage() {
 
   const forCount = positionCounts['for'] || 0;
   const againstCount = positionCounts['against'] || 0;
-  const forPercent = (forCount + againstCount) > 0
+  const hasVotes = (forCount + againstCount) > 0;
+  const forPercent = hasVotes
     ? Math.round((forCount / (forCount + againstCount)) * 100)
-    : 50;
-  const againstPercent = 100 - forPercent;
+    : 0;
+  const againstPercent = hasVotes ? 100 - forPercent : 0;
+
+  // Multi-outcome detection
+  const activeOutcomes = activeSummary?.outcomes && activeSummary.outcomes.length > 2
+    ? activeSummary.outcomes
+    : null;
+  const isMultiOutcome = !!activeOutcomes;
+
+  // Count opinions per outcomeIndex for multi-outcome debates
+  const outcomeOpinionCounts = sortedOpinions.reduce(
+    (acc, o) => {
+      if (o.outcomeIndex != null) {
+        acc[o.outcomeIndex] = (acc[o.outcomeIndex] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
 
   // Empty state — no debates at all (after loading)
   if (!loading && debates.length === 0) {
@@ -456,7 +825,7 @@ export default function ArenaPage() {
           </Card>
 
           {/* Still show trending topics even with no debates */}
-          <TrendingSection trending={trending} />
+          <TrendingSection trending={trending} onSelectDebate={(id) => setActiveDebateId(id)} />
         </div>
       </div>
     );
@@ -484,40 +853,38 @@ export default function ArenaPage() {
           <p className="text-white/60 text-base sm:text-lg max-w-2xl">
             Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
           </p>
-          <div className="flex gap-3 mt-4">
-            <Link href="/arena">
-              <Button variant="outline" size="sm" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
-                Browse All Topics
-              </Button>
-            </Link>
-          </div>
+          {/* Scroll to debates */}
         </div>
 
         {/* ─── FEATURED DEBATE — Battle Visual + Opinions ─────────────────── */}
         <Card className="relative border-red-500/30 bg-black mb-10 overflow-hidden shadow-[0_0_120px_-30px_rgba(239,68,68,0.2)]">
           <CardContent className="relative p-0">
-            {/* Battle Visual — animated canvas hero with topic overlay */}
+            {/* Battle Visual — animated canvas hero with topic overlay (or multi-outcome grid) */}
             <div className="relative">
-              <BattleVisual
-                leftName={activeSummary ? `FOR (${forPercent}%)` : 'Discourse'}
-                rightName={activeSummary ? `AGAINST (${againstPercent}%)` : 'Arena'}
-                leftPercent={forPercent}
-                rightPercent={againstPercent}
-                leftModels={[
-                  { model: 'Llama', count: Math.ceil(forPercent * 0.3) },
-                  { model: 'Qwen', count: Math.ceil(forPercent * 0.25) },
-                  { model: 'Gemini', count: Math.ceil(forPercent * 0.2) },
-                  { model: 'DeepSeek', count: Math.ceil(forPercent * 0.15) },
-                  { model: 'Claude', count: Math.ceil(forPercent * 0.1) },
-                ]}
-                rightModels={[
-                  { model: 'GPT', count: Math.ceil(againstPercent * 0.3) },
-                  { model: 'Grok', count: Math.ceil(againstPercent * 0.25) },
-                  { model: 'Llama 4', count: Math.ceil(againstPercent * 0.2) },
-                  { model: 'Qwen', count: Math.ceil(againstPercent * 0.15) },
-                  { model: 'DeepSeek', count: Math.ceil(againstPercent * 0.1) },
-                ]}
-              />
+              {isMultiOutcome && activeOutcomes ? (
+                <MultiOutcomeVisual outcomes={activeOutcomes} opinionCounts={outcomeOpinionCounts} />
+              ) : (
+                <BattleVisual
+                  leftName={activeSummary && hasVotes ? `FOR (${forPercent}%)` : activeSummary ? 'FOR (0%)' : 'Discourse'}
+                  rightName={activeSummary && hasVotes ? `AGAINST (${againstPercent}%)` : activeSummary ? 'AGAINST (0%)' : 'Arena'}
+                  leftPercent={hasVotes ? forPercent : 0}
+                  rightPercent={hasVotes ? againstPercent : 0}
+                  leftModels={[
+                    { model: 'Llama', count: Math.ceil(forPercent * 0.3) },
+                    { model: 'Qwen', count: Math.ceil(forPercent * 0.25) },
+                    { model: 'Gemini', count: Math.ceil(forPercent * 0.2) },
+                    { model: 'DeepSeek', count: Math.ceil(forPercent * 0.15) },
+                    { model: 'Claude', count: Math.ceil(forPercent * 0.1) },
+                  ]}
+                  rightModels={[
+                    { model: 'GPT', count: Math.ceil(againstPercent * 0.3) },
+                    { model: 'Grok', count: Math.ceil(againstPercent * 0.25) },
+                    { model: 'Llama 4', count: Math.ceil(againstPercent * 0.2) },
+                    { model: 'Qwen', count: Math.ceil(againstPercent * 0.15) },
+                    { model: 'DeepSeek', count: Math.ceil(againstPercent * 0.1) },
+                  ]}
+                />
+              )}
 
               {/* Topic representative overlay on battle visual */}
               {activeSummary && (() => {
@@ -579,7 +946,27 @@ export default function ArenaPage() {
             </div>
 
             {/* Position breakdown */}
-            {activeSummary && Object.keys(positionCounts).length > 0 && (
+            {activeSummary && isMultiOutcome && activeOutcomes ? (
+              <div className="px-5 sm:px-8 pt-3 pb-1">
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {activeOutcomes.slice(0, 10).map((outcome, idx) => {
+                    const color = getOutcomeColor(idx);
+                    const count = outcomeOpinionCounts[idx] || 0;
+                    return (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={`text-[9px] ${color.badge}`}>
+                          {outcome.label}
+                        </Badge>
+                        <span className="text-xs font-mono text-white/50">{count}</span>
+                      </div>
+                    );
+                  })}
+                  {activeOutcomes.length > 10 && (
+                    <span className="text-[10px] text-white/30 font-mono">+{activeOutcomes.length - 10} more</span>
+                  )}
+                </div>
+              </div>
+            ) : activeSummary && Object.keys(positionCounts).length > 0 ? (
               <div className="px-5 sm:px-8 pt-3 pb-1">
                 <div className="flex items-center justify-center gap-4">
                   {Object.entries(positionCounts).map(([pos, count]) => {
@@ -595,7 +982,7 @@ export default function ArenaPage() {
                   })}
                 </div>
               </div>
-            )}
+            ) : null}
 
             <Separator className="bg-white/[0.06]" />
 
@@ -631,6 +1018,71 @@ export default function ArenaPage() {
                     <p className="text-white/30 text-xs">Loading opinions...</p>
                   </div>
                 </div>
+              ) : debateDetail?.gated ? (
+                /* ─── Gated Content Overlay ─────────────────────────────────── */
+                <div className="relative py-6">
+                  {/* Blurred placeholder lines to hint at hidden content */}
+                  <div className="space-y-3 select-none pointer-events-none" aria-hidden="true">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex gap-3 blur-[6px] opacity-30">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-24 rounded bg-white/15" />
+                            <div className="h-3 w-12 rounded bg-emerald-500/20" />
+                          </div>
+                          <div className="h-3 w-full rounded bg-white/10" />
+                          <div className="h-3 w-4/5 rounded bg-white/8" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Gate overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-transparent via-black/70 to-black/90 rounded-xl backdrop-blur-sm">
+                    <div className="text-center max-w-sm px-4">
+                      <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-500/20 to-purple-500/20 border border-white/[0.08] flex items-center justify-center">
+                        <svg className="w-7 h-7 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base font-bold text-white mb-1.5 tracking-tight">
+                        Unlock Agent Opinions
+                      </h3>
+                      <p className="text-xs text-white/50 leading-relaxed mb-5">
+                        Register your agent or subscribe to Pro to view agent opinions and participate in staking.
+                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <Link href="/agents/register">
+                          <Button
+                            size="sm"
+                            className="bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/30 hover:from-amber-500/30 hover:to-amber-600/30 rounded-xl px-5 text-xs font-semibold"
+                          >
+                            Register Agent
+                          </Button>
+                        </Link>
+                        <Link href="/topup">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/40 rounded-xl px-5 text-xs font-semibold"
+                          >
+                            Subscribe Pro
+                          </Button>
+                        </Link>
+                      </div>
+                      {!walletAddress && (
+                        <p className="text-[10px] text-white/25 mt-4">
+                          Connect your wallet first, then register an agent or subscribe.
+                        </p>
+                      )}
+                      {debateDetail.totalOpinions > 0 && (
+                        <p className="text-[10px] text-amber-400/40 mt-3 font-mono">
+                          {debateDetail.totalOpinions} opinion{debateDetail.totalOpinions !== 1 ? 's' : ''} hidden
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ) : sortedOpinions.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -644,6 +1096,15 @@ export default function ArenaPage() {
                   {sortedOpinions.map((opinion, i) => {
                     const posStyle = getPositionStyle(opinion.position);
                     const isTopRanked = opinion.rank <= 3 && debateDetail?.debate.status === 'completed';
+                    // Multi-outcome: determine color from outcomeIndex
+                    const outcomeColor = isMultiOutcome && opinion.outcomeIndex != null
+                      ? getOutcomeColor(opinion.outcomeIndex)
+                      : null;
+                    const opinionTextColor = outcomeColor ? outcomeColor.text : posStyle.text;
+                    const opinionBadgeStyle = outcomeColor ? outcomeColor.badge : posStyle.badge;
+                    const opinionBadgeLabel = opinion.outcomePicked
+                      ? `Picked: ${opinion.outcomePicked}`
+                      : posStyle.label;
                     return (
                       <div
                         key={opinion.id}
@@ -656,6 +1117,10 @@ export default function ArenaPage() {
                         <div className="flex-shrink-0 w-8 text-center pt-1">
                           {debateDetail?.debate.status === 'completed' ? (
                             <RankBadge rank={opinion.rank} />
+                          ) : outcomeColor ? (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono ${outcomeColor.badge}`}>
+                              {opinion.agentName.charAt(0)}
+                            </div>
                           ) : (
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono ${
                               opinion.position === 'for' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
@@ -670,7 +1135,7 @@ export default function ArenaPage() {
                         <div className="flex-1 min-w-0">
                           {/* Agent header */}
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className={`text-xs font-semibold ${posStyle.text}`}>
+                            <span className={`text-xs font-semibold ${opinionTextColor}`}>
                               {opinion.agentName}
                             </span>
                             {/* Debate badge for top 3 */}
@@ -679,8 +1144,8 @@ export default function ArenaPage() {
                                 {BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]].icon}
                               </span>
                             )}
-                            <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${posStyle.badge}`}>
-                              {posStyle.label}
+                            <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${opinionBadgeStyle}`}>
+                              {opinionBadgeLabel}
                             </Badge>
                             {opinion.agentSpecialization && opinion.agentSpecialization !== 'general' && (
                               <span className="text-[9px] text-white/25 font-mono">{opinion.agentSpecialization}</span>
@@ -716,8 +1181,83 @@ export default function ArenaPage() {
               )}
             </div>
 
-            {/* ─── Betting Panel ──────────────────────────────────────────── */}
-            {activeSummary?.status === 'open' && (
+            {/* ─── Related News ────────────────────────────────────────────── */}
+            {!debateDetail?.gated && topicNews.length > 0 && (
+              <>
+                <Separator className="bg-white/[0.06]" />
+                <div className="px-5 sm:px-6 py-4">
+                  <button
+                    onClick={() => setNewsExpanded(!newsExpanded)}
+                    className="flex items-center gap-2 w-full group"
+                  >
+                    <span className="text-xs font-mono tracking-widest text-blue-400/70 uppercase">Related News</span>
+                    <Badge variant="outline" className="text-[9px] border-blue-500/20 text-blue-400/60 px-1.5 py-0">
+                      {topicNews.length}
+                    </Badge>
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                    <span className={`text-white/30 text-xs transition-transform duration-200 ${newsExpanded ? 'rotate-180' : ''}`}>
+                      ▼
+                    </span>
+                  </button>
+
+                  {newsExpanded && (
+                    <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {topicNews.map((news, i) => {
+                        const sentimentColor =
+                          news.sentiment === 'bullish' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                          news.sentiment === 'bearish' ? 'text-red-400 bg-red-500/10 border-red-500/20' :
+                          'text-white/40 bg-white/[0.04] border-white/[0.08]';
+                        const sentimentLabel =
+                          news.sentiment === 'bullish' ? 'Bullish' :
+                          news.sentiment === 'bearish' ? 'Bearish' : 'Neutral';
+                        return (
+                          <div
+                            key={i}
+                            className="flex gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[9px] font-mono text-blue-400/60 bg-blue-500/10 border border-blue-500/15 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                                  {news.source}
+                                </span>
+                                <Badge variant="outline" className={`text-[8px] px-1.5 py-0 border ${sentimentColor}`}>
+                                  {sentimentLabel}
+                                </Badge>
+                                <span className="text-[9px] text-white/20 font-mono ml-auto flex-shrink-0">
+                                  {news.publishedAt}
+                                </span>
+                              </div>
+                              <a
+                                href={news.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-semibold text-white/90 hover:text-blue-300 transition-colors leading-snug block"
+                              >
+                                {news.title}
+                              </a>
+                              <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                                {news.summary}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <p className="text-[9px] text-white/15 text-center mt-1">
+                        News sourced via AI — verify independently before making decisions.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {newsLoading && !topicNews.length && !debateDetail?.gated && (
+              <div className="px-5 sm:px-6 py-2">
+                <span className="text-[10px] text-white/20 font-mono animate-pulse">Loading related news...</span>
+              </div>
+            )}
+
+            {/* ─── Staking Panel (hidden when gated) ──────────────────────── */}
+            {activeSummary?.status === 'open' && !debateDetail?.gated && (
               <>
                 <Separator className="bg-white/[0.06]" />
                 <div className="px-5 sm:px-6 py-5">
@@ -732,28 +1272,53 @@ export default function ArenaPage() {
                   </div>
 
                   {/* Position select */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button
-                      onClick={() => setStakePosition('for')}
-                      className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
-                        stakePosition === 'for'
-                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
-                          : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-300'
-                      }`}
-                    >
-                      FOR ({forPercent}%)
-                    </button>
-                    <button
-                      onClick={() => setStakePosition('against')}
-                      className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
-                        stakePosition === 'against'
-                          ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-1 ring-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
-                          : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300'
-                      }`}
-                    >
-                      AGAINST ({againstPercent}%)
-                    </button>
-                  </div>
+                  {isMultiOutcome && activeOutcomes ? (
+                    <div className={`grid gap-3 mb-4 ${activeOutcomes.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+                      {activeOutcomes.map((outcome, idx) => {
+                        const color = getOutcomeColor(idx);
+                        const posKey = `outcome_${idx}`;
+                        const isSelected = stakePosition === posKey;
+                        const pct = Math.round(outcome.price * 100);
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setStakePosition(posKey)}
+                            className={`py-3 px-2 rounded-xl border font-semibold text-sm transition-all ${
+                              isSelected
+                                ? `${color.badge} ring-1 ring-current shadow-lg`
+                                : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-white/[0.06] hover:border-white/[0.15]'
+                            }`}
+                          >
+                            <span className="block text-xs truncate">{outcome.label}</span>
+                            <span className={`block text-lg font-mono mt-0.5 ${isSelected ? color.text : 'text-white/60'}`}>{pct}%</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <button
+                        onClick={() => setStakePosition('for')}
+                        className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
+                          stakePosition === 'for'
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                            : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-300'
+                        }`}
+                      >
+                        FOR ({forPercent}%)
+                      </button>
+                      <button
+                        onClick={() => setStakePosition('against')}
+                        className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
+                          stakePosition === 'against'
+                            ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-1 ring-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                            : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300'
+                        }`}
+                      >
+                        AGAINST ({againstPercent}%)
+                      </button>
+                    </div>
+                  )}
 
                   {/* Amount + Submit */}
                   {stakePosition && (
@@ -786,9 +1351,11 @@ export default function ArenaPage() {
                         onClick={handleStake}
                         disabled={staking}
                         className={`px-6 rounded-xl font-semibold ${
-                          stakePosition === 'for'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                          stakePosition?.startsWith('outcome_')
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
+                            : stakePosition === 'for'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
                         }`}
                       >
                         {staking ? 'Staking...' : `Stake ${stakeAmount} BBAI`}
@@ -870,6 +1437,7 @@ export default function ArenaPage() {
                 return (
                   <Card
                     key={d.id}
+                    id={`debate-card-${d.id}`}
                     onClick={() => setActiveDebateId(d.id)}
                     className={`relative border cursor-pointer transition-all hover:shadow-lg overflow-hidden ${
                       isActive
@@ -878,8 +1446,8 @@ export default function ArenaPage() {
                     }`}
                   >
                     {/* Debate thumbnail */}
-                    <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
-                      <img src={d.imageUrl || thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" />
+                    <div className={`relative h-36 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
+                      <img src={d.imageUrl || thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" loading="lazy" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                       {/* Status badge on image */}
                       <div className="absolute top-2 left-2 flex items-center gap-1.5">
@@ -940,7 +1508,14 @@ export default function ArenaPage() {
         </section>
 
         {/* ─── Trending Topics ─────────────────────────────────────────────── */}
-        <TrendingSection trending={trending} />
+        <TrendingSection trending={trending} onSelectDebate={(id) => {
+          setActiveDebateId(id);
+          // Scroll to the debate card in the All Debates grid
+          setTimeout(() => {
+            const el = document.getElementById(`debate-card-${id}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        }} />
 
         {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
         <div className="text-center py-8 border-t border-white/[0.06]">
@@ -959,7 +1534,7 @@ export default function ArenaPage() {
 
 // ─── Trending Topics Section ────────────────────────────────────────────────
 
-function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
+function TrendingSection({ trending, onSelectDebate }: { trending: TrendingTopic[]; onSelectDebate?: (id: string) => void }) {
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-5">
@@ -974,16 +1549,23 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {trending.slice(0, 8).map((topic) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {trending.slice(0, 6).map((topic) => {
           const thumb = getCategoryThumb(topic.category);
+          // Show top outcome for multi-outcome, or FOR/AGAINST split
+          const topOutcome = topic.outcomes.length > 2
+            ? topic.outcomes.reduce((a, b) => a.percent >= b.percent ? a : b)
+            : null;
           return (
-            <Link key={topic.id} href="/arena">
-            <Card className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden">
-              {/* Thumbnail image */}
-              <div className={`relative h-28 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
-                <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            <Card
+              key={topic.id}
+              onClick={() => onSelectDebate?.(topic.debateId || topic.id)}
+              className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden"
+            >
+              {/* Compact thumbnail */}
+              <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
+                <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-85 group-hover:scale-105 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 {topic.hasDebate && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
                     <PulsingDot />
@@ -995,40 +1577,27 @@ function TrendingSection({ trending }: { trending: TrendingTopic[] }) {
                     {topic.category}
                   </Badge>
                 </div>
-                <div className="absolute bottom-2 right-2">
-                  <span className="text-[9px] text-white/60 font-mono bg-black/40 backdrop-blur-sm rounded px-1.5 py-0.5">
-                    Vol {topic.volume}
-                  </span>
-                </div>
               </div>
-              <CardContent className="p-4">
-                <h3 className="text-sm font-semibold text-white leading-snug mb-3 group-hover:text-amber-300 transition-colors line-clamp-2">
+              <CardContent className="p-3">
+                <h3 className="text-sm font-semibold text-white leading-snug mb-2 group-hover:text-amber-300 transition-colors line-clamp-2">
                   {topic.title}
                 </h3>
-                <div className="space-y-1.5 mb-3">
-                  {topic.outcomes.map((o) => (
-                    <div key={o.label} className="flex items-center gap-2">
-                      <span className="text-[11px] text-white/50 w-16 truncate">{o.label}</span>
-                      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-amber-500/60"
-                          style={{ width: `${o.percent}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] text-white/40 font-mono w-8 text-right">{o.percent}%</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-end">
-                  {topic.hasDebate ? (
-                    <span className="text-[10px] text-amber-400 font-semibold">Watch Debate →</span>
-                  ) : (
-                    <span className="text-[10px] text-white/30 group-hover:text-amber-400 transition-colors">Start Debate →</span>
-                  )}
+                <div className="flex items-center justify-between text-[10px] text-white/40">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono">🤖 {topic.volume}</span>
+                  </div>
+                  {topOutcome ? (
+                    <span className="font-mono text-amber-400/70">{topOutcome.label} {topOutcome.percent}%</span>
+                  ) : topic.outcomes.length === 2 ? (
+                    <span className="font-mono">
+                      <span className="text-emerald-400/70">FOR {topic.outcomes[0].percent}%</span>
+                      <span className="mx-1 text-white/20">|</span>
+                      <span className="text-red-400/70">AGT {topic.outcomes[1].percent}%</span>
+                    </span>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
-            </Link>
           );
         })}
       </div>

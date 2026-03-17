@@ -8,6 +8,13 @@ import { getToolPrice } from '@/lib/tool-pricing';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 
+function genId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
 /**
  * POST /api/agents/[agentId]/invoke
  *
@@ -74,8 +81,8 @@ async function createAgentWalletEdge(sql: any, agentId: string, dailyLimit: numb
     RETURNING *
   `;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${genId()}, ${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
   `;
   return created[0];
 }
@@ -111,8 +118,8 @@ async function settleBillingEdge(
     if (updated.length > 0) {
       deductSuccess = true;
       await sql`
-        INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-        VALUES (${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
+        INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+        VALUES (${genId()}, ${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId + ' using [' + toolsUsed.join(', ') + ']'}, ${newBalance})
       `;
     }
   }
@@ -120,8 +127,8 @@ async function settleBillingEdge(
   if (!deductSuccess) {
     // Record failed billing
     const failedRows = await sql`
-      INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
-      VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'failed')
+      INSERT INTO billing_record (id, caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+      VALUES (${genId()}, ${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'failed')
       RETURNING *
     `;
     return {
@@ -137,15 +144,15 @@ async function settleBillingEdge(
     const newBalance = providerWallet[0].balance + providerEarning;
     await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${providerAgentId}`;
     await sql`
-      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-      VALUES (${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
+      INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+      VALUES (${genId()}, ${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
     `;
   }
 
   // Record billing
   const rows = await sql`
-    INSERT INTO billing_record (caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
-    VALUES (${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'completed')
+    INSERT INTO billing_record (id, caller_agent_id, provider_agent_id, tools_used, total_cost, platform_fee, provider_earning, status)
+    VALUES (${genId()}, ${callerAgentId}, ${providerAgentId}, ${JSON.stringify(toolsUsed)}, ${totalCost}, ${platformFee}, ${providerEarning}, 'completed')
     RETURNING *
   `;
 

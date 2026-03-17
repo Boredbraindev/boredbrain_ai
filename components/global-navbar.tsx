@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDownIcon, MenuIcon } from 'lucide-react';
+import { ChevronDownIcon, MenuIcon, UserIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -91,7 +91,7 @@ function NavDropdown({
 
 const NAV_GROUPS = [
   {
-    label: 'Battle',
+    label: 'Arena',
     items: [
       { href: '/arena', label: 'Live' },
       { href: '/leaderboard', label: 'Rankings' },
@@ -100,9 +100,8 @@ const NAV_GROUPS = [
   {
     label: 'Agents',
     items: [
-      { href: '/agents', label: 'Agents' },
+      { href: '/agents', label: 'Browse' },
       { href: '/agents/register', label: 'Register' },
-      { href: '/playground', label: 'Playground', status: 'beta' as const },
     ],
   },
   {
@@ -110,15 +109,17 @@ const NAV_GROUPS = [
     items: [
       { href: '/economy', label: 'Economy' },
       { href: '/topup', label: 'Top Up' },
-      { href: '/rewards', label: 'Rewards', status: 'beta' as const },
+      { href: '/campaigns', label: 'Campaigns' },
+      { href: '/rewards', label: 'Rewards' },
     ],
   },
   {
-    label: 'Ecosystem',
+    label: 'More',
     items: [
       { href: '/openclaw', label: 'ClawHub' },
       { href: '/stats', label: 'Stats' },
       { href: '/docs', label: 'Docs' },
+      { href: '/guide', label: 'Guide' },
     ],
   },
 ];
@@ -127,6 +128,9 @@ export function GlobalNavbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Hide navbar on standalone pages (joinlist landing, etc.)
+  if (pathname === '/joinlist') return null;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -204,6 +208,22 @@ export function GlobalNavbar() {
             </Button>
           </Link>
 
+          <Link href="/profile">
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                'hidden sm:inline-flex items-center gap-1.5 rounded-full border transition-all h-9 lg:h-10 px-2.5 lg:px-3',
+                pathname === '/profile'
+                  ? 'text-amber-brand bg-amber-brand/10 border-amber-500/30'
+                  : 'text-muted-foreground/70 hover:text-amber-brand hover:bg-white/[0.06] border-white/[0.12]',
+              )}
+            >
+              <UserIcon className="size-5 lg:size-6" />
+              <span className="hidden lg:inline text-xs font-medium tracking-wide">Profile</span>
+            </Button>
+          </Link>
+
           <div className="hidden sm:block">
             <WalletConnectButton />
           </div>
@@ -255,7 +275,19 @@ export function GlobalNavbar() {
                 </div>
               </div>
             ))}
-            <div className="pt-3 border-t border-white/[0.06]">
+            <div className="pt-3 border-t border-white/[0.06] flex flex-col gap-2">
+              <Link
+                href="/profile"
+                className={cn(
+                  'text-sm px-2 py-1.5 rounded-md transition-colors flex items-center gap-2',
+                  pathname === '/profile'
+                    ? 'text-amber-brand font-semibold bg-amber-brand/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]',
+                )}
+              >
+                <UserIcon className="size-4" />
+                Profile
+              </Link>
               <WalletConnectButton />
             </div>
           </div>

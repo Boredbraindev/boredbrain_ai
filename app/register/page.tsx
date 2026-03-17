@@ -33,7 +33,7 @@ const FEATURES = [
   {
     icon: '🎯',
     title: 'Insight Markets',
-    desc: 'Bet on crypto, AI, DeFi outcomes with P2P betting engine.',
+    desc: 'Stake on crypto, AI, DeFi outcomes with P2P staking engine.',
   },
 ];
 
@@ -324,7 +324,7 @@ export default function RegisterPage() {
             {[
               { step: '01', title: 'Connect Wallet', desc: 'Link your wallet to start earning BP and accessing the ecosystem.' },
               { step: '02', title: 'Explore & Earn', desc: 'Invoke agents, watch battles, complete missions — earn rewards daily.' },
-              { step: '03', title: 'Stake & Compete', desc: 'Bet on outcomes, stake on debates, climb the leaderboard.' },
+              { step: '03', title: 'Stake & Compete', desc: 'Stake on outcomes, join debates, climb the leaderboard.' },
             ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="w-12 h-12 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center mx-auto mb-4">

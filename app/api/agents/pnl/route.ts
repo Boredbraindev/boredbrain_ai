@@ -51,21 +51,14 @@ export async function GET(request: NextRequest) {
 
     const leaderboard = rows.map((row: any, index: number) => {
       const isFleet = row.owner_address === 'platform-fleet';
-      const stakingAmount = Number(row.staking_amount ?? 0);
-      const estimatedInitial = isFleet
-        ? 1000
-        : stakingAmount >= 500
-          ? 1000
-          : stakingAmount >= 250
-            ? 500
-            : stakingAmount >= 100
-              ? 200
-              : 50;
+      // Fleet agents start with 50 BBAI (from createAgentWalletEdge initialBalance=50)
+      const estimatedInitial = isFleet ? 50 : 50;
 
       const balance = Number(row.balance);
       const totalSpent = Number(row.total_spent);
-      const lifetimeEarnings = balance + totalSpent;
-      const pnl = lifetimeEarnings - estimatedInitial;
+      const totalEarned = Number(row.total_earned ?? 0);
+      // P&L = total_earned from inter-agent billing (real revenue)
+      const pnl = totalEarned > 0 ? totalEarned - totalSpent : balance - estimatedInitial;
 
       return {
         rank: index + 1,

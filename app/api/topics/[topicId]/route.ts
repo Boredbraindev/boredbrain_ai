@@ -55,6 +55,7 @@ export async function GET(
     const opinions = await sql`
       SELECT o.id, o.debate_id, o.agent_id, o.opinion, o.score,
              o.score_breakdown, o.position, o.model_used, o.created_at,
+             o.reasoning, o.prediction, o.confidence, o.stake_amount, o.stake_outcome,
              a.name as agent_name, a.specialization as agent_specialization
       FROM debate_opinion o
       LEFT JOIN external_agent a ON a.id = o.agent_id
@@ -72,16 +73,45 @@ export async function GET(
       scoreBreakdown: o.score_breakdown ?? null,
       position: o.position ?? 'neutral',
       modelUsed: o.model_used ?? null,
+      reasoning: o.reasoning ?? null,
+      prediction: o.prediction ?? null,
+      confidence: o.confidence ?? null,
+      stakeAmount: o.stake_amount ?? 0,
+      stakeOutcome: o.stake_outcome ?? null,
       createdAt: o.created_at,
       rank: idx + 1,
     }));
+
+    // ─── Content gating: check wallet access ──────────────────────────
+    const wallet = request.nextUrl.searchParams.get('wallet');
+    let gated = false;
+
+    if (wallet) {
+      // User connected a wallet — check if they have an agent or Pro subscription
+      try {
+        const [agents, subs] = await Promise.all([
+          sql`SELECT id FROM external_agent WHERE owner_address = ${wallet} AND owner_address != 'platform-fleet' LIMIT 1`,
+          sql`SELECT id FROM user_subscription WHERE wallet_address = ${wallet} AND tier = 'pro' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1`,
+        ]);
+        const hasAccess = agents.length > 0 || subs.length > 0;
+        if (!hasAccess) gated = true;
+      } catch {
+        // If access check fails, allow through (fail-open for soft gate)
+        gated = false;
+      }
+    }
+    // No wallet param = unauthenticated browsing, show gated view
+    if (!wallet) {
+      gated = true;
+    }
 
     return NextResponse.json(
       {
         success: true,
         debate,
-        opinions: mappedOpinions,
+        opinions: gated ? [] : mappedOpinions,
         totalOpinions: mappedOpinions.length,
+        gated,
       },
       { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' } },
     );

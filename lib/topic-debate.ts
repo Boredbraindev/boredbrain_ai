@@ -5,7 +5,8 @@
  * an opinion/argument. Opinions are then scored on relevance, insight,
  * accuracy, and creativity.
  *
- * Debate phases: 'open' (30 min) → 'scoring' → 'completed'
+ * Debate phases: 'open' → 'scoring' → 'completed' → 'settled'
+ * Additional status: 'closed' (manually closed or duplicate — never deleted)
  * Uses gemini-2.0-flash for scoring to minimize LLM costs.
  */
 
@@ -45,21 +46,74 @@ export async function createTopicDebate(
   category: string = 'general',
   polymarketEventId?: string,
   imageUrl?: string,
+  outcomes?: Array<{label: string; price: number}>,
+  polymarketSlug?: string,
+  /** Polymarket/Kalshi endDate — used as closesAt instead of default 24h when provided */
+  closesAtOverride?: string | Date,
+  /** Source market: 'polymarket' | 'kalshi' | 'internal' */
+  source?: string,
 ): Promise<{ id: string; topic: string; category: string; closesAt: Date; marketId?: string }> {
+  // Check for existing debate with same topic (case-insensitive, trimmed)
+  try {
+    const existing = await Promise.race([
+      db
+        .select({ id: topicDebate.id, topic: topicDebate.topic, category: topicDebate.category, closesAt: topicDebate.closesAt, marketId: topicDebate.marketId })
+        .from(topicDebate)
+        .where(sql`LOWER(TRIM(${topicDebate.topic})) = LOWER(TRIM(${topic})) AND ${topicDebate.status} = 'open'`)
+        .limit(1),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DB timeout')), 3000),
+      ),
+    ]);
+
+    if (existing.length > 0) {
+      return {
+        id: existing[0].id,
+        topic: existing[0].topic,
+        category: existing[0].category,
+        closesAt: existing[0].closesAt,
+        marketId: existing[0].marketId ?? undefined,
+      };
+    }
+  } catch (err) {
+    console.error('[topic-debate] duplicate check error:', err);
+    // Continue with creation — better to risk a duplicate than block all new debates
+  }
+
   const id = generateId();
   const now = new Date();
-  const closesAt = new Date(now.getTime() + OPEN_DURATION_MS);
+
+  // Use Polymarket endDate as closesAt when provided and valid, otherwise default 24h
+  let closesAt: Date;
+  if (closesAtOverride) {
+    const parsed = closesAtOverride instanceof Date ? closesAtOverride : new Date(closesAtOverride);
+    if (!isNaN(parsed.getTime()) && parsed > now) {
+      closesAt = parsed;
+    } else {
+      closesAt = new Date(now.getTime() + OPEN_DURATION_MS);
+    }
+  } else {
+    closesAt = new Date(now.getTime() + OPEN_DURATION_MS);
+  }
+
   let marketId: string | undefined;
 
   // 1. Create a linked betting market for this debate
+  // Use multi-outcome labels if available, otherwise default to For/Against
+  const marketOutcomes = outcomes && outcomes.length > 2
+    ? outcomes.map(o => o.label)
+    : ['For', 'Against'];
+
   try {
     const [market] = await db
       .insert(bettingMarket)
       .values({
         title: `Debate: ${topic.slice(0, 200)}`,
-        description: `Linked betting market for topic debate. Agents bet by taking a for/against position.`,
+        description: outcomes && outcomes.length > 2
+          ? `Multi-outcome market for topic debate with ${outcomes.length} choices.`
+          : `Linked staking market for topic debate. Agents stake by taking a for/against position.`,
         category: 'ecosystem',
-        outcomes: ['For', 'Against'],
+        outcomes: marketOutcomes,
         creatorAddress: 'platform-debate',
         creatorType: 'platform',
         resolvesAt: closesAt,
@@ -87,6 +141,9 @@ export async function createTopicDebate(
       totalPool: 0,
       marketId: marketId ?? null,
       imageUrl: imageUrl ?? null,
+      outcomes: outcomes ?? null,
+      polymarketSlug: polymarketSlug ?? null,
+      source: source ?? 'polymarket',
     });
   } catch (err) {
     console.error('[topic-debate] createTopicDebate DB error:', err);
@@ -106,6 +163,7 @@ export async function submitAgentOpinion(
   opinion: string,
   position: 'for' | 'against' | 'neutral' = 'neutral',
   modelUsed?: string,
+  outcomeIndex?: number,
 ): Promise<{ success: boolean; opinionId?: string; error?: string }> {
   try {
     // 1. Check debate exists and is open
@@ -159,6 +217,7 @@ export async function submitAgentOpinion(
       agentId,
       opinion: opinion.slice(0, 2000), // cap at 2000 chars
       position,
+      outcomeIndex: outcomeIndex ?? null,
       score: 0,
       modelUsed: modelUsed || null,
     });
@@ -823,6 +882,11 @@ export async function autoParticipateInDebates(
           // Generate opinion — try LLM first, fall back to template
           let opinionText: string | null = null;
           let position: 'for' | 'against' | 'neutral' = 'neutral';
+          let outcomeIndex: number | undefined;
+
+          // Check if this is a multi-outcome debate
+          const isMultiOutcome = debate.outcomes && Array.isArray(debate.outcomes) && debate.outcomes.length > 2;
+          const debateOutcomes = debate.outcomes as Array<{label: string; price: number}> | null;
 
           try {
             const agentConfig: AgentConfig = {
@@ -837,12 +901,23 @@ export async function autoParticipateInDebates(
               ? 'Argue FIRMLY for one side.'
               : 'Be contrarian — challenge the popular view.';
 
+            // Build outcome-aware prompt
+            let outcomePrompt = '';
+            if (isMultiOutcome && debateOutcomes) {
+              const outcomeList = debateOutcomes
+                .map((o, i) => `  [${i}] ${o.label} (${Math.round(o.price * 100)}%)`)
+                .join('\n');
+              outcomePrompt = `\n\nAVAILABLE OUTCOMES:\n${outcomeList}\n\nYou MUST start your response with [PICK:N] where N is the outcome number you choose (e.g. [PICK:0], [PICK:2]).`;
+            } else {
+              outcomePrompt = '';
+            }
+
             const result = await Promise.race([
               executeAgent(
                 agentConfig,
                 `You are "${agent.name}". ${agent.description ?? agent.specialization + ' specialist'}.
 
-DEBATE: "${debate.topic}" [${debate.category}]
+DEBATE: "${debate.topic}" [${debate.category}]${outcomePrompt}
 
 Write 2-3 sentences. ${stanceHint} Rules:
 - NEVER start with "As a..." or any filler. Jump straight into your argument.
@@ -876,8 +951,26 @@ Reply with ONLY your opinion.`,
             continue;
           }
 
-          // Determine position from LLM content
-          if (position === 'neutral' && opinionText) {
+          // Extract outcome index for multi-outcome debates
+          if (isMultiOutcome && debateOutcomes && opinionText) {
+            const pickMatch = opinionText.match(/^\s*\[PICK:(\d+)\]/i);
+            if (pickMatch) {
+              const idx = parseInt(pickMatch[1], 10);
+              if (idx >= 0 && idx < debateOutcomes.length) {
+                outcomeIndex = idx;
+                // Map to for/against/neutral based on index for backwards compat
+                position = 'for'; // multi-outcome agents are always "for" their chosen outcome
+              }
+              opinionText = opinionText.replace(/^\s*\[PICK:\d+\]\s*/i, '').trim();
+            } else {
+              // No valid pick — assign random outcome
+              outcomeIndex = Math.floor(Math.random() * debateOutcomes.length);
+              position = 'for';
+            }
+          }
+
+          // Determine position from LLM content (binary debates only)
+          if (!isMultiOutcome && position === 'neutral' && opinionText) {
             const lower = opinionText.toLowerCase();
             if (lower.includes('support') || lower.includes('agree') || lower.includes('in favor') || lower.includes('positive')) {
               position = 'for';
@@ -891,6 +984,8 @@ Reply with ONLY your opinion.`,
             agent.id,
             opinionText,
             position,
+            undefined,
+            outcomeIndex,
           );
 
           if (submitResult.success) {

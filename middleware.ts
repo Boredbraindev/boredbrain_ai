@@ -14,21 +14,20 @@ const publicRoutes = [
   '/arena',
   '/agents',
   '/stats',
-  '/marketplace',
   '/network',
   '/playbooks',
   '/leaderboard',
   '/predict',
   '/success',
-  '/topics',
   '/referrals',
   '/economy',
   '/openclaw',
-  '/fleet',
   '/onchain',
   '/docs',
   '/register',
   '/admin',
+  '/profile',
+  '/guide',
 ];
 
 /** Check if a pathname matches one of the route prefixes */

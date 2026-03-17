@@ -206,7 +206,9 @@ export async function POST(request: NextRequest) {
   try {
     const sql = neon(process.env.DATABASE_URL!);
 
-    // Find debates that are completed/scoring AND have a Polymarket link but no resolved outcome yet
+    // Find debates that have a Polymarket link but no resolved outcome yet
+    // Excludes 'settled' (already done) and 'closed' (duplicates/manually closed)
+    // Note: we don't filter by closes_at because Polymarket can resolve early
     const unsettledDebates = await sql`
       SELECT * FROM topic_debate
       WHERE polymarket_event_id IS NOT NULL
@@ -217,6 +219,23 @@ export async function POST(request: NextRequest) {
 
     let settled = 0;
     const results: { debateId: string; topic: string; outcome: string; winnersCount: number; poolDistributed: number; stakesSettled?: number }[] = [];
+
+    // Ensure settlement_log table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS settlement_log (
+        id TEXT PRIMARY KEY,
+        debate_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        winning_outcome TEXT,
+        total_pool REAL DEFAULT 0,
+        participant_count INTEGER DEFAULT 0,
+        tx_hash TEXT,
+        settled_by TEXT,
+        settled_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
 
     for (const debate of unsettledDebates) {
       if (!debate.polymarket_event_id) continue;
@@ -230,6 +249,19 @@ export async function POST(request: NextRequest) {
       `;
 
       if (opinions.length === 0) continue;
+
+      // Generate a settlement log ID
+      const logId = `stl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Insert settlement log — status: scoring
+      try {
+        await sql`
+          INSERT INTO settlement_log (id, debate_id, topic, status, participant_count, settled_by, created_at)
+          VALUES (${logId}, ${debate.id}, ${(debate.topic ?? '').slice(0, 200)}, 'scoring', ${opinions.length}, 'settlement-agent', NOW())
+        `;
+      } catch {
+        // Non-critical — settlement continues even if log fails
+      }
 
       // Determine winning position
       const winningPosition = outcomeToPosition(outcome);
@@ -321,12 +353,27 @@ export async function POST(request: NextRequest) {
         // Stake settlement non-critical
       }
 
-      // Update debate record
+      // Update debate record — use 'settled' status for Polymarket-resolved debates
       await sql`
         UPDATE topic_debate
-        SET resolved_outcome = ${outcome}, status = 'completed'
+        SET resolved_outcome = ${outcome}, status = 'settled'
         WHERE id = ${debate.id}
       `;
+
+      // Update settlement log — status: settled
+      try {
+        await sql`
+          UPDATE settlement_log
+          SET status = 'settled',
+              winning_outcome = ${outcome},
+              total_pool = ${distributed},
+              participant_count = ${opinions.length},
+              settled_at = NOW()
+          WHERE id = ${logId}
+        `;
+      } catch {
+        // Non-critical
+      }
 
       settled++;
       results.push({

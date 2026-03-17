@@ -111,7 +111,7 @@ export default function OnChainDashboard() {
             </Badge>
           </div>
           <p className="text-zinc-500 text-sm">
-            Real-time on-chain settlement tracking | Hybrid model: Off-chain bets + On-chain settlement
+            Real-time on-chain settlement tracking | Hybrid model: Off-chain positions + On-chain settlement
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export default function OnChainDashboard() {
           <Card className="border-zinc-800 bg-zinc-900/60">
             <CardContent className="p-5 text-center">
               <div className="text-3xl font-bold text-amber-400">{totalBets}</div>
-              <div className="text-xs text-zinc-500 mt-1">Total Bets</div>
+              <div className="text-xs text-zinc-500 mt-1">Total Positions</div>
               <div className="text-[10px] text-zinc-600 mt-0.5">across all rounds</div>
             </CardContent>
           </Card>
@@ -215,7 +215,7 @@ export default function OnChainDashboard() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-blue-400">{heartbeat.betsGenerated.toLocaleString()}</div>
-                <div className="text-xs text-zinc-500">Bets Generated</div>
+                <div className="text-xs text-zinc-500">Positions Generated</div>
               </div>
             </div>
           </CardContent>
@@ -225,12 +225,12 @@ export default function OnChainDashboard() {
         <Card className="border-zinc-800 bg-zinc-900/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-white">Hybrid Architecture</CardTitle>
-            <CardDescription className="text-zinc-500">Off-chain bets + On-chain settlement</CardDescription>
+            <CardDescription className="text-zinc-500">Off-chain positions + On-chain settlement</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center gap-2 flex-wrap text-sm">
               <div className="px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-center">
-                <div className="text-white font-semibold">User Bets</div>
+                <div className="text-white font-semibold">User Positions</div>
                 <div className="text-[10px] text-zinc-500">Off-chain Points</div>
               </div>
               <div className="text-zinc-600 text-xl">{'\u2192'}</div>
@@ -256,7 +256,7 @@ export default function OnChainDashboard() {
             </div>
             <div className="mt-4 text-center">
               <Badge variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
-                Future: Switch settlement to BSC Mainnet + BBAI Points payouts
+                Future: Switch settlement to BSC Mainnet + BBAI Points rewards
               </Badge>
             </div>
           </CardContent>
@@ -342,14 +342,14 @@ export default function OnChainDashboard() {
         <Card className="border-zinc-800 bg-zinc-900/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-white">Smart Contract</CardTitle>
-            <CardDescription className="text-zinc-500">PredictionSettlement.sol — BSC Network</CardDescription>
+            <CardDescription className="text-zinc-500">ForecastSettlement.sol — BSC Network</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500">Contract Name</span>
-                  <span className="text-white font-mono">PredictionSettlement</span>
+                  <span className="text-white font-mono">ForecastSettlement</span>
                 </div>
                 <Separator className="bg-zinc-800" />
                 <div className="flex justify-between text-sm">
@@ -370,7 +370,7 @@ export default function OnChainDashboard() {
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500">Settlement Model</span>
-                  <span className="text-white">Hybrid (Off-chain bets + On-chain proof)</span>
+                  <span className="text-white">Hybrid (Off-chain positions + On-chain proof)</span>
                 </div>
                 <Separator className="bg-zinc-800" />
                 <div className="flex justify-between text-sm">
@@ -397,7 +397,7 @@ export default function OnChainDashboard() {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="border-blue-500/40 text-blue-400 bg-blue-950/20 text-[10px] w-12 justify-center">write</Badge>
                   <span className="text-green-400">settleRound</span>
-                  <span className="text-zinc-600">(roundId, asset, startPrice, endPrice, outcome, upPool, downPool, totalBets)</span>
+                  <span className="text-zinc-600">(roundId, asset, startPrice, endPrice, outcome, upPool, downPool, totalPositions)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="border-zinc-500/40 text-zinc-400 bg-zinc-950/20 text-[10px] w-12 justify-center">view</Badge>

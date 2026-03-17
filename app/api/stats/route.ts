@@ -99,7 +99,7 @@ export async function GET() {
     console.error('[stats] topAgents error:', e);
   }
 
-  // --- Recent arena matches ---
+  // --- Recent arena matches (try arena_match first, fallback to topic_debate) ---
   let recentMatches: Array<{
     id: string;
     topic: string;
@@ -129,6 +129,44 @@ export async function GET() {
     }));
   } catch (e) {
     console.error('[stats] recentMatches error:', e);
+  }
+
+  // Fallback: if arena_match is empty, use topic_debate as "matches"
+  if (recentMatches.length === 0) {
+    try {
+      const rows = await sql`
+        SELECT td.id, td.topic, td.category, td.status, td.total_participants, td.created_at, td.closes_at,
+               (SELECT json_agg(json_build_object('name', a.name, 'id', a.id))
+                FROM debate_opinion do2
+                JOIN external_agent a ON a.id = do2.agent_id
+                WHERE do2.debate_id = td.id
+                LIMIT 6) as agent_list
+        FROM topic_debate td
+        ORDER BY td.created_at DESC
+        LIMIT 6
+      `;
+      recentMatches = rows.map((r: any) => {
+        const agentList = r.agent_list ?? [];
+        const agentNames = Array.isArray(agentList) ? agentList.map((a: any) => a.name ?? 'Agent') : [];
+        return {
+          id: r.id,
+          topic: r.topic,
+          status: r.status ?? 'open',
+          matchType: r.category ?? 'debate',
+          agents: agentNames.slice(0, 4),
+          prizePool: String(r.total_participants ?? 0),
+          totalVotes: r.total_participants ?? 0,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        };
+      });
+      // Also update totalMatches from topic_debate
+      if (totalMatches === 0) {
+        const countRows = await sql`SELECT COUNT(*)::int AS count FROM topic_debate`;
+        totalMatches = countRows[0]?.count ?? 0;
+      }
+    } catch (e) {
+      console.error('[stats] topic_debate fallback error:', e);
+    }
   }
 
   // --- Top tools (derived from agents' tools x executions) ---

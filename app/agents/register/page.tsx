@@ -20,11 +20,13 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
-// Try to import wagmi hooks - may not be available if Web3 is not configured
+// Try to import wagmi hooks
 let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
+let useSignMessageHook: (() => { signMessageAsync?: (args: { message: string }) => Promise<string> }) | null = null;
 try {
   const wagmi = require('wagmi');
   useAccountHook = wagmi.useAccount;
+  useSignMessageHook = wagmi.useSignMessage;
 } catch {
   // Web3 not available
 }
@@ -84,18 +86,84 @@ const SPECIALIZATIONS = [
   { value: 'general', label: 'General' },
 ];
 
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="shrink-0 px-2 py-1 text-[10px] rounded bg-white/[0.06] text-white/40 hover:text-white/70 hover:bg-white/[0.1] transition-colors"
+    >
+      {copied ? 'Copied!' : label || 'Copy'}
+    </button>
+  );
+}
+
+function CLISetupCard({ agentName, walletAddress }: { agentName?: string; walletAddress?: string }) {
+  const installCmd = 'curl -fsSL https://boredbrain.app/bbclaw.sh | bash';
+  const registerCmd = `bbclaw register${agentName ? ` --name "${agentName}"` : ''}${walletAddress ? ` --wallet ${walletAddress}` : ''}`;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">&#9000;</span>
+        <h4 className="font-bold text-sm">Terminal Setup (Optional)</h4>
+        <Badge variant="outline" className="text-[9px]">BBClaw CLI</Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Install the BBClaw CLI to manage your agent from the terminal. Compatible with OpenClaw protocol.
+      </p>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white/70 overflow-x-auto">
+            {installCmd}
+          </code>
+          <CopyButton text={installCmd} />
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white/70 overflow-x-auto">
+            {registerCmd}
+          </code>
+          <CopyButton text={registerCmd} />
+        </div>
+      </div>
+      <div className="text-[10px] text-muted-foreground space-y-0.5">
+        <p>&#8226; Requires Python 3 and pip</p>
+        <p>&#8226; Also supports: <span className="font-mono text-white/50">bbclaw status</span>, <span className="font-mono text-white/50">bbclaw invoke --agent ID --query &quot;...&quot;</span></p>
+        <p>&#8226; Docs: <a href="/docs" className="text-primary hover:underline">boredbrain.app/docs</a></p>
+      </div>
+    </div>
+  );
+}
+
 export default function AgentRegisterPage() {
-  // Wallet connection
+  // Wallet connection + signing
   const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
   const { address: walletAddress, isConnected } = walletState;
+  const signState = useSignMessageHook ? useSignMessageHook() : { signMessageAsync: undefined };
+  const { signMessageAsync } = signState;
 
   const [tools, setTools] = useState<ToolInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [signingStep, setSigningStep] = useState<'idle' | 'signing' | 'registering'>('idle');
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [registeredAgent, setRegisteredAgent] = useState<RegisteredAgent | null>(null);
-  const [isDemo, setIsDemo] = useState(true);
+  const [isDemo] = useState(false); // No more demo mode — all registrations are real
   const [isDemoMessage, setIsDemoMessage] = useState('');
+
+  // Wallet agent status
+  const [walletStatus, setWalletStatus] = useState<{
+    hasAgent: boolean;
+    agentId: string | null;
+    agentName: string | null;
+    bbaiBalance: number;
+  } | null>(null);
+  const [walletStatusLoading, setWalletStatusLoading] = useState(false);
 
   // NFT holdings
   const [nftHoldings, setNftHoldings] = useState<{
@@ -122,10 +190,28 @@ export default function AgentRegisterPage() {
   // Validation errors
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Auto-fill wallet address and check NFT holdings when connected
+  // Auto-fill wallet address, check wallet status and NFT holdings when connected
   useEffect(() => {
     if (isConnected && walletAddress) {
       setOwnerAddress(walletAddress);
+
+      // Check wallet agent status
+      setWalletStatusLoading(true);
+      fetch(`/api/wallet/status?address=${walletAddress}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setWalletStatus({
+            hasAgent: !!data.hasAgent,
+            agentId: data.agentId ?? null,
+            agentName: data.agentName ?? null,
+            bbaiBalance: data.bbaiBalance ?? 0,
+          });
+        })
+        .catch(() => {
+          setWalletStatus(null);
+        })
+        .finally(() => setWalletStatusLoading(false));
+
       // Check NFT holdings
       setNftLoading(true);
       fetch(`/api/wallets/nft-check?address=${walletAddress}`)
@@ -133,10 +219,7 @@ export default function AgentRegisterPage() {
         .then((data) => {
           if (data.tier) {
             setNftHoldings(data);
-            // If ape-tier, auto-disable demo mode (they get free premium!)
-            if (data.tier === 'ape') {
-              setIsDemo(false);
-            }
+            // NFT tier info stored for display
           }
         })
         .catch(() => { /* NFT check is non-blocking */ })
@@ -172,6 +255,13 @@ export default function AgentRegisterPage() {
     e.preventDefault();
     setError('');
 
+    // Step 0: Wallet MUST be connected
+    if (!isConnected || !walletAddress) {
+      setError('Please connect your wallet first');
+      toast.error('Connect your wallet to register an agent');
+      return;
+    }
+
     // Client-side validation
     const errors: Record<string, string> = {};
     if (!name.trim() || name.trim().length < 2) {
@@ -180,19 +270,8 @@ export default function AgentRegisterPage() {
     if (!description.trim() || description.trim().length < 10) {
       errors.description = 'Description is required (min 10 characters)';
     }
-    if (!ownerAddress.trim()) {
-      errors.ownerAddress = 'Wallet address is required';
-    }
     if (!specialization) {
       errors.specialization = 'Please select a specialization';
-    }
-    if (!isDemo) {
-      if (!agentCardUrl.trim()) {
-        errors.agentCardUrl = 'Agent Card URL is required';
-      }
-      if (!endpoint.trim()) {
-        errors.endpoint = 'Agent API Endpoint is required';
-      }
     }
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -202,31 +281,47 @@ export default function AgentRegisterPage() {
     setLoading(true);
 
     try {
+      // Step 1: Sign a message with wallet to prove ownership
+      setSigningStep('signing');
+      const timestamp = Date.now();
+      const message = `BoredBrain Agent Registration\nWallet: ${walletAddress}\nAgent: ${name.trim()}\nTimestamp: ${timestamp}`;
+
+      let signature: string;
+      try {
+        if (!signMessageAsync) {
+          throw new Error('Wallet signing not available');
+        }
+        signature = await signMessageAsync({ message });
+      } catch (signErr: any) {
+        if (signErr?.message?.includes('rejected') || signErr?.message?.includes('denied')) {
+          setError('Signature rejected. You must sign to verify wallet ownership.');
+          toast.error('Signature rejected by wallet');
+        } else {
+          setError('Failed to sign message. Please try again.');
+          toast.error('Wallet signing failed');
+        }
+        setLoading(false);
+        setSigningStep('idle');
+        return;
+      }
+
+      // Step 2: Submit registration with signature
+      setSigningStep('registering');
+      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const payload: Record<string, any> = {
-        name,
-        description,
-        ownerAddress,
+        name: name.trim(),
+        description: description.trim(),
+        ownerAddress: walletAddress,
         specialization,
         tools: selectedTools,
-        isDemo,
+        isDemo: false,
+        signature,
+        message,
+        timestamp,
+        agentCardUrl: agentCardUrl || `https://boredbrain.app/api/agents/${slug}/card`,
+        endpoint: endpoint || `https://boredbrain.app/api/agents/${slug}/invoke`,
+        stakingAmount: 0,
       };
-
-      if (isDemo) {
-        // Demo agents get auto-generated URLs
-        payload.agentCardUrl = agentCardUrl || `https://boredbrain.app/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/card`;
-        payload.endpoint = endpoint || `https://boredbrain.app/api/agents/${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}/invoke`;
-        payload.stakingAmount = 0;
-      } else {
-        payload.agentCardUrl = agentCardUrl;
-        payload.endpoint = endpoint;
-        // Apply NFT staking discount
-        if (nftHoldings?.stakingDiscount === 100) {
-          payload.stakingAmount = 0;
-          payload.nftTier = nftHoldings.tier;
-        } else {
-          payload.stakingAmount = stakingAmount;
-        }
-      }
 
       const res = await fetch('/api/agents/register', {
         method: 'POST',
@@ -243,14 +338,19 @@ export default function AgentRegisterPage() {
       }
 
       setRegisteredAgent(data.agent);
-      setIsDemoMessage(data.isDemo ? data.message : '');
+      setIsDemoMessage('');
       setSuccess(true);
-      toast.success('Agent registered successfully!');
+      if (data.rewardAwarded) {
+        toast.success(`Agent registered! +${data.rewardAmount ?? 1000} BBAI reward claimed!`);
+      } else {
+        toast.success('Agent registered successfully!');
+      }
     } catch {
       setError('Network error. Please try again.');
       toast.error('Network error. Please try again.');
     } finally {
       setLoading(false);
+      setSigningStep('idle');
     }
   }
 
@@ -320,6 +420,16 @@ export default function AgentRegisterPage() {
                 )}
               </div>
 
+              {/* Registration Reward */}
+              <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-center">
+                <div className="text-2xl mb-1">&#127881;</div>
+                <p className="text-sm text-green-400 font-bold">+1000 BBAI Registration Reward Claimed!</p>
+                <p className="text-xs text-muted-foreground mt-1">Your reward has been added to your wallet balance.</p>
+              </div>
+
+              {/* CLI Setup */}
+              <CLISetupCard agentName={registeredAgent.name} walletAddress={registeredAgent.ownerAddress} />
+
               {isDemoMessage && (
                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
                   <span className="font-bold">Upgrade Tip:</span> Stake 100+ BBAI to unlock unlimited API calls, premium placement, and full earnings.
@@ -331,7 +441,7 @@ export default function AgentRegisterPage() {
                   <Button variant="outline">Browse Registry</Button>
                 </Link>
                 <Link href="/agents">
-                  <Button>Agent Marketplace</Button>
+                  <Button>Agent Registry</Button>
                 </Link>
               </div>
             </CardContent>
@@ -358,7 +468,7 @@ export default function AgentRegisterPage() {
                 <Button variant="outline" size="sm">Browse Registry</Button>
               </Link>
               <Link href="/agents">
-                <Button variant="outline" size="sm">Marketplace</Button>
+                <Button variant="outline" size="sm">Registry</Button>
               </Link>
             </div>
           </div>
@@ -366,6 +476,73 @@ export default function AgentRegisterPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Wallet Connection Required */}
+        {!isConnected && (
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-6 text-center">
+            <div className="text-4xl mb-3">&#128274;</div>
+            <h3 className="text-lg font-bold text-amber-400 mb-2">Connect Your Wallet First</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+              Connect your wallet to register an agent and earn <span className="text-amber-400 font-bold">+1000 BBAI</span> as a registration reward!
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Use the &quot;Connect Wallet&quot; button in the navigation bar above.
+            </p>
+          </div>
+        )}
+
+        {/* Already Has Agent */}
+        {isConnected && walletStatus?.hasAgent && (
+          <div className="mb-6 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-2xl">&#9989;</span>
+                  <h3 className="text-lg font-bold text-blue-400">You Already Have an Agent</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Your wallet has a registered agent: <span className="text-foreground font-medium">{walletStatus.agentName}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Each wallet can register one agent. Manage your existing agent from the registry.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/agents/registry">
+                  <Button variant="outline" size="sm">View Registry</Button>
+                </Link>
+                <Link href="/agents">
+                  <Button size="sm">My Agent</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wallet status loading */}
+        {isConnected && walletStatusLoading && (
+          <div className="mb-6 rounded-xl border border-border/50 bg-muted/30 p-5 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded-full bg-muted-foreground/20" />
+              <div className="h-4 w-48 rounded bg-muted-foreground/20" />
+            </div>
+          </div>
+        )}
+
+        {/* Registration Reward Badge */}
+        {isConnected && !walletStatus?.hasAgent && !walletStatusLoading && (
+          <div className="mb-6 rounded-xl border border-green-500/30 bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-500/15 border border-green-500/30">
+                <span className="text-xl">&#127873;</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-green-400">+1000 BBAI Registration Reward!</h3>
+                <p className="text-sm text-muted-foreground">Register your agent below and receive 1000 BBAI instantly to your wallet.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Demo Mode Banner */}
         <div className="mb-6 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -381,25 +558,7 @@ export default function AgentRegisterPage() {
                   : 'Connect your wallet to register a free demo agent. Experience the AI economy firsthand.'}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Label htmlFor="demo-toggle" className="text-sm text-muted-foreground cursor-pointer">
-                {isDemo ? 'Demo Mode' : 'Full Mode'}
-              </Label>
-              <Switch
-                id="demo-toggle"
-                checked={isDemo}
-                onCheckedChange={setIsDemo}
-              />
-            </div>
           </div>
-          {isDemo && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="outline" className="text-[10px]">&#9989; No Staking</Badge>
-              <Badge variant="outline" className="text-[10px]">&#9989; 50 Calls/Day</Badge>
-              <Badge variant="outline" className="text-[10px]">&#9989; Auto URLs</Badge>
-              <Badge variant="outline" className="text-[10px]">&#9989; Instant Access</Badge>
-            </div>
-          )}
         </div>
 
         {/* NFT Holdings Banner */}
@@ -461,7 +620,7 @@ export default function AgentRegisterPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${(!isConnected || walletStatus?.hasAgent) ? 'opacity-50 pointer-events-none select-none' : ''}`}>
           {/* Main form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -698,21 +857,51 @@ export default function AgentRegisterPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-base holographic-button text-white border-0"
-                disabled={loading}
+                disabled={loading || !isConnected}
               >
-                {loading
-                  ? 'Registering...'
-                  : isDemo
-                    ? 'Register Free Demo Agent'
-                    : nftHoldings?.stakingDiscount === 100
-                      ? 'Register Agent (Staking Waived - Ape Holder)'
-                      : `Register Agent (Stake ${stakingAmount} BBAI)`}
+                {!isConnected
+                  ? 'Connect Wallet First'
+                  : signingStep === 'signing'
+                    ? 'Sign in Wallet...'
+                    : signingStep === 'registering'
+                      ? 'Registering on-chain...'
+                      : 'Sign & Register Agent (+1000 BBAI)'}
               </Button>
             </form>
           </div>
 
           {/* Sidebar info cards */}
           <div className="space-y-4">
+            {/* BBClaw CLI Card */}
+            <Card className="border-cyan-500/20 bg-cyan-500/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <span>&#9000;</span> BBClaw CLI
+                  <Badge variant="outline" className="text-[9px] border-cyan-500/20 text-cyan-400">NEW</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground space-y-3">
+                <p>Register and manage agents from your terminal.</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <code className="flex-1 bg-black/40 border border-white/[0.08] rounded px-2 py-1 text-[10px] font-mono text-white/70 truncate">
+                      curl -fsSL https://boredbrain.app/bbclaw.sh | bash
+                    </code>
+                    <CopyButton text="curl -fsSL https://boredbrain.app/bbclaw.sh | bash" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <code className="flex-1 bg-black/40 border border-white/[0.08] rounded px-2 py-1 text-[10px] font-mono text-white/70 truncate">
+                      bbclaw register
+                    </code>
+                    <CopyButton text="bbclaw register" />
+                  </div>
+                </div>
+                <p className="text-[10px]">
+                  Requires Python 3. Compatible with <Link href="/openclaw" className="text-cyan-400 hover:underline">OpenClaw</Link>.
+                </p>
+              </CardContent>
+            </Card>
+
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Why Register?</CardTitle>

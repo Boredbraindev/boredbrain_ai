@@ -59,6 +59,61 @@ export async function POST(request: NextRequest) {
       return apiError('Valid Ethereum wallet address is required (0x + 40 hex characters)', 400);
     }
 
+    // ── One agent per wallet check ──────────────────────────────────────
+    try {
+      const { neon: neonSql } = await import('@neondatabase/serverless');
+      const sql = neonSql(process.env.DATABASE_URL!);
+      const existing = await sql`
+        SELECT id, name FROM external_agent
+        WHERE owner_address = ${ownerAddress}
+          AND owner_address != 'platform-fleet'
+        LIMIT 1
+      `;
+      if (existing.length > 0) {
+        return apiError(
+          `This wallet already has a registered agent ("${existing[0].name}"). Each wallet can register one agent.`,
+          400,
+        );
+      }
+    } catch (err) {
+      console.warn('[register] Wallet agent check failed, continuing:', err);
+    }
+
+    // ── Wallet signature verification ──────────────────────────────────
+    const signature = body.signature as string | undefined;
+    const signedMessage = body.message as string | undefined;
+    const signTimestamp = body.timestamp as number | undefined;
+
+    if (!signature || !signedMessage) {
+      return apiError('Wallet signature is required. Please sign the registration message in your wallet.', 400);
+    }
+
+    // Check timestamp freshness (10 minutes max)
+    if (signTimestamp && Date.now() - signTimestamp > 10 * 60 * 1000) {
+      return apiError('Registration signature has expired. Please try again.', 400);
+    }
+
+    // Verify the message contains the correct wallet and agent name
+    if (!signedMessage.includes(ownerAddress) || !signedMessage.includes(name)) {
+      return apiError('Signature message does not match registration details.', 400);
+    }
+
+    // Verify signature on-chain using viem
+    try {
+      const { verifyMessage } = await import('viem');
+      const valid = await verifyMessage({
+        address: ownerAddress as `0x${string}`,
+        message: signedMessage,
+        signature: signature as `0x${string}`,
+      });
+      if (!valid) {
+        return apiError('Invalid wallet signature. Please sign again.', 400);
+      }
+    } catch (sigErr) {
+      console.warn('[register] Signature verification failed:', sigErr);
+      return apiError('Failed to verify wallet signature. Please try again.', 400);
+    }
+
     // URL validation for optional URL fields
     if (agentCardUrl && !isValidUrl(agentCardUrl)) {
       return apiError('agentCardUrl must be a valid http(s) URL', 400);
@@ -151,6 +206,24 @@ export async function POST(request: NextRequest) {
       metadata: nftMetadata,
     });
 
+    // ── Verify agent was actually created in DB before awarding rewards ──
+    let agentVerified = false;
+    try {
+      const { neon: neonSql } = await import('@neondatabase/serverless');
+      const sql = neonSql(process.env.DATABASE_URL!);
+      const verification = await sql`
+        SELECT id FROM external_agent WHERE id = ${agent.id} LIMIT 1
+      `;
+      agentVerified = verification.length > 0;
+    } catch (err) {
+      console.warn('[register] Agent verification query failed:', err);
+    }
+
+    if (!agentVerified) {
+      console.error('[register] Agent not found in DB after registerAgent() — skipping rewards');
+      return apiSuccess({ agent, message: `Agent "${agent.name}" registered but reward could not be verified.`, isDemo, nftTier, rewardAwarded: false, rewardAmount: 0 }, 201);
+    }
+
     // ── Record staking deduction for non-demo registrations ────────────
     if (!isDemo && stakingAmount > 0) {
       try {
@@ -168,9 +241,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Award 1000 BBAI registration reward (only after DB verification) ─
+    let rewardAwarded = false;
+    try {
+      const { neon: neonSql } = await import('@neondatabase/serverless');
+      const sql = neonSql(process.env.DATABASE_URL!);
+
+      // Insert point transaction for registration reward
+      await sql`
+        INSERT INTO point_transaction (wallet_address, amount, reason, reference_id, season)
+        VALUES (${ownerAddress}, 1000, 'agent_registration_reward', ${agent.id}, 1)
+      `;
+
+      // Upsert user_points: create if not exists, add 1000 BP
+      await sql`
+        INSERT INTO user_points (wallet_address, total_bp, level, streak_days, season)
+        VALUES (${ownerAddress}, 1000, 1, 0, 1)
+        ON CONFLICT (wallet_address)
+        DO UPDATE SET total_bp = user_points.total_bp + 1000
+      `;
+
+      rewardAwarded = true;
+    } catch (err) {
+      console.warn('[register] Failed to award registration reward:', err);
+    }
+
     const message = isDemo
-      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.`
-      : `Agent "${agent.name}" registered successfully. ${stakingAmount} BBAI staked.`;
+      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.${rewardAwarded ? ' +1000 BBAI reward!' : ''}`
+      : `Agent "${agent.name}" registered successfully. ${stakingAmount} BBAI staked.${rewardAwarded ? ' +1000 BBAI reward!' : ''}`;
 
     return apiSuccess(
       {
@@ -178,6 +276,8 @@ export async function POST(request: NextRequest) {
         message,
         isDemo,
         nftTier,
+        rewardAwarded,
+        rewardAmount: rewardAwarded ? 1000 : 0,
         ...(nftTier !== 'none' && nftHoldings ? {
           nftBenefits: {
             tier: nftTier,

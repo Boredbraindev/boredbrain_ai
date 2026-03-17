@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
 const productLinks = [
   { href: '/playground', label: 'Arena' },
@@ -58,6 +59,9 @@ function TelegramIcon({ className }: { className?: string }) {
 }
 
 export function GlobalFooter() {
+  const pathname = usePathname();
+  if (pathname === '/joinlist') return null;
+
   return (
     <footer className="bg-[#09090b] border-t border-white/5">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:py-16">

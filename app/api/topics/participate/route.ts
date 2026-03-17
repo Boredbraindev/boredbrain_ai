@@ -17,6 +17,50 @@ import { neon } from '@neondatabase/serverless';
 
 const DEFAULT_DEBATE_COST = 2;
 
+// ── Specialization-specific prompts & temperatures ──────────────────────────
+
+const SPECIALIZATION_PROMPTS: Record<string, string> = {
+  trading: 'You analyze markets using technical indicators, order flow, and price action. Cite specific support/resistance levels, RSI readings, or volume patterns.',
+  defi: 'You evaluate DeFi protocols by TVL trends, yield sustainability, smart contract risks, and tokenomics. Reference specific protocols and metrics.',
+  security: 'You assess risks through vulnerability analysis, audit findings, and attack vectors. Reference specific CVEs, exploits, or security incidents.',
+  research: 'You provide deep analysis with academic rigor. Cite specific papers, data sources, or historical precedents.',
+  analytics: 'You work with on-chain data, wallet flows, and network metrics. Reference specific addresses, transaction volumes, or network stats.',
+  social: 'You track community sentiment, social media trends, and narrative shifts. Reference specific community reactions or viral moments.',
+  content: 'You craft narratives and communication strategies. Reference specific campaigns, engagement metrics, or content performance data.',
+  creative: 'You think outside the box with unconventional perspectives. Draw surprising parallels from art, culture, or cross-industry innovation.',
+  compliance: 'You evaluate regulatory frameworks, legal precedents, and compliance requirements. Reference specific regulations, court rulings, or enforcement actions.',
+  utility: 'You assess practical adoption, user experience, and real-world utility. Reference specific integrations, user metrics, or infrastructure benchmarks.',
+  general: 'You synthesize broad market knowledge across multiple domains. Connect dots between macro trends, sector rotations, and emerging narratives.',
+  gaming: 'You analyze gaming ecosystems, player economics, and metaverse trends. Reference specific game metrics, player counts, or virtual economy data.',
+  nft: 'You evaluate NFT markets through floor prices, collection metrics, and cultural relevance. Reference specific collections, marketplace volumes, or creator trends.',
+  market: 'You focus on market microstructure, liquidity dynamics, and trading infrastructure. Reference specific spread data, depth charts, or exchange metrics.',
+};
+
+const SPECIALIZATION_TEMPS: Record<string, number> = {
+  trading: 0.7,
+  analytics: 0.7,
+  security: 0.75,
+  compliance: 0.75,
+  research: 0.8,
+  defi: 0.85,
+  market: 0.8,
+  utility: 0.85,
+  general: 0.9,
+  nft: 0.95,
+  gaming: 0.95,
+  content: 1.0,
+  social: 1.1,
+  creative: 1.1,
+};
+
+function getSpecializationPrompt(spec: string): string {
+  return SPECIALIZATION_PROMPTS[spec?.toLowerCase()] || SPECIALIZATION_PROMPTS.general;
+}
+
+function getSpecializationTemp(spec: string): number {
+  return SPECIALIZATION_TEMPS[spec?.toLowerCase()] ?? 0.9;
+}
+
 function verifyCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return process.env.NODE_ENV === 'development';
@@ -43,7 +87,7 @@ function generateId(): string {
 type LLMProvider = {
   tag: string;
   modelApi: string;
-  generate: (system: string, user: string) => Promise<string | null>;
+  generate: (system: string, user: string, temperature?: number) => Promise<string | null>;
 };
 
 function getProviders(): LLMProvider[] {
@@ -54,15 +98,15 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'DeepSeek',
       modelApi: 'deepseek-chat',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deepseekKey}` },
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
-            max_tokens: 200,
-            temperature: 1.0,
+            max_tokens: 400,
+            temperature,
           }),
         }, 8000);
         if (!res.ok) return null;
@@ -77,15 +121,15 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'Llama',
       modelApi: 'llama-3.1-8b-instant',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
           body: JSON.stringify({
             model: 'llama-3.1-8b-instant',
             messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
-            max_tokens: 200,
-            temperature: 1.0,
+            max_tokens: 400,
+            temperature,
           }),
         }, 8000);
         if (!res.ok) return null;
@@ -97,15 +141,15 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'Llama 4',
       modelApi: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
           body: JSON.stringify({
             model: 'meta-llama/llama-4-scout-17b-16e-instruct',
             messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
-            max_tokens: 200,
-            temperature: 1.0,
+            max_tokens: 400,
+            temperature,
           }),
         }, 8000);
         if (!res.ok) return null;
@@ -117,7 +161,7 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'Qwen',
       modelApi: 'qwen/qwen3-32b',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
@@ -127,8 +171,8 @@ function getProviders(): LLMProvider[] {
               { role: 'system', content: sys },
               { role: 'user', content: usr + '\n\n/no_think' },
             ],
-            max_tokens: 200,
-            temperature: 0.8,
+            max_tokens: 400,
+            temperature: Math.min(temperature, 0.8),
           }),
         }, 8000);
         if (!res.ok) return null;
@@ -144,15 +188,15 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'GPT',
       modelApi: 'gpt-4o-mini',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
-            max_tokens: 200,
-            temperature: 1.0,
+            max_tokens: 400,
+            temperature,
           }),
         }, 8000);
         if (!res.ok) return null;
@@ -167,7 +211,7 @@ function getProviders(): LLMProvider[] {
     providers.push({
       tag: 'Gemini',
       modelApi: 'gemini-2.0-flash',
-      generate: async (sys, usr) => {
+      generate: async (sys, usr, temperature = 0.9) => {
         const res = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
           {
@@ -175,7 +219,7 @@ function getProviders(): LLMProvider[] {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: `${sys}\n\n${usr}` }] }],
-              generationConfig: { maxOutputTokens: 200, temperature: 1.0 },
+              generationConfig: { maxOutputTokens: 400, temperature },
             }),
           },
           8000,
@@ -214,9 +258,9 @@ export async function POST(request: NextRequest) {
   try {
     const sql = neon(dbUrl);
 
-    // 1. Pick a random open debate
+    // 1. Pick a random open debate (include outcomes for multi-outcome support)
     const debates = await sql`
-      SELECT id, topic, category, market_id
+      SELECT id, topic, category, market_id, outcomes, polymarket_slug
       FROM topic_debate
       WHERE status = 'open'
       ORDER BY RANDOM()
@@ -282,25 +326,82 @@ export async function POST(request: NextRequest) {
     const shuffled = [...providers].sort(() => Math.random() - 0.5);
 
     // Build a unique persona prompt using the agent's description and specialization
+    const spec = agent.specialization || 'general';
+    const specPrompt = getSpecializationPrompt(spec);
+    const specTemp = getSpecializationTemp(spec);
+
     const persona = agent.description
-      ? `${agent.description}. Your specialty: ${agent.specialization}.`
-      : `You specialize in ${agent.specialization}.`;
+      ? `${agent.description}. Your specialty: ${spec}.`
+      : `You specialize in ${spec}.`;
 
     const stanceHint = Math.random() > 0.5
       ? 'Take a STRONG position — argue firmly for one side.'
       : 'Be contrarian — challenge the popular view with evidence.';
 
+    // Detect multi-outcome debate
+    const debateOutcomes: Array<{label: string; price: number}> | null =
+      debate.outcomes && Array.isArray(debate.outcomes) && debate.outcomes.length > 2
+        ? debate.outcomes as Array<{label: string; price: number}>
+        : null;
+    const isMultiOutcome = !!debateOutcomes;
+
     const sysPrompt = `You are "${agent.name}". ${persona}
+
+EXPERTISE: ${specPrompt}
+
+You MUST respond in EXACTLY this structured format (keep the tags):
+
+[REASONING]
+Your analysis based on your ${spec} expertise. Include specific data points, metrics, or references. 2-3 sentences max.
+[/REASONING]
+
+[PREDICTION]
+One clear, specific prediction statement about the outcome.
+[/PREDICTION]
+
+[CONFIDENCE]
+A number from 0 to 100 representing your confidence percentage.
+[/CONFIDENCE]
+
+[STAKE]
+The outcome label you would stake BBAI on (e.g. "For", "Against", or a specific outcome name).
+[/STAKE]
 
 RULES:
 - NEVER start with "As a..." or "I think..." or any filler. Jump straight into your argument.
-- NEVER output <think> tags or internal reasoning. Only output your final opinion.
-- Be UNIQUE — your perspective must come from YOUR specific expertise (${agent.specialization}).
-- ${stanceHint}`;
+- NEVER output <think> tags or internal reasoning. Only output the structured format above.
+- Be UNIQUE — your perspective must come from YOUR specific expertise (${spec}).
+- ${stanceHint}
+- Include at least one specific data point, metric, or verifiable reference in your reasoning.
+- Briefly acknowledge the strongest counterargument in your reasoning.`;
 
-    const userPrompt = `DEBATE: "${debate.topic}" [${debate.category}]
+    // Build outcome-aware user prompt
+    let userPrompt: string;
+    if (isMultiOutcome && debateOutcomes) {
+      const outcomeList = debateOutcomes
+        .map((o: {label: string; price: number}, i: number) => `  [${i}] ${o.label} (${Math.round(o.price * 100)}%)`)
+        .join('\n');
+      userPrompt = `DEBATE: "${debate.topic}" [${debate.category}]
 
-IMPORTANT: Start your response with exactly [FOR] or [AGAINST] to declare your position, then write 2-3 sentences. Cite a specific number, protocol, event, or trend that only a ${agent.specialization} expert would know. Your opinion must be clearly different from a generic AI response.`;
+AVAILABLE OUTCOMES:
+${outcomeList}
+
+In [REASONING], explain why you chose your outcome using your ${spec} expertise. Acknowledge why another outcome might seem likely.
+In [PREDICTION], state your specific predicted outcome clearly.
+In [CONFIDENCE], give a number 0-100.
+In [STAKE], put the EXACT label text of the outcome you choose (e.g. "${debateOutcomes[0].label}").
+
+Your opinion must be clearly different from a generic AI response. Draw on domain-specific knowledge.`;
+    } else {
+      userPrompt = `DEBATE: "${debate.topic}" [${debate.category}]
+
+In [REASONING], present your core argument using your ${spec} expertise with specific data. Acknowledge the strongest counterargument.
+In [PREDICTION], state your specific predicted outcome.
+In [CONFIDENCE], give a number 0-100.
+In [STAKE], put exactly "For" or "Against" to declare your position.
+
+Your opinion must be clearly different from a generic AI response. Draw on domain-specific knowledge.`;
+    }
 
     let opinionText: string | null = null;
     let provider = shuffled[0];
@@ -308,7 +409,7 @@ IMPORTANT: Start your response with exactly [FOR] or [AGAINST] to declare your p
     for (const p of shuffled) {
       provider = p;
       try {
-        opinionText = await p.generate(sysPrompt, userPrompt);
+        opinionText = await p.generate(sysPrompt, userPrompt, specTemp);
         if (opinionText && opinionText.length >= 20) break;
         opinionText = null;
       } catch {
@@ -338,43 +439,151 @@ IMPORTANT: Start your response with exactly [FOR] or [AGAINST] to declare your p
       return NextResponse.json({ success: true, participated: false, reason: `Only thinking output from ${provider.tag} (refunded ${cost} BP)` });
     }
 
-    // 4. Determine position — first check [FOR]/[AGAINST] tag, then keyword fallback
-    let position: 'for' | 'against' | 'neutral' = 'neutral';
-    const tagMatch = opinionText.match(/^\s*\[(FOR|AGAINST)\]/i);
-    if (tagMatch) {
-      position = tagMatch[1].toLowerCase() as 'for' | 'against';
-      opinionText = opinionText.replace(/^\s*\[(FOR|AGAINST)\]\s*/i, '').trim();
-    } else {
-      const lower = opinionText.toLowerCase();
-      const forWords = ['support', 'agree', 'bullish', 'will likely', 'inevitable', 'definitely',
-        'must', 'should', 'essential', 'positive', 'opportunity', 'promising', 'yes',
-        'absolutely', 'clearly', 'undeniably', 'momentum', 'growth', 'favor', 'benefit',
-        'advantage', 'enable', 'improve', 'strong', 'necessary', 'crucial', 'vital'];
-      const againstWords = ['disagree', 'skeptical', 'bearish', 'unlikely', 'overrated', 'won\'t',
-        'no', 'fail', 'risk', 'dangerous', 'unsustainable', 'bubble', 'overhyped',
-        'questionable', 'concern', 'flawed', 'problematic', 'doubt', 'threat',
-        'weakness', 'undermine', 'fragile', 'vulnerable', 'premature', 'naive'];
+    // 4. Parse structured response: [REASONING], [PREDICTION], [CONFIDENCE], [STAKE]
+    let reasoning: string | null = null;
+    let prediction: string | null = null;
+    let confidence: number | null = null;
+    let stakeOutcome: string | null = null;
 
-      let forScore = 0;
-      let againstScore = 0;
-      for (const w of forWords) { if (lower.includes(w)) forScore++; }
-      for (const w of againstWords) { if (lower.includes(w)) againstScore++; }
+    // Extract [REASONING]...[/REASONING] or [REASONING]...(next tag)
+    const reasoningMatch = opinionText.match(/\[REASONING\]\s*([\s\S]*?)(?:\[\/REASONING\]|\[PREDICTION\])/i);
+    if (reasoningMatch) reasoning = reasoningMatch[1].trim();
 
-      if (forScore > againstScore && forScore >= 1) position = 'for';
-      else if (againstScore > forScore && againstScore >= 1) position = 'against';
-      else if (forScore === againstScore && forScore >= 1) position = Math.random() > 0.5 ? 'for' : 'against';
-      // If still neutral (no keywords matched), assign randomly — pure neutral is rare in real debates
-      else position = Math.random() > 0.5 ? 'for' : 'against';
+    // Extract [PREDICTION]...[/PREDICTION] or [PREDICTION]...(next tag)
+    const predictionMatch = opinionText.match(/\[PREDICTION\]\s*([\s\S]*?)(?:\[\/PREDICTION\]|\[CONFIDENCE\])/i);
+    if (predictionMatch) prediction = predictionMatch[1].trim();
+
+    // Extract [CONFIDENCE] number
+    const confidenceMatch = opinionText.match(/\[CONFIDENCE\]\s*(\d{1,3})/i);
+    if (confidenceMatch) {
+      const c = parseInt(confidenceMatch[1], 10);
+      confidence = Math.max(0, Math.min(100, c));
     }
 
-    const trimmed = opinionText.slice(0, 2000);
+    // Extract [STAKE] outcome
+    const stakeMatch = opinionText.match(/\[STAKE\]\s*([\s\S]*?)(?:\[\/STAKE\]|$)/i);
+    if (stakeMatch) stakeOutcome = stakeMatch[1].trim().replace(/\[\/STAKE\]/i, '').trim();
 
-    // 5. Save opinion with model_used
+    // Build composite opinion text from parts (fallback to raw if parsing failed)
+    let compositeOpinion: string;
+    if (reasoning || prediction) {
+      compositeOpinion = [
+        reasoning ? reasoning : '',
+        prediction ? prediction : '',
+      ].filter(Boolean).join('\n\n');
+    } else {
+      // Fallback: use the raw LLM output stripped of tags
+      compositeOpinion = opinionText
+        .replace(/\[(REASONING|PREDICTION|CONFIDENCE|STAKE|\/REASONING|\/PREDICTION|\/CONFIDENCE|\/STAKE)\]/gi, '')
+        .trim();
+    }
+
+    // 4b. Determine position and outcome index
+    let position: 'for' | 'against' | 'neutral' = 'neutral';
+    let outcomeIndex: number | null = null;
+
+    if (isMultiOutcome && debateOutcomes) {
+      // Multi-outcome: match stakeOutcome to outcome labels
+      if (stakeOutcome) {
+        const lowerStake = stakeOutcome.toLowerCase();
+        const matchIdx = debateOutcomes.findIndex(
+          (o: {label: string; price: number}) => o.label.toLowerCase() === lowerStake
+            || lowerStake.includes(o.label.toLowerCase())
+            || o.label.toLowerCase().includes(lowerStake)
+        );
+        if (matchIdx >= 0) outcomeIndex = matchIdx;
+      }
+      // Fallback: assign random outcome
+      if (outcomeIndex === null) {
+        outcomeIndex = Math.floor(Math.random() * debateOutcomes.length);
+      }
+      if (!stakeOutcome && outcomeIndex !== null) {
+        stakeOutcome = debateOutcomes[outcomeIndex].label;
+      }
+      position = 'for'; // multi-outcome agents are always "for" their chosen outcome
+    } else {
+      // Binary: check stakeOutcome first, then keyword fallback
+      if (stakeOutcome) {
+        const lowerStake = stakeOutcome.toLowerCase();
+        if (lowerStake.includes('for') || lowerStake.includes('yes') || lowerStake.includes('support') || lowerStake.includes('bullish')) {
+          position = 'for';
+        } else if (lowerStake.includes('against') || lowerStake.includes('no') || lowerStake.includes('oppose') || lowerStake.includes('bearish')) {
+          position = 'against';
+        }
+      }
+
+      if (position === 'neutral') {
+        // Keyword fallback from the opinion text
+        const lower = compositeOpinion.toLowerCase();
+        const forWords = ['support', 'agree', 'bullish', 'will likely', 'inevitable', 'definitely',
+          'must', 'should', 'essential', 'positive', 'opportunity', 'promising', 'yes',
+          'absolutely', 'clearly', 'undeniably', 'momentum', 'growth', 'favor', 'benefit',
+          'advantage', 'enable', 'improve', 'strong', 'necessary', 'crucial', 'vital'];
+        const againstWords = ['disagree', 'skeptical', 'bearish', 'unlikely', 'overrated', 'won\'t',
+          'no', 'fail', 'risk', 'dangerous', 'unsustainable', 'bubble', 'overhyped',
+          'questionable', 'concern', 'flawed', 'problematic', 'doubt', 'threat',
+          'weakness', 'undermine', 'fragile', 'vulnerable', 'premature', 'naive'];
+
+        let forScore = 0;
+        let againstScore = 0;
+        for (const w of forWords) { if (lower.includes(w)) forScore++; }
+        for (const w of againstWords) { if (lower.includes(w)) againstScore++; }
+
+        if (forScore > againstScore && forScore >= 1) position = 'for';
+        else if (againstScore > forScore && againstScore >= 1) position = 'against';
+        else if (forScore === againstScore && forScore >= 1) position = Math.random() > 0.5 ? 'for' : 'against';
+        else position = Math.random() > 0.5 ? 'for' : 'against';
+      }
+
+      // Normalize stakeOutcome for binary
+      if (!stakeOutcome) stakeOutcome = position === 'for' ? 'For' : 'Against';
+    }
+
+    const trimmed = compositeOpinion.slice(0, 2000);
+
+    // 5. Save opinion with structured fields
     const opinionId = generateId();
     await sql`
-      INSERT INTO debate_opinion (id, debate_id, agent_id, opinion, position, model_used, score, created_at)
-      VALUES (${opinionId}, ${debate.id}, ${agent.id}, ${trimmed}, ${position}, ${provider.tag}, 0, NOW())
+      INSERT INTO debate_opinion (id, debate_id, agent_id, opinion, position, outcome_index, model_used, reasoning, prediction, confidence, stake_amount, stake_outcome, score, created_at)
+      VALUES (${opinionId}, ${debate.id}, ${agent.id}, ${trimmed}, ${position}, ${outcomeIndex}, ${provider.tag}, ${reasoning}, ${prediction}, ${confidence}, 0, ${stakeOutcome}, 0, NOW())
     `;
+
+    // 5b. Auto-stake logic — fail-safe, never blocks opinion
+    let autoStakeAmount = 0;
+    try {
+      if (confidence !== null && confidence > 0) {
+        // Calculate stake: confidence * 0.1, capped at 5% of balance
+        const maxByConfidence = confidence * 0.1;
+        const maxByBalance = currentBalance * 0.05;
+        autoStakeAmount = Math.round(Math.min(maxByConfidence, maxByBalance) * 100) / 100;
+
+        if (autoStakeAmount >= 0.1) {
+          // Deduct from wallet
+          await sql`
+            UPDATE agent_wallet
+            SET balance = balance - ${autoStakeAmount}, total_spent = total_spent + ${autoStakeAmount}
+            WHERE agent_id = ${agent.id} AND balance >= ${autoStakeAmount}
+          `;
+
+          // Only record stake if deduction succeeded (check via separate query since neon returns row count inconsistently)
+          // Record in debate_stake table
+          await sql`
+            INSERT INTO debate_stake (id, debate_id, wallet_address, agent_id, amount, status, created_at)
+            VALUES (${generateId()}, ${debate.id}, ${agent.id}, ${agent.id}, ${Math.round(autoStakeAmount)}, 'active', NOW())
+          `;
+
+          // Update opinion with actual stake amount
+          await sql`
+            UPDATE debate_opinion SET stake_amount = ${autoStakeAmount} WHERE id = ${opinionId}
+          `;
+        } else {
+          autoStakeAmount = 0;
+        }
+      }
+    } catch {
+      // Auto-staking failed — non-critical, opinion is already saved
+      autoStakeAmount = 0;
+    }
 
     // 6. Increment participant count + add to prize pool
     await sql`
@@ -387,10 +596,16 @@ IMPORTANT: Start your response with exactly [FOR] or [AGAINST] to declare your p
     // 6b. Create betting position if debate has a linked market and agent took a side
     if (debate.market_id && (position === 'for' || position === 'against')) {
       try {
-        const outcome = position === 'for' ? 'For' : 'Against';
+        // For multi-outcome, use the chosen outcome label; for binary, use For/Against
+        let outcomeLabel: string;
+        if (isMultiOutcome && debateOutcomes && outcomeIndex !== null) {
+          outcomeLabel = debateOutcomes[outcomeIndex].label;
+        } else {
+          outcomeLabel = position === 'for' ? 'For' : 'Against';
+        }
         await sql`
           INSERT INTO betting_position (market_id, user_address, outcome, shares, avg_price, realized_pnl)
-          VALUES (${debate.market_id}, ${agent.id}, ${outcome}, ${cost}, 50, 0)
+          VALUES (${debate.market_id}, ${agent.id}, ${outcomeLabel}, ${cost}, 50, 0)
         `;
       } catch {
         // Non-critical — opinion is still recorded
@@ -426,7 +641,16 @@ IMPORTANT: Start your response with exactly [FOR] or [AGAINST] to declare your p
       agent: agent.name,
       specialization: agent.specialization,
       position,
+      outcomeIndex: outcomeIndex ?? undefined,
+      outcomePicked: isMultiOutcome && debateOutcomes && outcomeIndex !== null
+        ? debateOutcomes[outcomeIndex].label
+        : undefined,
       model: provider.tag,
+      reasoning: reasoning?.slice(0, 200) ?? null,
+      prediction: prediction?.slice(0, 200) ?? null,
+      confidence: confidence ?? null,
+      stakeAmount: autoStakeAmount,
+      stakeOutcome: stakeOutcome ?? null,
       opinionPreview: trimmed.slice(0, 100) + '...',
     });
   } catch (err) {

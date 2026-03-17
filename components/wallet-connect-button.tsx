@@ -22,12 +22,7 @@ const TIER_STYLE: Record<NftTier, string> = {
 };
 
 const USER_MENU_ITEMS = [
-  { href: '/profile', label: 'Level & BP', icon: '⚡' },
-  { href: '/rewards', label: 'Daily Rewards', icon: '🎁' },
-  { href: '/referrals', label: 'Referrals', icon: '🔗' },
-  { href: '/campaigns', label: 'Campaigns', icon: '🏅' },
-  { href: '/rewards/verify', label: 'Verify & Earn', icon: '✅' },
-  { href: '/dashboard/revenue', label: 'My Revenue', icon: '💰' },
+  { href: '/profile', label: 'My Profile', icon: '👤' },
 ];
 
 export function WalletConnectButton() {
@@ -239,10 +234,10 @@ export function WalletConnectButton() {
                       <div className="border-t border-white/[0.06] py-1">
                         <button
                           onClick={() => { openAccountModal(); setMenuOpen(false); }}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-white/40 hover:text-white hover:bg-white/[0.04] transition-colors w-full text-left"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-red-400/70 hover:text-red-400 hover:bg-white/[0.04] transition-colors w-full text-left"
                         >
-                          <span className="text-sm w-5 text-center">👛</span>
-                          Wallet Details
+                          <span className="text-sm w-5 text-center">🔌</span>
+                          Disconnect Wallet
                         </button>
                       </div>
                     </div>

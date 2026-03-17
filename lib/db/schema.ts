@@ -391,6 +391,11 @@ export const agentWallet = pgTable('agent_wallet', {
   dailyLimit: real('daily_limit').notNull().default(500),
   totalSpent: real('total_spent').notNull().default(0),
   isActive: boolean('is_active').notNull().default(true),
+  // Autonomous spending limits (Web 4.0)
+  spendingLimitDaily: real('spending_limit_daily').notNull().default(0), // 0 = no auto-spend
+  spentToday: real('spent_today').notNull().default(0),
+  autoSpendEnabled: boolean('auto_spend_enabled').notNull().default(false),
+  lastResetDate: text('last_reset_date'), // YYYY-MM-DD, null until first spend
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -983,7 +988,7 @@ export const topicDebate = pgTable('topic_debate', {
   id: text('id').primaryKey().$defaultFn(() => generateId()),
   topic: text('topic').notNull(),
   category: text('category').notNull().default('general'), // 'crypto', 'defi', 'ai', 'governance', 'culture', 'general'
-  status: text('status').notNull().default('open'), // 'open' | 'scoring' | 'completed'
+  status: text('status').notNull().default('open'), // 'open' | 'scoring' | 'completed' | 'settled' | 'closed'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   closesAt: timestamp('closes_at').notNull(),
   totalParticipants: integer('total_participants').notNull().default(0),
@@ -996,6 +1001,10 @@ export const topicDebate = pgTable('topic_debate', {
   // Linked betting market for for/against positions
   marketId: uuid('market_id'),                          // references betting_market.id
   imageUrl: text('image_url'),                          // Polymarket or custom image for the debate
+  // Multi-outcome support (e.g. "Who will win La Liga?" with 5+ choices)
+  outcomes: json('outcomes').$type<Array<{label: string; price: number}>>(),  // all possible outcomes from Polymarket
+  polymarketSlug: text('polymarket_slug'),               // Polymarket event slug for linking back
+  source: text('source').default('polymarket'),          // 'polymarket' | 'kalshi' | 'internal'
 });
 
 // Debate opinion — an agent's submitted take on a topic debate
@@ -1012,7 +1021,13 @@ export const debateOpinion = pgTable('debate_opinion', {
     creativity: number;
   }>(),
   position: text('position').notNull().default('neutral'), // 'for' | 'against' | 'neutral'
+  outcomeIndex: integer('outcome_index'),                  // which outcome the agent chose (0-based index into outcomes array)
   modelUsed: text('model_used'), // e.g. 'gemini-2.0-flash', 'deepseek-chat', 'llama-3.1-8b'
+  reasoning: text('reasoning'),                            // agent's analysis/reasoning step
+  prediction: text('prediction'),                          // specific prediction statement
+  confidence: integer('confidence'),                       // confidence level 0-100
+  stakeAmount: real('stake_amount').default(0),            // BBAI auto-staked on predicted outcome
+  stakeOutcome: text('stake_outcome'),                     // which outcome they staked on
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -1054,3 +1069,39 @@ export const bpPurchase = pgTable('bp_purchase', {
 });
 
 export type BpPurchase = InferSelectModel<typeof bpPurchase>;
+
+// ── User Subscription (Pro tier) ────────────────────────────────────────────
+export const userSubscription = pgTable('user_subscription', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  walletAddress: text('wallet_address').notNull().unique(),
+  tier: text('tier').notNull().default('basic'), // 'basic' | 'pro'
+  agentSlots: integer('agent_slots').notNull().default(1),
+  txHash: text('tx_hash'), // onchain payment tx hash
+  chain: text('chain').default('bsc'), // bsc mainnet
+  amountPaid: real('amount_paid').default(0), // in USD equivalent
+  expiresAt: timestamp('expires_at'), // null = lifetime, or monthly expiry
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export type UserSubscription = InferSelectModel<typeof userSubscription>;
+
+// ============================================
+// Settlement Log (settlement agent visualization)
+// ============================================
+
+export const settlementLog = pgTable('settlement_log', {
+  id: text('id').primaryKey().$defaultFn(() => generateId()),
+  debateId: text('debate_id').notNull(),
+  topic: text('topic').notNull(),
+  status: text('status').notNull().default('pending'), // pending, scoring, settled, recorded
+  winningOutcome: text('winning_outcome'),
+  totalPool: real('total_pool').default(0),
+  participantCount: integer('participant_count').default(0),
+  txHash: text('tx_hash'), // onchain settlement tx
+  settledBy: text('settled_by'), // settlement agent ID
+  settledAt: timestamp('settled_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export type SettlementLog = InferSelectModel<typeof settlementLog>;

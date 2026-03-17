@@ -33,7 +33,7 @@ export const MISSIONS: MissionCategory = {
     { id: 'weekly_invoke_10', title: 'Power User', description: 'Invoke 10 different agents this week', target: 10, reward: 150, type: 'agent_invoke_unique' },
     { id: 'weekly_stake', title: 'High Roller', description: 'Stake BP on 5 debates', target: 5, reward: 200, type: 'debate_stake' },
     { id: 'weekly_streak', title: 'Dedicated', description: 'Login 7 days in a row', target: 7, reward: 300, type: 'login_streak' },
-    { id: 'weekly_bet', title: 'Risk Taker', description: 'Place 3 arena bets', target: 3, reward: 250, type: 'arena_bet' },
+    { id: 'weekly_bet', title: 'Risk Taker', description: 'Place 3 arena stakes', target: 3, reward: 250, type: 'arena_bet' },
   ],
   // Achievement missions (one-time)
   achievements: [

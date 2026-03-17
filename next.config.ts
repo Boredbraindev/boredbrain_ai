@@ -79,6 +79,26 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: '/marketplace',
+        destination: '/agents',
+        permanent: true,
+      },
+      {
+        source: '/agents/registry',
+        destination: '/agents',
+        permanent: true,
+      },
+      {
+        source: '/agents/create',
+        destination: '/agents/register',
+        permanent: true,
+      },
+      {
+        source: '/topics',
+        destination: '/arena',
+        permanent: true,
+      },
+      {
         source: '/ph',
         destination: 'https://www.producthunt.com/posts/bored-brain',
         permanent: true,
