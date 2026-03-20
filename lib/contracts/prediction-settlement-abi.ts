@@ -109,7 +109,7 @@ export const PREDICTION_SETTLEMENT_ABI = [
     stateMutability: 'view',
   },
 
-  // ─── Admin ──────────────────────────────────────────────────────────────
+  // ─── Admin (Ownable2Step) ────────────────────────────────────────────────
   {
     type: 'function',
     name: 'setOperator',
@@ -120,9 +120,23 @@ export const PREDICTION_SETTLEMENT_ABI = [
   {
     type: 'function',
     name: 'transferOwnership',
-    inputs: [{ name: '_newOwner', type: 'address' }],
+    inputs: [{ name: 'newOwner', type: 'address' }],
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'acceptOwnership',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'pendingOwner',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
   },
 
   // ─── Events ─────────────────────────────────────────────────────────────

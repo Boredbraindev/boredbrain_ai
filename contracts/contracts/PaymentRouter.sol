@@ -99,6 +99,7 @@ contract PaymentRouter is Ownable, ReentrancyGuard {
 
         // Credit agent owner (pull pattern for safety)
         pendingWithdrawals[agentOwner] += agentPayment;
+        totalPendingWithdrawals += agentPayment;
 
         // Track metrics
         totalPayments++;
@@ -158,6 +159,7 @@ contract PaymentRouter is Ownable, ReentrancyGuard {
             uint256 agentPayment = amounts[i] - platformFee;
 
             pendingWithdrawals[agentOwners[i]] += agentPayment;
+            totalPendingWithdrawals += agentPayment;
             totalPlatformFees += platformFee;
 
             emit QueryPaid(
@@ -194,6 +196,7 @@ contract PaymentRouter is Ownable, ReentrancyGuard {
     ) external onlyOwner nonReentrant {
         if (prizeAmount > 0) {
             pendingWithdrawals[winnerOwner] += prizeAmount;
+            totalPendingWithdrawals += prizeAmount;
         }
 
         emit ArenaResultRecorded(matchId, winnerTokenId, prizeAmount, block.timestamp);
@@ -207,22 +210,30 @@ contract PaymentRouter is Ownable, ReentrancyGuard {
         require(amount > 0, "PaymentRouter: nothing to withdraw");
 
         pendingWithdrawals[msg.sender] = 0;
+        totalPendingWithdrawals -= amount;
         require(
             bbaiToken.transfer(msg.sender, amount),
             "PaymentRouter: withdrawal transfer failed"
         );
     }
 
+    /// @notice Running total of all pending agent withdrawals
+    uint256 public totalPendingWithdrawals;
+
     /**
-     * @dev Withdraw platform fees (owner only)
+     * @dev Withdraw platform fees only (owner only).
+     *      Calculates platform's share as contract balance minus all pending agent withdrawals.
      */
     function withdrawPlatformFees(address to) external onlyOwner {
+        require(to != address(0), "PaymentRouter: zero address");
         uint256 contractBalance = bbaiToken.balanceOf(address(this));
-        // Calculate platform's share (total balance minus pending agent withdrawals)
-        uint256 platformBalance = contractBalance; // Simplified: owner manages distribution
-        require(platformBalance > 0, "PaymentRouter: no fees");
+        require(contractBalance > totalPendingWithdrawals, "PaymentRouter: no fees");
+        uint256 platformBalance = contractBalance - totalPendingWithdrawals;
 
-        bbaiToken.transfer(to, platformBalance);
+        require(
+            bbaiToken.transfer(to, platformBalance),
+            "PaymentRouter: transfer failed"
+        );
         emit FeesWithdrawn(to, platformBalance);
     }
 

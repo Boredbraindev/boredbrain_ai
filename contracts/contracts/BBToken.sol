@@ -102,8 +102,8 @@ contract BBToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ReentrancyGuar
         require(_treasury != address(0), "BBToken: treasury is zero address");
         treasury = _treasury;
 
-        // Mint full supply to owner for distribution
-        _mint(initialOwner, MAX_SUPPLY);
+        // No initial mint — owner calls mint() at TGE
+        // _mint(initialOwner, MAX_SUPPLY);
 
         // Owner and treasury are fee exempt
         isFeeExempt[initialOwner] = true;
@@ -172,6 +172,22 @@ contract BBToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ReentrancyGuar
         emit TokensBurned(account, amount);
     }
 
+    // ========== Authorized Callers ==========
+
+    /// @notice Addresses authorized to call chargePlatformFee (e.g. PaymentRouter)
+    mapping(address => bool) public isAuthorizedCaller;
+
+    event AuthorizedCallerSet(address indexed caller, bool authorized);
+
+    /**
+     * @dev Set an address as authorized to call chargePlatformFee
+     */
+    function setAuthorizedCaller(address caller, bool authorized) external onlyOwner {
+        require(caller != address(0), "BBToken: zero address");
+        isAuthorizedCaller[caller] = authorized;
+        emit AuthorizedCallerSet(caller, authorized);
+    }
+
     // ========== Platform Fee (15%) ==========
 
     /**
@@ -179,6 +195,7 @@ contract BBToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ReentrancyGuar
      *      The caller must have approved this contract for `totalAmount`.
      *      - 85% goes to the agent owner (recipient)
      *      - 15% goes to the treasury
+     *      Only authorized contracts (e.g. PaymentRouter) can call this.
      *
      * @param payer Address paying for the tool call
      * @param recipient Agent owner receiving the net payment
@@ -189,6 +206,7 @@ contract BBToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable, ReentrancyGuar
         address recipient,
         uint256 totalAmount
     ) external nonReentrant {
+        require(isAuthorizedCaller[msg.sender], "BBToken: caller not authorized");
         require(totalAmount > 0, "BBToken: amount must be > 0");
         require(recipient != address(0), "BBToken: recipient is zero address");
 

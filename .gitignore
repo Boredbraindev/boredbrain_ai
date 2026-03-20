@@ -194,5 +194,4 @@ docs/internal/
 UPGRADE_PLAN.md
 
 # Duplicate / temp files
-contracts/contracts/
 public/unnamed*

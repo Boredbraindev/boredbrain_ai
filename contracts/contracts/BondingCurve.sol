@@ -75,6 +75,9 @@ contract BondingCurve is Ownable, Pausable, ReentrancyGuard {
     /// @notice Total creator fees collected
     uint256 public totalCreatorFees;
 
+    /// @notice Addresses authorized to create agent tokens (e.g. AgentRegistry)
+    mapping(address => bool) public isTokenCreator;
+
     // ========== Events ==========
 
     event AgentTokenCreated(
@@ -112,6 +115,7 @@ contract BondingCurve is Ownable, Pausable, ReentrancyGuard {
     event AgentTokenPaused(uint256 indexed tokenId);
     event AgentTokenUnpaused(uint256 indexed tokenId);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event TokenCreatorSet(address indexed account, bool authorized);
 
     // ========== Constructor ==========
 
@@ -223,6 +227,10 @@ contract BondingCurve is Ownable, Pausable, ReentrancyGuard {
         uint256 slope,
         uint256 maxSupply
     ) external whenNotPaused returns (uint256 tokenId) {
+        require(
+            msg.sender == owner() || isTokenCreator[msg.sender],
+            "BondingCurve: not authorized to create tokens"
+        );
         require(creator != address(0), "BondingCurve: zero creator");
         require(basePrice > 0, "BondingCurve: basePrice must be > 0");
         require(slope > 0, "BondingCurve: slope must be > 0");
@@ -412,6 +420,15 @@ contract BondingCurve is Ownable, Pausable, ReentrancyGuard {
         address old = treasury;
         treasury = newTreasury;
         emit TreasuryUpdated(old, newTreasury);
+    }
+
+    /**
+     * @dev Set an address as authorized to create agent tokens
+     */
+    function setTokenCreator(address account, bool authorized) external onlyOwner {
+        require(account != address(0), "BondingCurve: zero address");
+        isTokenCreator[account] = authorized;
+        emit TokenCreatorSet(account, authorized);
     }
 
     /**

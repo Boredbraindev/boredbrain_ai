@@ -35,12 +35,15 @@
 // ---------------------------------------------------------------------------
 
 export const DEPLOYMENT_STATUS = {
-  network: 'points-mode',
-  bbaiToken: { status: 'pending', chain: 'base', note: 'BBAI Points — internal system' },
-  agentRegistry: { status: 'pending', chain: 'base', note: 'ERC-721 agent NFT registry' },
-  predictionSettlement: { status: 'testnet-ready', chain: 'bsc-testnet', note: 'Deployable via hardhat' },
-  paymentRouter: { status: 'pending', chain: 'base', note: '85/15 split router' },
-  stakingContract: { status: 'pending', chain: 'base', note: 'Agent staking with NFT tiers' },
+  network: 'bsc-mainnet-v2',
+  bbaiToken: { status: 'deployed', chain: 'bsc', address: '0x6a95F2C04c6C614fD84DBB127a1d0d15f439fA81', note: 'Supply 0 — mint at TGE' },
+  agentRegistry: { status: 'deployed', chain: 'bsc', address: '0x587D11190AD4920CEE02e81fb98d285d5F66238d', note: 'ERC-721 agent NFT registry' },
+  agentRegistry8004: { status: 'deployed', chain: 'bsc', address: '0x618a8D664EFDa1d49997ceA6DC0EBAE845b1E231', note: 'ERC-8004 agent registry' },
+  predictionSettlement: { status: 'deployed', chain: 'bsc', address: '0x0ae8A0cE8A34155508F4C47b41B20A668A0a5600', note: 'On-chain settlement' },
+  paymentRouter: { status: 'deployed', chain: 'bsc', address: '0x799f8ceA23DfaAe796113Fa12D975EB11Ea3bEa0', note: '85/15 split router' },
+  bondingCurve: { status: 'deployed', chain: 'bsc', address: '0x0273FDbe5fc34C874AC1EE938EDC55b5cC4e360d', note: 'Agent token trading' },
+  agentStaking: { status: 'deployed', chain: 'bsc', address: '0xd157d4A0030a1Ea220EB85257740d345C21C62E7', note: 'NFT-tier staking' },
+  bbClawSubscription: { status: 'deployed', chain: 'bsc', address: '0x8D7f7349e9e81c28fad6155d7F6969C382abc326', note: '10 USDT/30d Pro' },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -146,8 +149,7 @@ export const BSC_MAINNET: SettlementChainConfig = {
   // Falls back to public BSC RPC; set BSC_RPC_URL for production endpoint
   rpcUrl: envOrDefault('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
   blockExplorerUrl: 'https://bscscan.com',
-  // Future: set SETTLEMENT_CONTRACT_BSC after mainnet deployment
-  settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC', '') || null,
+  settlementContract: envOrDefault('SETTLEMENT_CONTRACT_BSC', '0x0ae8A0cE8A34155508F4C47b41B20A668A0a5600'),
   isTestnet: false,
   avgBlockTimeMs: 3000,
 };

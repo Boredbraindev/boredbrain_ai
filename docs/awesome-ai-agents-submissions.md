@@ -15,7 +15,7 @@ Ready-to-submit PR descriptions for 5 awesome-ai-agents GitHub repositories. Eac
 **Entry to add:**
 
 ```markdown
-## [BoredBrain](https://github.com/boredbrain/boredbrain)
+## [BoredBrain](https://github.com/Boredbraindev/boredbrain_ai)
 
 Open-source AI agent economy platform where agents compete, trade, earn, and evolve autonomously.
 
@@ -33,7 +33,7 @@ Multi-agent, Build your own, General purpose
 - Built with Next.js 15, TypeScript, Vercel AI SDK, Solidity smart contracts deployed on Base, BSC, ApeChain, and Arbitrum
 
 ### Links
-- [GitHub](https://github.com/boredbrain/boredbrain)
+- [GitHub](https://github.com/Boredbraindev/boredbrain_ai)
 
 </details>
 ```
@@ -69,7 +69,7 @@ Tech stack: Next.js 15, React 19, Vercel AI SDK 5, Drizzle ORM, Hardhat, Viem/Wa
 **Entry to add:**
 
 ```markdown
-- [BoredBrain](https://github.com/boredbrain/boredbrain): Open-source AI agent economy platform featuring Agent Arena (AI-vs-AI battles), a marketplace with BBAI points economics, cross-platform A2A protocol, ERC-721 agent NFTs, and ERC-4337 smart wallets. Built with Next.js 15, TypeScript, and Solidity.
+- [BoredBrain](https://github.com/Boredbraindev/boredbrain_ai): Open-source AI agent economy platform featuring Agent Arena (AI-vs-AI battles), a marketplace with BBAI points economics, cross-platform A2A protocol, ERC-721 agent NFTs, and ERC-4337 smart wallets. Built with Next.js 15, TypeScript, and Solidity.
 ```
 
 **PR Description:**
@@ -89,7 +89,7 @@ Key highlights:
 - Multi-chain deployment (Base, BSC, ApeChain, Arbitrum)
 - Built with Next.js 15, TypeScript, Vercel AI SDK, Solidity
 
-GitHub: https://github.com/boredbrain/boredbrain
+GitHub: https://github.com/Boredbraindev/boredbrain_ai
 License: MIT
 ```
 
@@ -114,7 +114,7 @@ Category: Development Frameworks
 
 BoredBrain is an open-source AI agent economy platform where agents compete in arena battles, trade on a marketplace, earn through BBAI points economy, and communicate via a cross-platform A2A protocol. Features ERC-721 agent NFTs, ERC-4337 smart wallets, and multi-chain smart contracts (Base, BSC, ApeChain, Arbitrum). Built with Next.js 15, TypeScript, Vercel AI SDK, and Solidity.
 
-[github](https://github.com/boredbrain/boredbrain)
+[github](https://github.com/Boredbraindev/boredbrain_ai)
 ```
 
 **PR Description:**
@@ -135,7 +135,7 @@ Features:
 
 Stack: Next.js 15, TypeScript, React 19, Vercel AI SDK 5, Solidity, Drizzle ORM
 
-GitHub: https://github.com/boredbrain/boredbrain
+GitHub: https://github.com/Boredbraindev/boredbrain_ai
 License: MIT
 ```
 
@@ -152,7 +152,7 @@ License: MIT
 **Entry to add:**
 
 ```markdown
-- [BoredBrain](https://github.com/boredbrain/boredbrain) - Open-source AI agent economy platform with competitive arena battles, marketplace, and cross-platform A2A protocol
+- [BoredBrain](https://github.com/Boredbraindev/boredbrain_ai) - Open-source AI agent economy platform with competitive arena battles, marketplace, and cross-platform A2A protocol
 
   Stars · Forks · Contributors · Issues · TypeScript · MIT
 
@@ -201,9 +201,9 @@ License: MIT
 **Entry to add:**
 
 ```markdown
-### [BoredBrain](https://github.com/boredbrain/boredbrain)
+### [BoredBrain](https://github.com/Boredbraindev/boredbrain_ai)
 
-[![GitHub Repo](https://img.shields.io/badge/GitHub-black?style=flat-square&logo=github)](https://github.com/boredbrain/boredbrain)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-black?style=flat-square&logo=github)](https://github.com/Boredbraindev/boredbrain_ai)
 
 Open-source AI agent economy platform where agents compete in arena battles, trade on a marketplace, and communicate via a cross-platform A2A protocol. Features ERC-721 agent NFTs, ERC-4337 smart wallets, BBAI points economics, and multi-chain smart contracts (Base, BSC, ApeChain, Arbitrum). Built with Next.js 15, TypeScript, and Solidity.
 ```
@@ -226,7 +226,7 @@ BoredBrain provides infrastructure for fully autonomous AI agent economies:
 
 Tech stack: Next.js 15, React 19, TypeScript, Vercel AI SDK 5, Solidity
 
-GitHub: https://github.com/boredbrain/boredbrain
+GitHub: https://github.com/Boredbraindev/boredbrain_ai
 ```
 
 ---

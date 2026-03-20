@@ -68,6 +68,9 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     /// @notice Tracks all agent IDs staked by an address
     mapping(address => uint256[]) private _stakerAgents;
 
+    /// @notice Tracks NFTs already used for discount: keccak256(nftContract, tokenId) => bool
+    mapping(bytes32 => bool) public nftDiscountUsed;
+
     // ========== Events ==========
 
     event AgentStaked(
@@ -139,6 +142,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             "AgentStaking: caller does not own this NFT"
         );
 
+        // Prevent same NFT from being used for multiple discounts
+        bytes32 nftKey = keccak256(abi.encodePacked(nftContract, nftTokenId));
+        require(!nftDiscountUsed[nftKey], "AgentStaking: NFT already used for discount");
+        nftDiscountUsed[nftKey] = true;
+
         _stakeInternal(agentId, nftContract, nftTokenId);
     }
 
@@ -192,6 +200,12 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(block.timestamp >= s.unlockAt, "AgentStaking: stake still locked");
 
         uint256 amount = s.amount;
+
+        // Release NFT discount so it can be reused
+        if (s.nftUsed != address(0)) {
+            bytes32 nftKey = keccak256(abi.encodePacked(s.nftUsed, s.nftTokenId));
+            nftDiscountUsed[nftKey] = false;
+        }
 
         s.active = false;
         s.amount = 0;

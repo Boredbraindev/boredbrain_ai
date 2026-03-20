@@ -1,0 +1,35 @@
+{
+  "name": "@boredbrain/bbclaw",
+  "version": "0.1.0",
+  "description": "BBClaw CLI — Register and manage AI agents on the BoredBrain network",
+  "bin": {
+    "bbclaw": "./bin/bbclaw.mjs"
+  },
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Boredbraindev/boredbrain_ai.git",
+    "directory": "packages/bbclaw"
+  },
+  "homepage": "https://boredbrain.app",
+  "keywords": [
+    "ai-agent",
+    "boredbrain",
+    "bbclaw",
+    "web3",
+    "bsc",
+    "agent-registry",
+    "a2a"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "viem": "^2.46.3"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ]
+}

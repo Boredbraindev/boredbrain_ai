@@ -29,7 +29,7 @@ export const BSC_BNB_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /** Wallet that receives subscription payments and platform fees */
 export const PLATFORM_WALLET = (
-  process.env.BSC_PLATFORM_WALLET || '0x0000000000000000000000000000000000000000'
+  process.env.BSC_PLATFORM_WALLET || '0xCbD1e5cB4509cdCD28059eb3b2C71008C10E94A1'
 ).toLowerCase();
 
 // ---------------------------------------------------------------------------

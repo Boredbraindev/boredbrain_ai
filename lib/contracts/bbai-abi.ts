@@ -1,11 +1,12 @@
 /**
- * BBAI ABI - Custom Staking & Payment Functions (Legacy/Future)
+ * BBToken ABI — BSC Mainnet
  *
- * Standard ERC-20 interface plus custom extensions for the BoredBrain AI
- * platform: tool fee payments with automatic 85/15 split, and staking
- * for agent registration.
+ * Contract: 0x6a95F2C04c6C614fD84DBB127a1d0d15f439fA81
  *
- * Contract: BBAI on Base (L2) — Legacy/Future
+ * Standard ERC-20 + platform fee (85/15 split via chargePlatformFee),
+ * agent staking (100 BBAI / 30-day lock), trade fees, pause, mint/burn.
+ *
+ * Token supply starts at 0 — owner calls mint() at TGE.
  */
 
 export const BBAI_TOKEN_ABI = [
@@ -94,47 +95,108 @@ export const BBAI_TOKEN_ABI = [
   },
 
   // -------------------------------------------------------------------------
-  // Custom: Tool Fee Payment (85/15 split handled on-chain)
+  // Platform Fee (15%) — authorized callers only
   // -------------------------------------------------------------------------
   {
     type: 'function',
-    name: 'payToolFee',
+    name: 'chargePlatformFee',
     inputs: [
-      { name: 'provider', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'toolId', type: 'bytes32' },
+      { name: 'payer', type: 'address' },
+      { name: 'recipient', type: 'address' },
+      { name: 'totalAmount', type: 'uint256' },
     ],
-    outputs: [{ name: 'success', type: 'bool' }],
+    outputs: [],
     stateMutability: 'nonpayable',
   },
 
   // -------------------------------------------------------------------------
-  // Custom: Staking for Agent Registration
+  // Staking for Agent Registration (100 BBAI, 30-day lock)
   // -------------------------------------------------------------------------
   {
     type: 'function',
-    name: 'stakeBBAI',
-    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'stakeForAgent',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'unstakeBBAI',
-    inputs: [],
+    name: 'unstakeFromAgent',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'getStakeInfo',
-    inputs: [{ name: 'staker', type: 'address' }],
-    outputs: [
-      { name: 'amount', type: 'uint256' },
-      { name: 'stakedAt', type: 'uint256' },
-      { name: 'lockUntil', type: 'uint256' },
-      { name: 'isLocked', type: 'bool' },
+    name: 'isStakeLocked',
+    inputs: [
+      { name: 'staker', type: 'address' },
+      { name: 'agentId', type: 'uint256' },
     ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getUnlockTime',
+    inputs: [
+      { name: 'staker', type: 'address' },
+      { name: 'agentId', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalStaked',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+
+  // -------------------------------------------------------------------------
+  // Owner: Mint / Burn
+  // -------------------------------------------------------------------------
+  {
+    type: 'function',
+    name: 'mint',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
+  // -------------------------------------------------------------------------
+  // Admin
+  // -------------------------------------------------------------------------
+  {
+    type: 'function',
+    name: 'treasury',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'owner',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'MAX_SUPPLY',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'paused',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
 
@@ -161,43 +223,47 @@ export const BBAI_TOKEN_ABI = [
   },
   {
     type: 'event',
-    name: 'ToolFeePaid',
+    name: 'PlatformFeeCharged',
     inputs: [
       { name: 'payer', type: 'address', indexed: true },
-      { name: 'provider', type: 'address', indexed: true },
-      { name: 'amount', type: 'uint256', indexed: false },
-      { name: 'platformFee', type: 'uint256', indexed: false },
-      { name: 'toolId', type: 'bytes32', indexed: true },
+      { name: 'totalAmount', type: 'uint256', indexed: false },
+      { name: 'feeAmount', type: 'uint256', indexed: false },
+      { name: 'netAmount', type: 'uint256', indexed: false },
     ],
   },
   {
     type: 'event',
-    name: 'Staked',
+    name: 'TokensStaked',
     inputs: [
       { name: 'staker', type: 'address', indexed: true },
+      { name: 'agentId', type: 'uint256', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
-      { name: 'lockUntil', type: 'uint256', indexed: false },
+      { name: 'unlockTime', type: 'uint256', indexed: false },
     ],
   },
   {
     type: 'event',
-    name: 'Unstaked',
+    name: 'TokensUnstaked',
     inputs: [
       { name: 'staker', type: 'address', indexed: true },
+      { name: 'agentId', type: 'uint256', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'TokensMinted',
+    inputs: [
+      { name: 'to', type: 'address', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
 ] as const;
 
 // ---------------------------------------------------------------------------
-// ABI helper: encode function selector (first 4 bytes of keccak256)
+// Function selectors (first 4 bytes of keccak256 of signature)
 // ---------------------------------------------------------------------------
 
-/**
- * Minimal keccak256 is not available without a dependency, so we use a
- * pre-computed lookup of function selectors for the functions we call via
- * raw RPC.  These are the first 4 bytes of keccak256("<signature>").
- */
 export const FUNCTION_SELECTORS = {
   // ERC-20
   balanceOf: '0x70a08231',       // balanceOf(address)
@@ -207,11 +273,13 @@ export const FUNCTION_SELECTORS = {
   totalSupply: '0x18160ddd',    // totalSupply()
   decimals: '0x313ce567',       // decimals()
 
-  // Custom
-  payToolFee: '0x8f6b2784',     // payToolFee(address,uint256,bytes32)
-  stakeBBAI: '0xa694fc3a',      // stakeBBAI(uint256)  -- matches stake(uint256)
-  unstakeBBAI: '0x2def6620',    // unstakeBBAI()       -- matches unstake()
-  getStakeInfo: '0x3e491d47',   // getStakeInfo(address)
+  // BBToken custom
+  chargePlatformFee: '0x0b4fcf87', // chargePlatformFee(address,address,uint256)
+  stakeForAgent: '0x7acb7757',     // stakeForAgent(uint256)
+  unstakeFromAgent: '0x2e17de78',  // unstakeFromAgent(uint256)
+  isStakeLocked: '0x7e75e5e4',    // isStakeLocked(address,uint256)
+  getUnlockTime: '0x19c3a3b4',   // getUnlockTime(address,uint256)
+  mint: '0x40c10f19',             // mint(address,uint256)
 } as const;
 
 export type BBAIFunctionName = keyof typeof FUNCTION_SELECTORS;

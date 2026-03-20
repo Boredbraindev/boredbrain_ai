@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title AgentRegistry
@@ -14,7 +15,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
  * Each registered agent is minted as an NFT with on-chain metadata.
  * Registration requires $BBAI token payment, generating on-chain activity.
  */
-contract AgentRegistry is ERC721, ERC721Enumerable, Ownable {
+contract AgentRegistry is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     IERC20 public bbaiToken;
@@ -78,7 +79,7 @@ contract AgentRegistry is ERC721, ERC721Enumerable, Ownable {
         string calldata apiEndpoint,
         string calldata capabilities,
         uint256 pricePerQuery
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         // Collect registration fee in BBAI
         require(
             bbaiToken.transferFrom(msg.sender, address(this), registrationFee),
@@ -86,7 +87,9 @@ contract AgentRegistry is ERC721, ERC721Enumerable, Ownable {
         );
 
         uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
+
+        // Set agent metadata BEFORE minting (checks-effects-interactions pattern)
+        // _safeMint calls onERC721Received which could re-enter
 
         agents[tokenId] = AgentInfo({
             name: name,
@@ -102,6 +105,9 @@ contract AgentRegistry is ERC721, ERC721Enumerable, Ownable {
 
         totalAgentsRegistered++;
         totalPlatformRevenue += registrationFee;
+
+        // Mint AFTER state updates (reentrancy protection via CEI + nonReentrant)
+        _safeMint(msg.sender, tokenId);
 
         emit AgentRegistered(tokenId, msg.sender, name, capabilities, pricePerQuery, block.timestamp);
 
@@ -179,9 +185,10 @@ contract AgentRegistry is ERC721, ERC721Enumerable, Ownable {
      * @dev Withdraw collected BBAI fees (owner only)
      */
     function withdrawFees(address to) external onlyOwner {
+        require(to != address(0), "AgentRegistry: zero address");
         uint256 balance = bbaiToken.balanceOf(address(this));
         require(balance > 0, "AgentRegistry: no fees to withdraw");
-        bbaiToken.transfer(to, balance);
+        require(bbaiToken.transfer(to, balance), "AgentRegistry: transfer failed");
     }
 
     // Required overrides for ERC721Enumerable

@@ -24,8 +24,18 @@ contract BBAIToken is ERC20, ERC20Burnable, Ownable {
     event TokensMinted(address indexed to, uint256 amount);
 
     constructor(address initialOwner) ERC20("BoredBrain AI", "BBAI") Ownable(initialOwner) {
-        // Mint initial supply to owner for distribution
-        _mint(initialOwner, MAX_SUPPLY);
+        // No initial mint — owner calls mint() at TGE
+    }
+
+    /**
+     * @dev Mint tokens. Cannot exceed MAX_SUPPLY. Owner only.
+     * @param to Recipient address
+     * @param amount Amount to mint (in wei)
+     */
+    function mint(address to, uint256 amount) external onlyOwner {
+        require(totalSupply() + amount <= MAX_SUPPLY, "BBAIToken: would exceed max supply");
+        _mint(to, amount);
+        emit TokensMinted(to, amount);
     }
 
     /**
