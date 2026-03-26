@@ -14,6 +14,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyCron } from '@/lib/verify-cron';
 
 const DEFAULT_DEBATE_COST = 2;
 
@@ -59,18 +60,6 @@ function getSpecializationPrompt(spec: string): string {
 
 function getSpecializationTemp(spec: string): number {
   return SPECIALIZATION_TEMPS[spec?.toLowerCase()] ?? 0.9;
-}
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === 'development';
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  return false;
 }
 
 function generateId(): string {
@@ -262,7 +251,7 @@ export async function POST(request: NextRequest) {
     const debates = await sql`
       SELECT id, topic, category, market_id, outcomes, polymarket_slug
       FROM topic_debate
-      WHERE status = 'open'
+      WHERE status = 'open' AND closes_at > NOW()
       ORDER BY RANDOM()
       LIMIT 1
     `;
@@ -297,9 +286,10 @@ export async function POST(request: NextRequest) {
 
     if (wallets.length === 0) {
       // Create wallet with 200 BP initial
+      const walletAddress = '0x' + agent.id.replace(/[^a-f0-9]/gi, '').padEnd(40, '0').slice(0, 40);
       await sql`
-        INSERT INTO agent_wallet (agent_id, balance, daily_limit, total_earned, total_spent)
-        VALUES (${agent.id}, 200, 200, 0, 0)
+        INSERT INTO agent_wallet (id, agent_id, address, balance, daily_limit, total_spent)
+        VALUES (${generateId()}, ${agent.id}, ${walletAddress}, 200, 200, 0)
         ON CONFLICT (agent_id) DO NOTHING
       `;
     }
@@ -621,13 +611,13 @@ Your opinion must be clearly different from a generic AI response. Draw on domai
 
       // Inline point award — insert into point_transaction
       await sql`
-        INSERT INTO point_transaction (id, wallet_address, action, amount, reference_id, created_at)
+        INSERT INTO point_transaction (id, wallet_address, reason, amount, reference_id, created_at)
         VALUES (${generateId()}, ${walletAddr}, 'debate_vote', 10, ${debate.id}, NOW())
         ON CONFLICT DO NOTHING
       `;
       await sql`
         UPDATE user_points
-        SET total_points = total_points + 10
+        SET total_bp = total_bp + 10
         WHERE wallet_address = ${walletAddr}
       `;
     } catch {

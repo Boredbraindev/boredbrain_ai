@@ -21,8 +21,8 @@ export const maxDuration = 60;
  */
 
 import { NextRequest } from 'next/server';
-import { serverEnv } from '@/env/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyCron } from '@/lib/verify-cron';
 import { generateScenarios } from '@/lib/agent-scheduler';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { apiSuccess, apiError } from '@/lib/api-utils';
@@ -217,27 +217,7 @@ async function releaseLock(sql: any): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Auth helper
-// ---------------------------------------------------------------------------
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return true;
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  if (request.headers.get('upstash-signature')) return true;
-
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-
-  return false;
-}
+// Auth: imported from shared verifyCron (lib/verify-cron.ts)
 
 // ---------------------------------------------------------------------------
 // GET /api/agents/activity-burst
@@ -440,7 +420,7 @@ export async function GET(request: NextRequest) {
         const baseUrl = process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
           : 'https://boredbrain.app';
-        const secret = serverEnv.CRON_SECRET;
+        const secret = process.env.CRON_SECRET;
 
         // Settlement for prediction markets
         const roundId = Math.floor(Date.now() / 300000);
@@ -566,16 +546,16 @@ export async function GET(request: NextRequest) {
       ],
     },
     devServerCrontab: {
-      description: 'Copy these lines to the dev server crontab (crontab -e on 1.238.101.231)',
+      description: 'Copy these lines to the dev server crontab (crontab -e on your server)',
       lines: [
         '# Activity burst — main driver (every 5 min)',
-        '*/5 * * * * curl -s "https://boredbrain.app/api/agents/activity-burst?secret=$CRON_SECRET" >> /tmp/bbai-activity.log 2>&1',
+        '*/5 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "https://boredbrain.app/api/agents/activity-burst" >> /tmp/bbai-activity.log 2>&1',
         '',
         '# Debate participation — lightweight, fast (every 2 min)',
-        '*/2 * * * * curl -s -X POST "https://boredbrain.app/api/topics/participate" -H "Authorization: Bearer $CRON_SECRET" >> /tmp/bbai-participate.log 2>&1',
+        '*/2 * * * * curl -s -X POST -H "Authorization: Bearer $CRON_SECRET" "https://boredbrain.app/api/topics/participate" >> /tmp/bbai-participate.log 2>&1',
         '',
         '# Topic collection — hourly refresh from Polymarket/Kalshi',
-        '0 * * * * curl -s "https://boredbrain.app/api/topics/collect?secret=$CRON_SECRET" >> /tmp/bbai-collect.log 2>&1',
+        '0 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "https://boredbrain.app/api/topics/collect" >> /tmp/bbai-collect.log 2>&1',
       ],
     },
   });

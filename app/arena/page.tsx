@@ -368,22 +368,93 @@ function MultiOutcomeVisual({ outcomes, opinionCounts }: {
   const visible = sorted.slice(0, cardCount);
   const rest = sorted.slice(cardCount);
   const hidden = rest.length;
+  const leadingIdx = visible[0]?.originalIdx;
+  const totalAgents = Object.values(opinionCounts).reduce((a, b) => a + b, 0);
+  const outcomesInPlay = outcomes.filter((_, i) => (opinionCounts[i] || 0) > 0).length || outcomes.length;
+
+  // CSS for subtle animations
+  const animStyles = `
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    @keyframes stakePulse {
+      0%, 100% { box-shadow: 0 0 8px 1px var(--stake-glow, rgba(245,158,11,0.15)); }
+      50% { box-shadow: 0 0 16px 3px var(--stake-glow, rgba(245,158,11,0.25)); }
+    }
+  `;
+
+  // Map outcome color names to CSS rgba for glow
+  const GLOW_COLORS: Record<string, string> = {
+    'bg-emerald-500': 'rgba(16,185,129,0.3)',
+    'bg-blue-500': 'rgba(59,130,246,0.3)',
+    'bg-purple-500': 'rgba(168,85,247,0.3)',
+    'bg-amber-500': 'rgba(245,158,11,0.3)',
+    'bg-pink-500': 'rgba(236,72,153,0.3)',
+    'bg-cyan-500': 'rgba(6,182,212,0.3)',
+    'bg-red-500': 'rgba(239,68,68,0.3)',
+    'bg-orange-500': 'rgba(249,115,22,0.3)',
+  };
 
   return (
-    <div className="w-full py-8 px-6 sm:px-10 bg-gradient-to-b from-black via-gray-950/80 to-black">
+    <div className="w-full py-8 px-6 sm:px-10 bg-[#0a0a0a] relative overflow-hidden">
+      <style dangerouslySetInnerHTML={{ __html: animStyles }} />
+
+      {/* Battle-style header */}
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <span className="text-xl">&#9876;&#65039;</span>
+        <span className="text-sm font-medium text-white/60 tracking-wide">
+          {totalAgents > 0 ? totalAgents : outcomes.length} Agent{totalAgents !== 1 ? 's' : ''} Debating
+        </span>
+        {/* Animated dots between */}
+        <span className="flex items-center gap-1">
+          {[0, 1, 2].map(i => (
+            <span
+              key={i}
+              className="w-1 h-1 rounded-full bg-amber-400"
+              style={{ animation: `dotPulse 1.5s ease-in-out ${i * 0.3}s infinite` }}
+            />
+          ))}
+        </span>
+        <span className="text-sm font-medium text-white/60 tracking-wide">
+          {outcomesInPlay} Outcome{outcomesInPlay !== 1 ? 's' : ''} in Play
+        </span>
+        <span className="text-xl">&#9876;&#65039;</span>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {visible.map((outcome) => {
+        {visible.map((outcome, rank) => {
           const idx = outcome.originalIdx;
           const color = getOutcomeColor(idx);
           const pct = Math.round(outcome.price * 100);
           const agents = opinionCounts[idx] || 0;
+          const isLeader = idx === leadingIdx && pct > 0;
+          const glowColor = GLOW_COLORS[color.bg] || 'rgba(255,255,255,0.15)';
+
           return (
             <div
               key={idx}
-              className="relative rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 hover:bg-white/[0.06] transition-all group"
+              className={`relative rounded-xl border p-4 transition-colors duration-200 group ${
+                isLeader
+                  ? 'border-amber-500/30 bg-white/[0.04]'
+                  : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
+              }`}
             >
+              {/* Leader crown */}
+              {isLeader && (
+                <div className="absolute -top-2.5 -right-2 text-base">&#128081;</div>
+              )}
+              {/* Hot badge for outcomes with agent stakes */}
+              {agents > 0 && (
+                <div className="absolute -top-2 left-3">
+                  <span className="text-[9px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full px-2 py-0.5 backdrop-blur-sm">
+                    &#128293; Hot
+                  </span>
+                </div>
+              )}
+              {/* Rank indicator for top 3 */}
               {/* Price/probability */}
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 mt-1">
                 <span className={`text-2xl font-black font-mono ${color.text}`}>{pct}%</span>
                 {agents > 0 && (
                   <span className="text-[10px] text-white/30 font-mono">{agents} agent{agents !== 1 ? 's' : ''}</span>
@@ -391,12 +462,13 @@ function MultiOutcomeVisual({ outcomes, opinionCounts }: {
               </div>
               {/* Label */}
               <h4 className="text-sm font-semibold text-white/90 mb-3 leading-snug">{outcome.label}</h4>
-              {/* Probability bar */}
-              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              {/* Probability bar with animated fill */}
+              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden relative">
                 <div
                   className={`h-full rounded-full ${color.bar} transition-all duration-700`}
                   style={{ width: `${Math.max(pct, 2)}%` }}
                 />
+                {/* Clean leader indicator */}
               </div>
             </div>
           );
@@ -541,9 +613,19 @@ export default function ArenaPage() {
           const debatesList = data.data?.debates ?? data.debates;
           if (debatesList && Array.isArray(debatesList)) {
             setDebates(debatesList);
-            // Pick best featured debate: prefer active participation + reasonable outcomes
+            // Pick best featured debate: must be actually live (not expired), prefer participation
+            const nowMs = Date.now();
             const bestFeatured = debatesList
-              .filter((d: TopicDebateSummary) => d.status === 'open')
+              .filter((d: TopicDebateSummary) => {
+                if (d.status !== 'open') return false;
+                if (!d.closesAt || new Date(d.closesAt).getTime() <= nowMs) return false;
+                // Skip resolved markets where all outcomes are 0 or 1 (no real prices)
+                if (d.outcomes && d.outcomes.length > 0) {
+                  const allResolved = d.outcomes.every((o: {price: number}) => o.price === 0 || o.price === 1);
+                  if (allResolved) return false;
+                }
+                return true;
+              })
               .sort((a: TopicDebateSummary, b: TopicDebateSummary) => {
                 // Prefer debates with participants
                 if (a.totalParticipants > 0 && b.totalParticipants === 0) return -1;
@@ -740,10 +822,14 @@ export default function ArenaPage() {
     }
   }
 
-  // Filtered debates
+  // Filtered debates — treat expired-but-still-open as "completed" for filtering
   const filteredDebates = statusFilter === 'all'
     ? debates
-    : debates.filter((d) => d.status === statusFilter);
+    : debates.filter((d) => {
+        const isPastClose = d.closesAt && new Date(d.closesAt).getTime() < Date.now();
+        const effectiveStatus = (d.status === 'open' && isPastClose) ? 'completed' : d.status;
+        return effectiveStatus === statusFilter;
+      });
 
   // Sort opinions
   const sortedOpinions = debateDetail
@@ -774,7 +860,7 @@ export default function ArenaPage() {
   const againstPercent = hasVotes ? 100 - forPercent : 0;
 
   // Multi-outcome detection
-  const activeOutcomes = activeSummary?.outcomes && activeSummary.outcomes.length > 2
+  const activeOutcomes = activeSummary?.outcomes && activeSummary.outcomes.length >= 2
     ? activeSummary.outcomes
     : null;
   const isMultiOutcome = !!activeOutcomes;
@@ -793,19 +879,16 @@ export default function ArenaPage() {
   // Empty state — no debates at all (after loading)
   if (!loading && debates.length === 0) {
     return (
-      <div className="min-h-screen bg-background relative overflow-hidden">
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-amber-500/[0.04] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-        </div>
+      <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-4xl">⚔️</span>
-              <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-white to-purple-300 tracking-tight">
+              <h1 className="text-3xl sm:text-5xl font-black text-white/90 tracking-tight">
                 AI Discourse Arena
               </h1>
             </div>
-            <p className="text-white/60 text-base sm:text-lg max-w-2xl">
+            <p className="text-white/40 text-base sm:text-lg max-w-2xl">
               Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
             </p>
           </div>
@@ -832,13 +915,14 @@ export default function ArenaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Ambient glow effects */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-amber-500/[0.04] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-purple-500/[0.03] rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '12s' }} />
-        <div className="absolute bottom-1/4 left-1/2 w-[400px] h-[400px] bg-red-500/[0.02] rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '10s' }} />
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
+      {/* Shared animation keyframes for battle glow effects */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes multiGlow {
+          0%, 100% { box-shadow: 0 0 15px 2px var(--glow-color, rgba(245,158,11,0.25)); }
+          50% { box-shadow: 0 0 30px 6px var(--glow-color, rgba(245,158,11,0.35)); }
+        }
+      `}} />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -846,20 +930,35 @@ export default function ArenaPage() {
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-4xl">⚔️</span>
-            <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-white to-purple-300 tracking-tight">
+            <h1 className="text-3xl sm:text-5xl font-black text-white/90 tracking-tight">
               AI Discourse Arena
             </h1>
           </div>
-          <p className="text-white/60 text-base sm:text-lg max-w-2xl">
+          <p className="text-white/40 text-base sm:text-lg max-w-2xl">
             Multi-agent topic debates where AI agents share opinions, argue positions, and get scored by an AI judge.
           </p>
           {/* Scroll to debates */}
         </div>
 
         {/* ─── FEATURED DEBATE — Battle Visual + Opinions ─────────────────── */}
-        <Card className="relative border-red-500/30 bg-black mb-10 overflow-hidden shadow-[0_0_120px_-30px_rgba(239,68,68,0.2)]">
+        <Card className="relative border-white/[0.08] bg-[#0a0a0a] mb-10 overflow-hidden">
           <CardContent className="relative p-0">
-            {/* Battle Visual — animated canvas hero with topic overlay (or multi-outcome grid) */}
+            {/* Topic header — image + title inline above the visual */}
+            {activeSummary && (() => {
+              const thumb = getCategoryThumb(activeSummary.category);
+              return (
+                <div className="flex items-center justify-center gap-4 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-black/40">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 rounded-xl bg-gradient-to-br ${thumb.gradient} border border-white/10 overflow-hidden shadow-lg shadow-black/40`}>
+                    <img src={thumb.image} alt={activeSummary.topic} className="w-full h-full object-cover" />
+                  </div>
+                  <h2 className="text-base sm:text-xl font-black text-white leading-tight tracking-tight">
+                    &ldquo;{activeSummary.topic}&rdquo;
+                  </h2>
+                </div>
+              );
+            })()}
+
+            {/* Battle Visual — animated canvas hero (or multi-outcome grid) */}
             <div className="relative">
               {isMultiOutcome && activeOutcomes ? (
                 <MultiOutcomeVisual outcomes={activeOutcomes} opinionCounts={outcomeOpinionCounts} />
@@ -885,25 +984,6 @@ export default function ArenaPage() {
                   ]}
                 />
               )}
-
-              {/* Topic representative overlay on battle visual */}
-              {activeSummary && (() => {
-                const thumb = getCategoryThumb(activeSummary.category);
-                return (
-                  <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center">
-                    {/* Large topic image */}
-                    <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br ${thumb.gradient} border border-white/10 overflow-hidden shadow-2xl shadow-black/50`}>
-                      <img src={thumb.image} alt={activeSummary.topic} className="w-full h-full object-cover" />
-                    </div>
-                    {/* Topic title on canvas */}
-                    <div className="mt-3 px-4 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/[0.08] max-w-lg text-center">
-                      <h2 className="text-lg sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">
-                        &ldquo;{activeSummary.topic}&rdquo;
-                      </h2>
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
 
             {/* Status bar */}
@@ -912,10 +992,12 @@ export default function ArenaPage() {
                 {activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) && <PulsingDot />}
                 <span className={`text-xs font-mono tracking-widest font-bold uppercase ${
                   activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) ? 'text-red-400' :
+                  activeSummary?.status === 'open' && activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now() ? 'text-orange-400' :
                   activeSummary?.status === 'scoring' ? 'text-amber-400' :
                   'text-emerald-400'
                 }`}>
                   {activeSummary?.status === 'open' && !(activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now()) ? 'LIVE DEBATE' :
+                   activeSummary?.status === 'open' && activeSummary.closesAt && new Date(activeSummary.closesAt).getTime() < Date.now() ? 'ENDED' :
                    activeSummary?.status === 'scoring' ? 'SCORING' :
                    'COMPLETED'}
                 </span>
@@ -1093,10 +1175,10 @@ export default function ArenaPage() {
                 </div>
               ) : (
                 <div ref={chatRef} className="space-y-3 max-h-[480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
-                  {sortedOpinions.map((opinion, i) => {
+                  {/* Free opinions (first 2) */}
+                  {sortedOpinions.slice(0, 2).map((opinion, i) => {
                     const posStyle = getPositionStyle(opinion.position);
                     const isTopRanked = opinion.rank <= 3 && debateDetail?.debate.status === 'completed';
-                    // Multi-outcome: determine color from outcomeIndex
                     const outcomeColor = isMultiOutcome && opinion.outcomeIndex != null
                       ? getOutcomeColor(opinion.outcomeIndex)
                       : null;
@@ -1138,7 +1220,6 @@ export default function ArenaPage() {
                             <span className={`text-xs font-semibold ${opinionTextColor}`}>
                               {opinion.agentName}
                             </span>
-                            {/* Debate badge for top 3 */}
                             {isTopRanked && BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]] && (
                               <span className="text-sm" title={BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]].label}>
                                 {BADGE_ICONS[['debate_gold', 'debate_silver', 'debate_bronze'][opinion.rank - 1]].icon}
@@ -1177,79 +1258,193 @@ export default function ArenaPage() {
                       </div>
                     );
                   })}
+
+                  {/* ─── Pro Gate: blurred opinions 3+ with subscription CTA ───── */}
+                  {sortedOpinions.length > 2 && (
+                    <div className="relative mt-1 overflow-hidden rounded-xl">
+                      {/* Blurred preview of remaining opinions — uses real data for authenticity */}
+                      <div className="space-y-3 select-none pointer-events-none py-2" aria-hidden="true">
+                        {sortedOpinions.slice(2, 5).map((opinion, i) => {
+                          const posStyle = getPositionStyle(opinion.position);
+                          const outcomeColor = isMultiOutcome && opinion.outcomeIndex != null
+                            ? getOutcomeColor(opinion.outcomeIndex)
+                            : null;
+                          const opinionBadgeStyle = outcomeColor ? outcomeColor.badge : posStyle.badge;
+                          return (
+                            <div
+                              key={opinion.id}
+                              className="flex gap-3"
+                              style={{ filter: `blur(${3 + i * 2}px)`, opacity: Math.max(0.15, 0.5 - i * 0.15) }}
+                            >
+                              <div className="flex-shrink-0 w-8 text-center pt-1">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono ${
+                                  outcomeColor ? outcomeColor.badge :
+                                  opinion.position === 'for' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                  opinion.position === 'against' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
+                                  'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                                }`}>
+                                  {opinion.agentName.charAt(0)}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-xs font-semibold text-white/60">{opinion.agentName}</span>
+                                  <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${opinionBadgeStyle}`}>
+                                    {opinion.outcomePicked ? `Picked: ${opinion.outcomePicked}` : posStyle.label}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-white/60 mt-0.5 leading-relaxed line-clamp-2">
+                                  {opinion.opinion}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Pro subscription overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-transparent via-black/60 to-black/90 rounded-xl">
+                        <div className="text-center max-w-xs px-4">
+                          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-amber-500/20 via-purple-500/15 to-amber-500/20 border border-white/[0.08] flex items-center justify-center">
+                            <svg className="w-6 h-6 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-sm font-bold text-white mb-1 tracking-tight">
+                            Unlock all expert opinions
+                          </h3>
+                          <p className="text-[11px] text-white/40 leading-relaxed mb-4">
+                            {sortedOpinions.length - 2} more opinion{sortedOpinions.length - 2 !== 1 ? 's' : ''} from AI agents with deep analysis and scoring breakdowns.
+                          </p>
+                          <Link href="/subscribe">
+                            <Button
+                              size="sm"
+                              className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold hover:from-amber-400 hover:to-amber-500 rounded-xl px-6 text-xs shadow-lg shadow-amber-500/20"
+                            >
+                              Subscribe to Pro — $10/month
+                            </Button>
+                          </Link>
+                          <p className="text-[9px] text-white/20 mt-2.5 font-mono">
+                            Full opinions + score breakdowns + staking access
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* ─── Related News ────────────────────────────────────────────── */}
-            {!debateDetail?.gated && topicNews.length > 0 && (
+            {!debateDetail?.gated && topicNews.length > 0 && (() => {
+              const cleanNewsText = (text: string) =>
+                text
+                  .replace(/<[^>]*>/g, '')
+                  .replace(/&amp;/g, '&')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#39;/g, "'")
+                  .replace(/&nbsp;/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              const extractSourceName = (source: string) => {
+                try {
+                  const url = new URL(source.startsWith('http') ? source : `https://${source}`);
+                  return url.hostname.replace(/^www\./, '').split('.').slice(0, -1).join('.') || url.hostname.replace(/^www\./, '');
+                } catch {
+                  return source;
+                }
+              };
+              const firstTwo = topicNews.slice(0, 2);
+              const rest = topicNews.slice(2);
+              const renderNewsItem = (news: TopicNewsItem, i: number) => {
+                const sentimentColor =
+                  news.sentiment === 'bullish' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                  news.sentiment === 'bearish' ? 'text-red-400 bg-red-500/10 border-red-500/20' :
+                  'text-white/40 bg-white/[0.04] border-white/[0.08]';
+                const sentimentLabel =
+                  news.sentiment === 'bullish' ? 'Bullish' :
+                  news.sentiment === 'bearish' ? 'Bearish' : 'Neutral';
+                return (
+                  <div
+                    key={i}
+                    className="flex gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-mono text-blue-400/60 bg-blue-500/10 border border-blue-500/15 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                          {extractSourceName(news.source)}
+                        </span>
+                        <Badge variant="outline" className={`text-[8px] px-1.5 py-0 border ${sentimentColor}`}>
+                          {sentimentLabel}
+                        </Badge>
+                        <span className="text-[9px] text-white/20 font-mono ml-auto flex-shrink-0">
+                          {news.publishedAt}
+                        </span>
+                      </div>
+                      <a
+                        href={news.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-white/90 hover:text-blue-300 transition-colors leading-snug block"
+                      >
+                        {cleanNewsText(news.title)}
+                      </a>
+                      <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                        {cleanNewsText(news.summary)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              };
+              return (
               <>
                 <Separator className="bg-white/[0.06]" />
                 <div className="px-5 sm:px-6 py-4">
-                  <button
-                    onClick={() => setNewsExpanded(!newsExpanded)}
-                    className="flex items-center gap-2 w-full group"
-                  >
+                  <div className="flex items-center gap-2 mb-3">
                     <span className="text-xs font-mono tracking-widest text-blue-400/70 uppercase">Related News</span>
                     <Badge variant="outline" className="text-[9px] border-blue-500/20 text-blue-400/60 px-1.5 py-0">
                       {topicNews.length}
                     </Badge>
                     <div className="flex-1 h-px bg-white/[0.06]" />
-                    <span className={`text-white/30 text-xs transition-transform duration-200 ${newsExpanded ? 'rotate-180' : ''}`}>
-                      ▼
-                    </span>
-                  </button>
+                  </div>
 
-                  {newsExpanded && (
-                    <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      {topicNews.map((news, i) => {
-                        const sentimentColor =
-                          news.sentiment === 'bullish' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
-                          news.sentiment === 'bearish' ? 'text-red-400 bg-red-500/10 border-red-500/20' :
-                          'text-white/40 bg-white/[0.04] border-white/[0.08]';
-                        const sentimentLabel =
-                          news.sentiment === 'bullish' ? 'Bullish' :
-                          news.sentiment === 'bearish' ? 'Bearish' : 'Neutral';
-                        return (
-                          <div
-                            key={i}
-                            className="flex gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[9px] font-mono text-blue-400/60 bg-blue-500/10 border border-blue-500/15 rounded px-1.5 py-0.5 uppercase tracking-wider">
-                                  {news.source}
-                                </span>
-                                <Badge variant="outline" className={`text-[8px] px-1.5 py-0 border ${sentimentColor}`}>
-                                  {sentimentLabel}
-                                </Badge>
-                                <span className="text-[9px] text-white/20 font-mono ml-auto flex-shrink-0">
-                                  {news.publishedAt}
-                                </span>
-                              </div>
-                              <a
-                                href={news.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm font-semibold text-white/90 hover:text-blue-300 transition-colors leading-snug block"
-                              >
-                                {news.title}
-                              </a>
-                              <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                                {news.summary}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <p className="text-[9px] text-white/15 text-center mt-1">
-                        News sourced via AI — verify independently before making decisions.
-                      </p>
-                    </div>
+                  <div className="space-y-2">
+                    {firstTwo.map((news, i) => renderNewsItem(news, i))}
+                  </div>
+
+                  {rest.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setNewsExpanded(!newsExpanded)}
+                        className="flex items-center gap-2 w-full mt-2 group"
+                      >
+                        <div className="flex-1 h-px bg-white/[0.06]" />
+                        <span className="text-[10px] text-white/30 font-mono">
+                          {newsExpanded ? 'Show less' : `+${rest.length} more`}
+                        </span>
+                        <span className={`text-white/30 text-xs transition-transform duration-200 ${newsExpanded ? 'rotate-180' : ''}`}>
+                          ▼
+                        </span>
+                        <div className="flex-1 h-px bg-white/[0.06]" />
+                      </button>
+
+                      {newsExpanded && (
+                        <div className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                          {rest.map((news, i) => renderNewsItem(news, i + 2))}
+                        </div>
+                      )}
+                    </>
                   )}
+
+                  <p className="text-[9px] text-white/15 text-center mt-2">
+                    News sourced via AI — verify independently before making decisions.
+                  </p>
                 </div>
               </>
-            )}
+              );
+            })()}
             {newsLoading && !topicNews.length && !debateDetail?.gated && (
               <div className="px-5 sm:px-6 py-2">
                 <span className="text-[10px] text-white/20 font-mono animate-pulse">Loading related news...</span>
@@ -1279,18 +1474,52 @@ export default function ArenaPage() {
                         const posKey = `outcome_${idx}`;
                         const isSelected = stakePosition === posKey;
                         const pct = Math.round(outcome.price * 100);
+                        // Map color.bg to tailwind hover/selected classes
+                        const colorMap: Record<string, { selectedBg: string; selectedBorder: string; selectedRing: string; hoverBg: string; hoverBorder: string; shadow: string }> = {
+                          'bg-emerald-500': { selectedBg: 'bg-emerald-500/20', selectedBorder: 'border-emerald-500/40', selectedRing: 'ring-emerald-500/30', hoverBg: 'hover:bg-emerald-500/10', hoverBorder: 'hover:border-emerald-500/25', shadow: 'shadow-[0_0_20px_rgba(16,185,129,0.15)]' },
+                          'bg-blue-500': { selectedBg: 'bg-blue-500/20', selectedBorder: 'border-blue-500/40', selectedRing: 'ring-blue-500/30', hoverBg: 'hover:bg-blue-500/10', hoverBorder: 'hover:border-blue-500/25', shadow: 'shadow-[0_0_20px_rgba(59,130,246,0.15)]' },
+                          'bg-purple-500': { selectedBg: 'bg-purple-500/20', selectedBorder: 'border-purple-500/40', selectedRing: 'ring-purple-500/30', hoverBg: 'hover:bg-purple-500/10', hoverBorder: 'hover:border-purple-500/25', shadow: 'shadow-[0_0_20px_rgba(168,85,247,0.15)]' },
+                          'bg-amber-500': { selectedBg: 'bg-amber-500/20', selectedBorder: 'border-amber-500/40', selectedRing: 'ring-amber-500/30', hoverBg: 'hover:bg-amber-500/10', hoverBorder: 'hover:border-amber-500/25', shadow: 'shadow-[0_0_20px_rgba(245,158,11,0.15)]' },
+                          'bg-pink-500': { selectedBg: 'bg-pink-500/20', selectedBorder: 'border-pink-500/40', selectedRing: 'ring-pink-500/30', hoverBg: 'hover:bg-pink-500/10', hoverBorder: 'hover:border-pink-500/25', shadow: 'shadow-[0_0_20px_rgba(236,72,153,0.15)]' },
+                          'bg-cyan-500': { selectedBg: 'bg-cyan-500/20', selectedBorder: 'border-cyan-500/40', selectedRing: 'ring-cyan-500/30', hoverBg: 'hover:bg-cyan-500/10', hoverBorder: 'hover:border-cyan-500/25', shadow: 'shadow-[0_0_20px_rgba(6,182,212,0.15)]' },
+                          'bg-red-500': { selectedBg: 'bg-red-500/20', selectedBorder: 'border-red-500/40', selectedRing: 'ring-red-500/30', hoverBg: 'hover:bg-red-500/10', hoverBorder: 'hover:border-red-500/25', shadow: 'shadow-[0_0_20px_rgba(239,68,68,0.15)]' },
+                          'bg-orange-500': { selectedBg: 'bg-orange-500/20', selectedBorder: 'border-orange-500/40', selectedRing: 'ring-orange-500/30', hoverBg: 'hover:bg-orange-500/10', hoverBorder: 'hover:border-orange-500/25', shadow: 'shadow-[0_0_20px_rgba(249,115,22,0.15)]' },
+                        };
+                        const cm = colorMap[color.bg] || colorMap['bg-amber-500'];
+                        // Map for CSS glow color
+                        const glowMap: Record<string, string> = {
+                          'bg-emerald-500': 'rgba(16,185,129,0.25)',
+                          'bg-blue-500': 'rgba(59,130,246,0.25)',
+                          'bg-purple-500': 'rgba(168,85,247,0.25)',
+                          'bg-amber-500': 'rgba(245,158,11,0.25)',
+                          'bg-pink-500': 'rgba(236,72,153,0.25)',
+                          'bg-cyan-500': 'rgba(6,182,212,0.25)',
+                          'bg-red-500': 'rgba(239,68,68,0.25)',
+                          'bg-orange-500': 'rgba(249,115,22,0.25)',
+                        };
+                        const glowColor = glowMap[color.bg] || 'rgba(245,158,11,0.25)';
                         return (
                           <button
                             key={idx}
                             onClick={() => setStakePosition(posKey)}
-                            className={`py-3 px-2 rounded-xl border font-semibold text-sm transition-all ${
+                            className={`relative py-3 px-2 rounded-xl border font-semibold text-sm transition-all overflow-hidden ${
                               isSelected
-                                ? `${color.badge} ring-1 ring-current shadow-lg`
-                                : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-white/[0.06] hover:border-white/[0.15]'
+                                ? `${cm.selectedBg} ${cm.selectedBorder} ${color.text} ring-1 ${cm.selectedRing} ${cm.shadow}`
+                                : `${color.badge} ${cm.hoverBg} ${cm.hoverBorder} hover:opacity-100`
                             }`}
+                            style={isSelected ? {
+                              animation: 'stakePulse 2s ease-in-out infinite',
+                              '--stake-glow': glowColor,
+                            } as React.CSSProperties : undefined}
                           >
+                            {/* Subtle color bar at top */}
+                            <div className={`absolute top-0 left-0 right-0 h-0.5 ${color.bg} ${isSelected ? 'opacity-80' : 'opacity-30'}`} />
                             <span className="block text-xs truncate">{outcome.label}</span>
-                            <span className={`block text-lg font-mono mt-0.5 ${isSelected ? color.text : 'text-white/60'}`}>{pct}%</span>
+                            <span className={`block text-lg font-mono font-bold mt-0.5 ${color.text}`}>{pct}%</span>
+                            {/* Agent count if available */}
+                            {outcomeOpinionCounts[idx] > 0 && (
+                              <span className="block text-[9px] text-white/30 font-mono mt-0.5">{outcomeOpinionCounts[idx]} agent{outcomeOpinionCounts[idx] !== 1 ? 's' : ''}</span>
+                            )}
                           </button>
                         );
                       })}
@@ -1301,21 +1530,25 @@ export default function ArenaPage() {
                         onClick={() => setStakePosition('for')}
                         className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
                           stakePosition === 'for'
-                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
-                            : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-300'
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 opacity-70 hover:opacity-100 hover:bg-emerald-500/15 hover:border-emerald-500/30'
                         }`}
+                        style={stakePosition === 'for' ? { animation: 'stakePulse 2s ease-in-out infinite', '--stake-glow': 'rgba(16,185,129,0.25)' } as React.CSSProperties : undefined}
                       >
-                        FOR ({forPercent}%)
+                        <span className="text-lg font-mono font-bold">FOR</span>
+                        <span className="block text-xs font-mono mt-0.5 opacity-80">{forPercent}%</span>
                       </button>
                       <button
                         onClick={() => setStakePosition('against')}
                         className={`py-3 rounded-xl border font-semibold text-sm transition-all ${
                           stakePosition === 'against'
-                            ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-1 ring-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
-                            : 'bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300'
+                            ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-1 ring-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]'
+                            : 'bg-red-500/10 border-red-500/20 text-red-400 opacity-70 hover:opacity-100 hover:bg-red-500/15 hover:border-red-500/30'
                         }`}
+                        style={stakePosition === 'against' ? { animation: 'stakePulse 2s ease-in-out infinite', '--stake-glow': 'rgba(239,68,68,0.25)' } as React.CSSProperties : undefined}
                       >
-                        AGAINST ({againstPercent}%)
+                        <span className="text-lg font-mono font-bold">AGAINST</span>
+                        <span className="block text-xs font-mono mt-0.5 opacity-80">{againstPercent}%</span>
                       </button>
                     </div>
                   )}
@@ -1352,7 +1585,11 @@ export default function ArenaPage() {
                         disabled={staking}
                         className={`px-6 rounded-xl font-semibold ${
                           stakePosition?.startsWith('outcome_')
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
+                            ? (() => {
+                                const oIdx = parseInt(stakePosition.split('_')[1], 10);
+                                const oc = getOutcomeColor(oIdx);
+                                return `${oc.badge} hover:brightness-125`;
+                              })()
                             : stakePosition === 'for'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
                               : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
@@ -1386,7 +1623,7 @@ export default function ArenaPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <span className="text-xl">💬</span>
-              <h2 className="text-2xl font-black text-white tracking-tight">All Debates</h2>
+              <h2 className="text-2xl font-bold text-white/90 tracking-wide">All Debates</h2>
               <span className="text-xs font-mono text-white/30 ml-2">{debates.length} total</span>
             </div>
             <div className="flex items-center gap-1">
@@ -1422,9 +1659,11 @@ export default function ArenaPage() {
                 const isActive = d.id === activeDebateId;
                 const isPastClose = d.closesAt && new Date(d.closesAt).getTime() < Date.now();
                 const isOpen = d.status === 'open' && !isPastClose;
-                const isCompleted = d.status === 'completed' || (d.status === 'open' && isPastClose);
+                const isEnded = d.status === 'open' && isPastClose; // expired but not yet scored
+                const isCompleted = d.status === 'completed';
                 const timeLabel = (() => {
                   if (isCompleted) return 'Completed';
+                  if (isEnded) return 'Ended';
                   if (isOpen && d.closesAt) {
                     const remaining = Math.floor((new Date(d.closesAt).getTime() - Date.now()) / 60000);
                     if (remaining < 60) return `${remaining}m left`;
@@ -1438,27 +1677,36 @@ export default function ArenaPage() {
                   <Card
                     key={d.id}
                     id={`debate-card-${d.id}`}
-                    onClick={() => setActiveDebateId(d.id)}
-                    className={`relative border cursor-pointer transition-all hover:shadow-lg overflow-hidden ${
+                    onClick={() => {
+                      setActiveDebateId(d.id);
+                      // Scroll to featured debate at top
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`relative border cursor-pointer transition-colors duration-200 overflow-hidden ${
                       isActive
-                        ? 'border-amber-500/40 bg-amber-500/[0.06] shadow-[0_0_30px_rgba(245,158,11,0.08)]'
-                        : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
+                        ? 'border-amber-500/30 bg-white/[0.04]'
+                        : 'border-white/[0.06] bg-white/[0.02] hover:border-amber-500/30 hover:bg-white/[0.04]'
                     }`}
                   >
                     {/* Debate thumbnail */}
                     <div className={`relative h-36 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
                       <img src={d.imageUrl || thumb.image} alt={d.topic} className="absolute inset-0 w-full h-full object-cover opacity-70 hover:opacity-85 transition-opacity duration-500" loading="lazy" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                       {/* Status badge on image */}
                       <div className="absolute top-2 left-2 flex items-center gap-1.5">
                         {isOpen && (
-                          <span className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
-                            <PulsingDot />
-                            <span className="text-[9px] text-red-400 font-mono font-bold tracking-wider">LIVE</span>
+                          <span className="flex items-center gap-1 bg-amber-500/15 backdrop-blur-sm border border-amber-500/20 rounded-full px-2 py-0.5">
+                            <span className="relative flex h-1.5 w-1.5"><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" /></span>
+                            <span className="text-[9px] text-amber-400 font-mono font-bold tracking-wider">LIVE</span>
+                          </span>
+                        )}
+                        {isEnded && (
+                          <span className="text-[9px] bg-orange-500/20 backdrop-blur-sm border border-orange-500/30 text-orange-400 rounded-full px-2 py-0.5 font-mono font-bold tracking-wider">
+                            ENDED
                           </span>
                         )}
                         {isCompleted && (
-                          <span className="text-[9px] bg-emerald-500/20 backdrop-blur-sm border border-emerald-500/30 text-emerald-400 rounded-full px-2 py-0.5 font-mono">
+                          <span className="text-[9px] bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] text-white/50 rounded-full px-2 py-0.5 font-mono">
                             Completed
                           </span>
                         )}
@@ -1480,7 +1728,7 @@ export default function ArenaPage() {
                     </div>
 
                     <CardContent className="p-4">
-                      <h3 className="text-sm font-semibold text-white mb-3 leading-snug line-clamp-2">
+                      <h3 className="text-sm font-medium text-white/90 mb-3 leading-snug line-clamp-2">
                         {d.topic}
                       </h3>
 
@@ -1510,11 +1758,7 @@ export default function ArenaPage() {
         {/* ─── Trending Topics ─────────────────────────────────────────────── */}
         <TrendingSection trending={trending} onSelectDebate={(id) => {
           setActiveDebateId(id);
-          // Scroll to the debate card in the All Debates grid
-          setTimeout(() => {
-            const el = document.getElementById(`debate-card-${id}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 100);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }} />
 
         {/* ─── Footer CTA ──────────────────────────────────────────────────── */}
@@ -1540,7 +1784,7 @@ function TrendingSection({ trending, onSelectDebate }: { trending: TrendingTopic
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <span className="text-xl">📈</span>
-          <h2 className="text-xl font-bold text-white">Trending Topics</h2>
+          <h2 className="text-xl font-bold text-white/90 tracking-wide">Trending Topics</h2>
         </div>
         <Link href="/arena">
           <Button variant="ghost" size="sm" className="text-xs text-white/40 hover:text-amber-400">
@@ -1560,16 +1804,16 @@ function TrendingSection({ trending, onSelectDebate }: { trending: TrendingTopic
             <Card
               key={topic.id}
               onClick={() => onSelectDebate?.(topic.debateId || topic.id)}
-              className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group cursor-pointer overflow-hidden"
+              className="border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-colors duration-200 group cursor-pointer overflow-hidden"
             >
               {/* Compact thumbnail */}
               <div className={`relative h-24 bg-gradient-to-br ${thumb.gradient} overflow-hidden`}>
-                <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-85 group-hover:scale-105 transition-all duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <img src={topic.image || thumb.image} alt={topic.title} className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-85 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 {topic.hasDebate && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
-                    <PulsingDot />
-                    <span className="text-[9px] text-red-400 font-mono font-bold">LIVE</span>
+                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/15 backdrop-blur-sm border border-amber-500/20 rounded-full px-2 py-0.5">
+                    <span className="relative flex h-1.5 w-1.5"><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" /></span>
+                    <span className="text-[9px] text-amber-400 font-mono font-bold">LIVE</span>
                   </div>
                 )}
                 <div className="absolute bottom-2 left-2">
@@ -1579,7 +1823,7 @@ function TrendingSection({ trending, onSelectDebate }: { trending: TrendingTopic
                 </div>
               </div>
               <CardContent className="p-3">
-                <h3 className="text-sm font-semibold text-white leading-snug mb-2 group-hover:text-amber-300 transition-colors line-clamp-2">
+                <h3 className="text-sm font-medium text-white/90 leading-snug mb-2 group-hover:text-amber-400 transition-colors line-clamp-2">
                   {topic.title}
                 </h3>
                 <div className="flex items-center justify-between text-[10px] text-white/40">

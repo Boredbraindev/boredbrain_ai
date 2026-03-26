@@ -1,14 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { parseUnits } from 'viem';
+import { bsc } from 'viem/chains';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import {
+  SUBSCRIPTION_CONTRACT_ADDRESS,
+  BSC_USDT_ADDRESS,
+  ERC20_APPROVE_ABI,
+  SUBSCRIPTION_ABI,
+  isContractDeployed,
+} from '@/lib/contracts/subscription-abi';
 
 const PRO_BENEFITS = [
   {
@@ -33,61 +41,192 @@ const PRO_BENEFITS = [
   },
 ];
 
-const PLATFORM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18';
+const SUBSCRIPTION_PRICE = parseUnits('10', 18); // 10 USDT
 
-type SubscriptionState = 'idle' | 'verifying' | 'success' | 'error';
+type SubscriptionStep = 'idle' | 'approving' | 'waiting-approval' | 'subscribing' | 'waiting-subscribe' | 'success';
 
 export default function SubscribePage() {
-  const [txHash, setTxHash] = useState('');
-  const [state, setState] = useState<SubscriptionState>('idle');
+  const { address, isConnected } = useAccount();
+  const [step, setStep] = useState<SubscriptionStep>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  async function handleVerify() {
-    if (!txHash.trim()) {
-      toast.error('Please paste your transaction hash.');
-      return;
-    }
-    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
-      toast.error('Invalid transaction hash format. Must be 0x followed by 64 hex characters.');
-      return;
-    }
+  // ── Check if already subscribed ──────────────────────────────────────────
+  const { data: isAlreadyActive } = useReadContract({
+    address: SUBSCRIPTION_CONTRACT_ADDRESS,
+    abi: SUBSCRIPTION_ABI,
+    functionName: 'isActive',
+    args: address ? [address] : undefined,
+    chainId: bsc.id,
+    query: { enabled: !!address },
+  });
 
-    setState('verifying');
-    setErrorMsg('');
+  // ── Check current allowance ──────────────────────────────────────────────
+  const { data: currentAllowance, refetch: refetchAllowance } = useReadContract({
+    address: BSC_USDT_ADDRESS,
+    abi: ERC20_APPROVE_ABI,
+    functionName: 'allowance',
+    args: address ? [address, SUBSCRIPTION_CONTRACT_ADDRESS] : undefined,
+    chainId: bsc.id,
+    query: { enabled: !!address },
+  });
 
-    try {
-      const res = await fetch('/api/subscription', {
+  const needsApproval = !currentAllowance || (currentAllowance as bigint) < SUBSCRIPTION_PRICE;
+
+  // ── Write: approve USDT ──────────────────────────────────────────────────
+  const {
+    writeContract: writeApprove,
+    data: approveTxHash,
+    isPending: isApprovePending,
+    error: approveError,
+    reset: resetApprove,
+  } = useWriteContract();
+
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } =
+    useWaitForTransactionReceipt({ hash: approveTxHash });
+
+  // ── Write: subscribe ─────────────────────────────────────────────────────
+  const {
+    writeContract: writeSubscribe,
+    data: subscribeTxHash,
+    isPending: isSubscribePending,
+    error: subscribeError,
+    reset: resetSubscribe,
+  } = useWriteContract();
+
+  const { isLoading: isSubscribeConfirming, isSuccess: isSubscribeConfirmed } =
+    useWaitForTransactionReceipt({ hash: subscribeTxHash });
+
+  // ── Step machine ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isApprovePending) setStep('approving');
+  }, [isApprovePending]);
+
+  useEffect(() => {
+    if (approveTxHash && isApproveConfirming) setStep('waiting-approval');
+  }, [approveTxHash, isApproveConfirming]);
+
+  useEffect(() => {
+    if (isApproveConfirmed) {
+      refetchAllowance();
+      // Proceed to subscribe automatically
+      writeSubscribe({
+        address: SUBSCRIPTION_CONTRACT_ADDRESS,
+        abi: SUBSCRIPTION_ABI,
+        functionName: 'subscribe',
+        chainId: bsc.id,
+      });
+    }
+  }, [isApproveConfirmed, refetchAllowance, writeSubscribe]);
+
+  useEffect(() => {
+    if (isSubscribePending) setStep('subscribing');
+  }, [isSubscribePending]);
+
+  useEffect(() => {
+    if (subscribeTxHash && isSubscribeConfirming) setStep('waiting-subscribe');
+  }, [subscribeTxHash, isSubscribeConfirming]);
+
+  useEffect(() => {
+    if (isSubscribeConfirmed && subscribeTxHash) {
+      // Sync subscription to backend DB
+      fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txHash: txHash.trim() }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setState('error');
-        setErrorMsg(data.error || 'Verification failed. Please try again.');
-        toast.error(data.error || 'Verification failed.');
-        return;
-      }
-
-      setState('success');
+        body: JSON.stringify({
+          walletAddress: address,
+          txHash: subscribeTxHash,
+          chain: 'bsc',
+          tier: 'pro',
+        }),
+      }).catch(() => {/* Backend sync is best-effort — contract is source of truth */});
+      setStep('success');
       toast.success('Pro subscription activated!');
-    } catch {
-      setState('error');
-      setErrorMsg('Network error. Please try again.');
-      toast.error('Network error. Please try again.');
+    }
+  }, [isSubscribeConfirmed, subscribeTxHash, address]);
+
+  // ── Error handling ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (approveError) {
+      const msg = approveError.message?.includes('User rejected')
+        ? 'Transaction rejected by user.'
+        : 'USDT approval failed. Please try again.';
+      setErrorMsg(msg);
+      setStep('idle');
+      toast.error(msg);
+    }
+  }, [approveError]);
+
+  useEffect(() => {
+    if (subscribeError) {
+      const msg = subscribeError.message?.includes('User rejected')
+        ? 'Transaction rejected by user.'
+        : 'Subscription transaction failed. Please try again.';
+      setErrorMsg(msg);
+      setStep('idle');
+      toast.error(msg);
+    }
+  }, [subscribeError]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+  function handleSubscribe() {
+    if (!isContractDeployed() || !SUBSCRIPTION_CONTRACT_ADDRESS) {
+      toast.error('Subscription contract not yet deployed. Coming soon!');
+      return;
+    }
+
+    setErrorMsg('');
+    resetApprove();
+    resetSubscribe();
+
+    if (needsApproval) {
+      // Step 1: approve USDT spending
+      writeApprove({
+        address: BSC_USDT_ADDRESS,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [SUBSCRIPTION_CONTRACT_ADDRESS, SUBSCRIPTION_PRICE],
+        chainId: bsc.id,
+      });
+    } else {
+      // Already approved, go straight to subscribe
+      writeSubscribe({
+        address: SUBSCRIPTION_CONTRACT_ADDRESS,
+        abi: SUBSCRIPTION_ABI,
+        functionName: 'subscribe',
+        chainId: bsc.id,
+      });
     }
   }
 
-  if (state === 'success') {
+  // ── Status label ─────────────────────────────────────────────────────────
+  function getButtonLabel(): string {
+    switch (step) {
+      case 'approving':
+        return 'Approving USDT...';
+      case 'waiting-approval':
+        return 'Confirming Approval...';
+      case 'subscribing':
+        return 'Subscribing...';
+      case 'waiting-subscribe':
+        return 'Confirming Subscription...';
+      default:
+        return needsApproval ? 'Approve & Subscribe' : 'Subscribe Now';
+    }
+  }
+
+  const isBusy = step !== 'idle' && step !== 'success';
+
+  // ── Success screen ───────────────────────────────────────────────────────
+  if (step === 'success' || (isAlreadyActive && step === 'idle')) {
     return (
       <div className="min-h-screen bg-background relative z-1">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-16">
           <Card className="border-green-500/30 bg-green-500/5">
             <CardHeader className="text-center">
               <div className="text-5xl mb-4">&#10003;</div>
-              <CardTitle className="text-2xl text-green-400">Pro Subscription Activated!</CardTitle>
+              <CardTitle className="text-2xl text-green-400">
+                {step === 'success' ? 'Pro Subscription Activated!' : 'Pro Subscription Active'}
+              </CardTitle>
               <p className="text-sm text-muted-foreground mt-3">
                 Your Pro features are now active. Enjoy full access to agent opinions, debate staking, and more.
               </p>
@@ -121,6 +260,7 @@ export default function SubscribePage() {
     );
   }
 
+  // ── Main page ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background relative z-1">
       {/* Hero */}
@@ -168,14 +308,14 @@ export default function SubscribePage() {
               <span className="text-4xl font-bold text-purple-400">$10</span>
               <span className="text-sm text-white/30">/ month</span>
             </div>
-            <p className="text-xs text-white/30 mt-1">Pay in BNB or USDT on BSC</p>
+            <p className="text-xs text-white/30 mt-1">Paid in USDT (BEP-20) on BSC via smart contract</p>
           </CardHeader>
           <CardContent className="space-y-6">
             <Separator className="bg-white/[0.06]" />
 
-            {/* Payment Instructions */}
+            {/* Subscribe Flow */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-white/70">How to Subscribe</h4>
+              <h4 className="text-sm font-semibold text-white/70">How it Works</h4>
 
               <div className="space-y-3">
                 <div className="flex gap-3">
@@ -193,15 +333,9 @@ export default function SubscribePage() {
                     2
                   </div>
                   <div>
-                    <p className="text-sm text-white/70 font-medium">Send 10 USDT to platform address</p>
-                    <div className="mt-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] p-3">
-                      <p className="text-[10px] text-white/25 uppercase tracking-wider mb-1">BSC (BEP-20) Address</p>
-                      <code className="text-xs text-amber-400 font-mono break-all select-all">
-                        {PLATFORM_ADDRESS}
-                      </code>
-                    </div>
-                    <p className="text-[10px] text-white/20 mt-1">
-                      Send exactly 10 USDT (BEP-20) or equivalent BNB on BSC network
+                    <p className="text-sm text-white/70 font-medium">Approve USDT spending</p>
+                    <p className="text-xs text-white/30">
+                      Your wallet will prompt you to approve 10 USDT for the subscription contract
                     </p>
                   </div>
                 </div>
@@ -210,59 +344,105 @@ export default function SubscribePage() {
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400 text-xs font-bold shrink-0">
                     3
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white/70 font-medium">Paste your transaction hash</p>
-                    <div className="mt-2 space-y-2">
-                      <Label htmlFor="txHash" className="text-xs text-white/30">
-                        Transaction Hash
-                      </Label>
-                      <Input
-                        id="txHash"
-                        placeholder="0x..."
-                        value={txHash}
-                        onChange={(e) => setTxHash(e.target.value)}
-                        className="font-mono text-xs bg-white/[0.03] border-white/[0.08] placeholder:text-white/15 focus-visible:border-purple-500/40 focus-visible:ring-purple-500/20"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400 text-xs font-bold shrink-0">
-                    4
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white/70 font-medium">Verify &amp; Activate</p>
-                    <p className="text-xs text-white/30 mb-3">
-                      We will verify your transaction on-chain and activate Pro instantly.
+                  <div>
+                    <p className="text-sm text-white/70 font-medium">Subscribe in one click</p>
+                    <p className="text-xs text-white/30">
+                      The contract transfers 10 USDT and activates 30-day Pro access instantly
                     </p>
-
-                    {errorMsg && (
-                      <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-400 mb-3">
-                        {errorMsg}
-                      </div>
-                    )}
-
-                    <Button
-                      onClick={handleVerify}
-                      disabled={state === 'verifying' || !txHash.trim()}
-                      className="w-full bg-gradient-to-r from-purple-500 to-amber-500 hover:from-purple-400 hover:to-amber-400 text-white font-semibold h-11 transition-all duration-300"
-                    >
-                      {state === 'verifying' ? (
-                        <span className="flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Verifying...
-                        </span>
-                      ) : (
-                        'Verify & Activate Pro'
-                      )}
-                    </Button>
                   </div>
                 </div>
               </div>
+
+              {/* Step Progress */}
+              {isBusy && (
+                <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                  <div className="flex items-center gap-3">
+                    <svg className="animate-spin h-5 w-5 text-purple-400" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-purple-300">{getButtonLabel()}</p>
+                      <p className="text-xs text-white/30 mt-0.5">
+                        {step === 'approving' && 'Please confirm the approval in your wallet...'}
+                        {step === 'waiting-approval' && 'Waiting for approval transaction to confirm on BSC...'}
+                        {step === 'subscribing' && 'Please confirm the subscription in your wallet...'}
+                        {step === 'waiting-subscribe' && 'Waiting for subscription transaction to confirm on BSC...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress dots */}
+                  <div className="flex items-center gap-2 mt-3 ml-8">
+                    <div className={`w-2 h-2 rounded-full ${step === 'approving' || step === 'waiting-approval' ? 'bg-purple-400 animate-pulse' : step === 'subscribing' || step === 'waiting-subscribe' ? 'bg-green-400' : 'bg-white/20'}`} />
+                    <div className="w-6 h-px bg-white/10" />
+                    <div className={`w-2 h-2 rounded-full ${step === 'subscribing' || step === 'waiting-subscribe' ? 'bg-purple-400 animate-pulse' : 'bg-white/20'}`} />
+                  </div>
+                </div>
+              )}
+
+              {/* Error */}
+              {errorMsg && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-400">
+                  {errorMsg}
+                </div>
+              )}
+
+              {/* Action Button */}
+              {!isConnected ? (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-center">
+                  <p className="text-sm text-amber-400 font-medium mb-1">Wallet not connected</p>
+                  <p className="text-xs text-white/30">
+                    Please connect your wallet using the button in the navigation bar to subscribe.
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleSubscribe}
+                  disabled={isBusy}
+                  className="w-full bg-gradient-to-r from-purple-500 to-amber-500 hover:from-purple-400 hover:to-amber-400 text-white font-semibold h-11 transition-all duration-300"
+                >
+                  {isBusy ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      {getButtonLabel()}
+                    </span>
+                  ) : (
+                    getButtonLabel()
+                  )}
+                </Button>
+              )}
+
+              {/* Tx hash links */}
+              {approveTxHash && (
+                <p className="text-[10px] text-white/20 text-center">
+                  Approval tx:{' '}
+                  <a
+                    href={`https://bscscan.com/tx/${approveTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:underline font-mono"
+                  >
+                    {approveTxHash.slice(0, 10)}...{approveTxHash.slice(-8)}
+                  </a>
+                </p>
+              )}
+              {subscribeTxHash && (
+                <p className="text-[10px] text-white/20 text-center">
+                  Subscribe tx:{' '}
+                  <a
+                    href={`https://bscscan.com/tx/${subscribeTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:underline font-mono"
+                  >
+                    {subscribeTxHash.slice(0, 10)}...{subscribeTxHash.slice(-8)}
+                  </a>
+                </p>
+              )}
             </div>
 
             <Separator className="bg-white/[0.06]" />

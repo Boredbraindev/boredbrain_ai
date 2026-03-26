@@ -127,7 +127,8 @@ function authHeaders() {
   if (CRON_SECRET) {
     headers['Authorization'] = `Bearer ${CRON_SECRET}`;
   } else {
-    headers['x-vercel-cron'] = '1';
+    // CRON_SECRET is required — x-vercel-cron header bypass was removed for security
+    logErr('AUTH', 'CRON_SECRET not set — API calls will be rejected. Set CRON_SECRET env var.');
   }
   return headers;
 }
@@ -486,7 +487,7 @@ async function main() {
   const startTime = Date.now();
   log('RUNNER', '=== Activity Runner starting ===');
   log('RUNNER', `API: ${API_BASE} | Ollama: ${OLLAMA_URL} | Model: ${OLLAMA_MODEL}`);
-  log('RUNNER', `Auth: ${CRON_SECRET ? 'Bearer token' : 'x-vercel-cron fallback'}`);
+  log('RUNNER', `Auth: ${CRON_SECRET ? 'Bearer token' : 'WARNING: no CRON_SECRET set'}`);
   log('RUNNER', `DB: ${DATABASE_URL ? 'connected' : 'not configured (DB activities will be skipped)'}`);
 
   // Load real agent IDs from the API

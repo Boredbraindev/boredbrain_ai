@@ -1,26 +1,28 @@
 {
   "functions": {
-    "app/api/**/*.ts": {
+    "app/api/agents/heartbeat/route.ts": {
       "memory": 256,
       "maxDuration": 60
+    },
+    "app/api/topics/collect/route.ts": {
+      "memory": 256,
+      "maxDuration": 60
+    },
+    "app/api/topics/cleanup/route.ts": {
+      "memory": 256,
+      "maxDuration": 60
+    },
+    "app/api/agents/activity-burst/route.ts": {
+      "memory": 256,
+      "maxDuration": 60
+    },
+    "app/api/agents/[agentId]/invoke/route.ts": {
+      "memory": 256,
+      "maxDuration": 15
+    },
+    "app/api/topics/debates/[debateId]/route.ts": {
+      "memory": 256,
+      "maxDuration": 15
     }
-  },
-  "crons": [
-    {
-      "path": "/api/agents/heartbeat",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/topics/participate",
-      "schedule": "*/2 * * * *"
-    },
-    {
-      "path": "/api/topics/collect",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/qc",
-      "schedule": "0 */6 * * *"
-    }
-  ]
+  }
 }

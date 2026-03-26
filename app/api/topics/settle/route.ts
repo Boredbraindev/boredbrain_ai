@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 export const maxDuration = 10;
 
 /**
@@ -14,21 +13,16 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-import { serverEnv } from '@/env/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyCron } from '@/lib/verify-cron';
 
 const GAMMA_API = 'https://gamma-api.polymarket.com';
 
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === 'development';
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  return false;
+function generateId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
 }
 
 /**
@@ -115,8 +109,8 @@ async function topUpWalletEdge(sql: any, agentId: string, amount: number): Promi
   const newBalance = wallets[0].balance + amount;
   await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${agentId}`;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, ${amount}, 'credit', 'Wallet top-up', ${newBalance})
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${generateId()}, ${agentId}, ${amount}, 'credit', 'Wallet top-up', ${newBalance})
   `;
 }
 
@@ -138,13 +132,13 @@ async function createAgentWalletEdge(
 
   const address = generateWalletAddress(agentId);
   const rows = await sql`
-    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
-    VALUES (${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
+    INSERT INTO agent_wallet (id, agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${generateId()}, ${agentId}, ${address}, ${initialBalance}, ${dailyLimit}, 0, true)
     RETURNING *
   `;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${generateId()}, ${agentId}, ${initialBalance}, 'credit', 'Initial wallet funding', ${initialBalance})
   `;
   return rows[0];
 }
@@ -360,6 +354,54 @@ export async function POST(request: NextRequest) {
         WHERE id = ${debate.id}
       `;
 
+      // ── On-chain settlement: record to PredictionSettlement contract ──
+      let txHash: string | null = null;
+      const operatorKey = process.env.SETTLEMENT_OPERATOR_KEY || process.env.DEPLOYER_PRIVATE_KEY;
+      const settlementContract = '0x0ae8A0cE8A34155508F4C47b41B20A668A0a5600';
+
+      if (operatorKey && operatorKey !== '0x' + '0'.repeat(64)) {
+        try {
+          const { createWalletClient, createPublicClient, http, parseAbi } = await import('viem');
+          const { privateKeyToAccount } = await import('viem/accounts');
+          const { bsc } = await import('viem/chains');
+
+          const account = privateKeyToAccount(operatorKey as `0x${string}`);
+          const client = createWalletClient({ account, chain: bsc, transport: http('https://bsc-dataseed.binance.org') });
+          const publicClient = createPublicClient({ chain: bsc, transport: http('https://bsc-dataseed.binance.org') });
+
+          // Use debate creation timestamp hash as roundId
+          const roundId = BigInt(Date.now());
+          const asset = debate.category || 'general';
+          const startPrice = BigInt(0); // prediction topics don't have price
+          const endPrice = BigInt(0);
+          const outcomeDir = outcome.toLowerCase() === 'yes' || outcome.toLowerCase() === 'true' ? 0 : 1;
+
+          const hash = await client.writeContract({
+            address: settlementContract as `0x${string}`,
+            abi: parseAbi([
+              'function settleRound(uint256,string,uint256,uint256,uint8,uint256,uint256,uint256) external',
+            ]),
+            functionName: 'settleRound',
+            args: [
+              roundId,
+              asset,
+              startPrice,
+              endPrice,
+              outcomeDir,
+              BigInt(Math.round(pool * 0.6)), // upPool estimate
+              BigInt(Math.round(pool * 0.4)), // downPool estimate
+              BigInt(opinions.length),
+            ],
+          });
+
+          await publicClient.waitForTransactionReceipt({ hash });
+          txHash = hash;
+        } catch (onchainErr) {
+          // On-chain settlement is non-critical — log and continue
+          console.error('[settle] On-chain error:', onchainErr instanceof Error ? onchainErr.message : onchainErr);
+        }
+      }
+
       // Update settlement log — status: settled
       try {
         await sql`
@@ -368,6 +410,7 @@ export async function POST(request: NextRequest) {
               winning_outcome = ${outcome},
               total_pool = ${distributed},
               participant_count = ${opinions.length},
+              tx_hash = ${txHash},
               settled_at = NOW()
           WHERE id = ${logId}
         `;
@@ -383,7 +426,8 @@ export async function POST(request: NextRequest) {
         winnersCount: winners.length,
         poolDistributed: distributed,
         stakesSettled,
-      });
+        txHash,
+      } as any);
     }
 
     return apiSuccess({

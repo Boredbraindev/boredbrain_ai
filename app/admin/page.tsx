@@ -54,7 +54,7 @@ interface LogEntry {
 // Constants
 // ---------------------------------------------------------------------------
 
-const ADMIN_SECRET = 'admin123';
+const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || '';
 
 const LEVEL_NAMES: Record<number, string> = {
   1: 'Newbie',

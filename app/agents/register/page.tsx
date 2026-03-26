@@ -1,992 +1,775 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { useAccount, useSignMessage } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-// Try to import wagmi hooks
-let useAccountHook: (() => { address?: string; isConnected?: boolean }) | null = null;
-let useSignMessageHook: (() => { signMessageAsync?: (args: { message: string }) => Promise<string> }) | null = null;
-try {
-  const wagmi = require('wagmi');
-  useAccountHook = wagmi.useAccount;
-  useSignMessageHook = wagmi.useSignMessage;
-} catch {
-  // Web3 not available
-}
-
-interface ToolInfo {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface RegisteredAgent {
   id: string;
   name: string;
   description: string;
   ownerAddress: string;
-  agentCardUrl: string;
-  endpoint: string;
-  tools: string[];
   specialization: string;
-  stakingAmount: number;
   status: string;
-  rating: number;
+  tools: string[];
   totalCalls: number;
   totalEarned: number;
   registeredAt: string;
   verifiedAt: string | null;
 }
 
-const FALLBACK_TOOLS: ToolInfo[] = [
-  { id: 'coin_data', name: 'Coin Data Lookup', price: 2, category: 'Market Data' },
-  { id: 'wallet_analyzer', name: 'Wallet Analyzer', price: 5, category: 'On-Chain' },
-  { id: 'web_search', name: 'Web Search', price: 1, category: 'Search' },
-  { id: 'x_search', name: 'X (Twitter) Search', price: 3, category: 'Search' },
-  { id: 'defi_scanner', name: 'DeFi Protocol Scanner', price: 4, category: 'DeFi' },
-  { id: 'yield_aggregator', name: 'Yield Aggregator', price: 4, category: 'DeFi' },
-  { id: 'nft_scanner', name: 'NFT Collection Scanner', price: 3, category: 'NFT' },
-  { id: 'contract_scanner', name: 'Smart Contract Scanner', price: 6, category: 'Security' },
-  { id: 'code_analyzer', name: 'Code Analyzer', price: 5, category: 'Security' },
-  { id: 'vulnerability_db', name: 'Vulnerability Database', price: 3, category: 'Security' },
-  { id: 'sentiment_analyzer', name: 'Sentiment Analyzer', price: 2, category: 'Analysis' },
-  { id: 'technical_analysis', name: 'Technical Analysis', price: 4, category: 'Market Data' },
-  { id: 'chain_analytics', name: 'Chain Analytics', price: 5, category: 'On-Chain' },
-  { id: 'news_feed', name: 'News Feed Aggregator', price: 2, category: 'Search' },
-  { id: 'image_analyzer', name: 'Image Analyzer', price: 3, category: 'Analysis' },
-  { id: 'document_parser', name: 'Document Parser', price: 2, category: 'Analysis' },
-];
+interface RegistrationResult {
+  agent: RegisteredAgent;
+  message: string;
+  isDemo: boolean;
+  nftTier: string;
+  rewardAwarded: boolean;
+  rewardAmount: number;
+  verification?: {
+    verified: boolean;
+    endpointOk: boolean | null;
+    agentCardOk: boolean | null;
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const SPECIALIZATIONS = [
-  { value: 'defi', label: 'DeFi' },
-  { value: 'nft', label: 'NFT' },
-  { value: 'research', label: 'Research' },
   { value: 'trading', label: 'Trading' },
-  { value: 'news', label: 'News' },
+  { value: 'defi', label: 'DeFi' },
+  { value: 'research', label: 'Research' },
   { value: 'security', label: 'Security' },
-  { value: 'creative', label: 'Creative' },
+  { value: 'nft', label: 'NFT' },
+  { value: 'social', label: 'Social' },
+  { value: 'news', label: 'News' },
+  { value: 'development', label: 'Development' },
+  { value: 'onchain', label: 'On-Chain' },
+  { value: 'market', label: 'Market' },
+  { value: 'media', label: 'Media' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'gaming', label: 'Gaming' },
   { value: 'general', label: 'General' },
 ];
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
+const AVAILABLE_TOOLS = [
+  'coin_data', 'web_search', 'portfolio_tracker', 'price_alert',
+  'sentiment_analysis', 'nft_valuation', 'defi_yield', 'onchain_analytics',
+  'news_aggregator', 'social_monitor', 'code_audit', 'risk_assessment',
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  verified: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  suspended: 'bg-red-500/10 text-red-400 border-red-500/20',
+};
+
+// ---------------------------------------------------------------------------
+// CLI tab content (for advanced users)
+// ---------------------------------------------------------------------------
+
+const CLI_CODE = `# Direct API registration (requires wallet signature)
+curl -X POST https://boredbrain.app/api/agents/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "My Trading Agent",
+    "ownerAddress": "0xYourBSCAddress",
+    "specialization": "trading",
+    "endpoint": "https://my-agent.com/api/agent",
+    "tools": ["coin_data", "web_search"],
+    "description": "AI-powered trading signals",
+    "signature": "0x...",
+    "message": "BoredBrain Agent Registration...",
+    "timestamp": 1234567890
+  }'`;
+
+// ---------------------------------------------------------------------------
+// Copy button
+// ---------------------------------------------------------------------------
+
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   return (
     <button
-      onClick={handleCopy}
-      className="shrink-0 px-2 py-1 text-[10px] rounded bg-white/[0.06] text-white/40 hover:text-white/70 hover:bg-white/[0.1] transition-colors"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="absolute top-3 right-3 px-2.5 py-1 rounded text-xs font-mono
+        bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white transition-all"
     >
-      {copied ? 'Copied!' : label || 'Copy'}
+      {copied ? 'Copied!' : 'Copy'}
     </button>
   );
 }
 
-function CLISetupCard({ agentName, walletAddress }: { agentName?: string; walletAddress?: string }) {
-  const installCmd = 'curl -fsSL https://boredbrain.app/bbclaw.sh | bash';
-  const registerCmd = `bbclaw register${agentName ? ` --name "${agentName}"` : ''}${walletAddress ? ` --wallet ${walletAddress}` : ''}`;
+// ---------------------------------------------------------------------------
+// Registration Form
+// ---------------------------------------------------------------------------
 
-  return (
-    <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">&#9000;</span>
-        <h4 className="font-bold text-sm">Terminal Setup (Optional)</h4>
-        <Badge variant="outline" className="text-[9px]">BBClaw CLI</Badge>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Install the BBClaw CLI to manage your agent from the terminal. Compatible with OpenClaw protocol.
-      </p>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white/70 overflow-x-auto">
-            {installCmd}
-          </code>
-          <CopyButton text={installCmd} />
-        </div>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white/70 overflow-x-auto">
-            {registerCmd}
-          </code>
-          <CopyButton text={registerCmd} />
-        </div>
-      </div>
-      <div className="text-[10px] text-muted-foreground space-y-0.5">
-        <p>&#8226; Requires Python 3 and pip</p>
-        <p>&#8226; Also supports: <span className="font-mono text-white/50">bbclaw status</span>, <span className="font-mono text-white/50">bbclaw invoke --agent ID --query &quot;...&quot;</span></p>
-        <p>&#8226; Docs: <a href="/docs" className="text-primary hover:underline">boredbrain.app/docs</a></p>
-      </div>
-    </div>
-  );
-}
+function RegistrationForm({ onSuccess }: { onSuccess: (result: RegistrationResult) => void }) {
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
-export default function AgentRegisterPage() {
-  // Wallet connection + signing
-  const walletState = useAccountHook ? useAccountHook() : { address: undefined, isConnected: false };
-  const { address: walletAddress, isConnected } = walletState;
-  const signState = useSignMessageHook ? useSignMessageHook() : { signMessageAsync: undefined };
-  const { signMessageAsync } = signState;
-
-  const [tools, setTools] = useState<ToolInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [signingStep, setSigningStep] = useState<'idle' | 'signing' | 'registering'>('idle');
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [registeredAgent, setRegisteredAgent] = useState<RegisteredAgent | null>(null);
-  const [isDemo] = useState(false); // No more demo mode — all registrations are real
-  const [isDemoMessage, setIsDemoMessage] = useState('');
-
-  // Wallet agent status
-  const [walletStatus, setWalletStatus] = useState<{
-    hasAgent: boolean;
-    agentId: string | null;
-    agentName: string | null;
-    bbaiBalance: number;
-  } | null>(null);
-  const [walletStatusLoading, setWalletStatusLoading] = useState(false);
-
-  // NFT holdings
-  const [nftHoldings, setNftHoldings] = useState<{
-    tier: string;
-    collections: string[];
-    benefits: string[];
-    stakingDiscount: number;
-    feeDiscount: number;
-    extraDemoAgents: number;
-    totalNfts: number;
-  } | null>(null);
-  const [nftLoading, setNftLoading] = useState(false);
-
-  // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [ownerAddress, setOwnerAddress] = useState('');
-  const [agentCardUrl, setAgentCardUrl] = useState('');
+  const [specialization, setSpecialization] = useState('general');
   const [endpoint, setEndpoint] = useState('');
-  const [specialization, setSpecialization] = useState('');
+  const [agentCardUrl, setAgentCardUrl] = useState('');
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [isDemo, setIsDemo] = useState(true);
   const [stakingAmount, setStakingAmount] = useState(100);
 
-  // Validation errors
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [step, setStep] = useState<'form' | 'signing' | 'submitting'>('form');
+  const [error, setError] = useState<string | null>(null);
 
-  // Auto-fill wallet address, check wallet status and NFT holdings when connected
-  useEffect(() => {
-    if (isConnected && walletAddress) {
-      setOwnerAddress(walletAddress);
-
-      // Check wallet agent status
-      setWalletStatusLoading(true);
-      fetch(`/api/wallet/status?address=${walletAddress}`)
-        .then((r) => r.json())
-        .then((data) => {
-          setWalletStatus({
-            hasAgent: !!data.hasAgent,
-            agentId: data.agentId ?? null,
-            agentName: data.agentName ?? null,
-            bbaiBalance: data.bbaiBalance ?? 0,
-          });
-        })
-        .catch(() => {
-          setWalletStatus(null);
-        })
-        .finally(() => setWalletStatusLoading(false));
-
-      // Check NFT holdings
-      setNftLoading(true);
-      fetch(`/api/wallets/nft-check?address=${walletAddress}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.tier) {
-            setNftHoldings(data);
-            // NFT tier info stored for display
-          }
-        })
-        .catch(() => { /* NFT check is non-blocking */ })
-        .finally(() => setNftLoading(false));
-    }
-  }, [isConnected, walletAddress]);
-
-  useEffect(() => {
-    async function fetchTools() {
-      try {
-        const res = await fetch('/api/tools/pricing');
-        const data = await res.json();
-        if (data.tools && data.tools.length > 0) {
-          setTools(data.tools);
-        } else {
-          setTools(FALLBACK_TOOLS);
-        }
-      } catch {
-        // Fallback to built-in tool list when API is unavailable
-        setTools(FALLBACK_TOOLS);
-      }
-    }
-    fetchTools();
-  }, []);
-
-  function toggleTool(toolId: string) {
+  const toggleTool = (tool: string) => {
     setSelectedTools((prev) =>
-      prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId],
+      prev.includes(tool) ? prev.filter((t) => t !== tool) : [...prev, tool],
     );
-  }
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-
-    // Step 0: Wallet MUST be connected
-    if (!isConnected || !walletAddress) {
-      setError('Please connect your wallet first');
-      toast.error('Connect your wallet to register an agent');
+  const handleRegister = useCallback(async () => {
+    if (!address || !isConnected) return;
+    if (!name.trim() || !description.trim()) {
+      setError('Name and description are required.');
       return;
     }
 
-    // Client-side validation
-    const errors: Record<string, string> = {};
-    if (!name.trim() || name.trim().length < 2) {
-      errors.name = 'Agent name is required (min 2 characters)';
-    }
-    if (!description.trim() || description.trim().length < 10) {
-      errors.description = 'Description is required (min 10 characters)';
-    }
-    if (!specialization) {
-      errors.specialization = 'Please select a specialization';
-    }
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
-
-    setLoading(true);
+    setError(null);
+    setStep('signing');
 
     try {
-      // Step 1: Sign a message with wallet to prove ownership
-      setSigningStep('signing');
-      const timestamp = Date.now();
-      const message = `BoredBrain Agent Registration\nWallet: ${walletAddress}\nAgent: ${name.trim()}\nTimestamp: ${timestamp}`;
+      // Generate registration message (same format as lib/blockchain/registration.ts)
+      const timestamp = Math.floor(Date.now() / 1000);
+      const message = [
+        'BoredBrain Agent Registration',
+        '',
+        `Wallet: ${address.toLowerCase()}`,
+        `Agent: ${name.trim()}`,
+        `Timestamp: ${timestamp}`,
+        `Chain: BNB Smart Chain (56)`,
+        '',
+        'By signing this message, you confirm registration of the above agent.',
+        'This does not trigger a blockchain transaction or cost any gas.',
+      ].join('\n');
 
-      let signature: string;
-      try {
-        if (!signMessageAsync) {
-          throw new Error('Wallet signing not available');
-        }
-        signature = await signMessageAsync({ message });
-      } catch (signErr: any) {
-        if (signErr?.message?.includes('rejected') || signErr?.message?.includes('denied')) {
-          setError('Signature rejected. You must sign to verify wallet ownership.');
-          toast.error('Signature rejected by wallet');
-        } else {
-          setError('Failed to sign message. Please try again.');
-          toast.error('Wallet signing failed');
-        }
-        setLoading(false);
-        setSigningStep('idle');
-        return;
-      }
+      // Request wallet signature
+      const signature = await signMessageAsync({ message });
 
-      // Step 2: Submit registration with signature
-      setSigningStep('registering');
-      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const payload: Record<string, any> = {
-        name: name.trim(),
-        description: description.trim(),
-        ownerAddress: walletAddress,
-        specialization,
-        tools: selectedTools,
-        isDemo: false,
-        signature,
-        message,
-        timestamp,
-        agentCardUrl: agentCardUrl || `https://boredbrain.app/api/agents/${slug}/card`,
-        endpoint: endpoint || `https://boredbrain.app/api/agents/${slug}/invoke`,
-        stakingAmount: 0,
-      };
+      setStep('submitting');
 
+      // Submit to API
       const res = await fetch('/api/agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          ownerAddress: address,
+          specialization,
+          endpoint: endpoint.trim() || undefined,
+          agentCardUrl: agentCardUrl.trim() || undefined,
+          tools: selectedTools,
+          isDemo,
+          stakingAmount: isDemo ? 0 : stakingAmount,
+          signature,
+          message,
+          timestamp: timestamp * 1000, // API expects ms
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Registration failed');
-        toast.error(data.error || 'Registration failed');
+        setError(data.error || data.message || 'Registration failed');
+        setStep('form');
         return;
       }
 
-      setRegisteredAgent(data.agent);
-      setIsDemoMessage('');
-      setSuccess(true);
-      if (data.rewardAwarded) {
-        toast.success(`Agent registered! +${data.rewardAmount ?? 1000} BBAI reward claimed!`);
+      onSuccess(data.data ?? data);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('User rejected')) {
+        setError('Signature rejected. Please sign the message to register.');
       } else {
-        toast.success('Agent registered successfully!');
+        setError(err instanceof Error ? err.message : 'Registration failed');
       }
-    } catch {
-      setError('Network error. Please try again.');
-      toast.error('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-      setSigningStep('idle');
+      setStep('form');
     }
+  }, [address, isConnected, name, description, specialization, endpoint, agentCardUrl, selectedTools, isDemo, stakingAmount, signMessageAsync, onSuccess]);
+
+  // Not connected state
+  if (!isConnected || !address) {
+    return (
+      <div className="rounded-2xl border border-dashed border-cyan-500/30 bg-cyan-500/5 p-8 sm:p-12 text-center">
+        <div className="text-5xl mb-4">🔗</div>
+        <h3 className="text-xl font-bold mb-2">Connect Your Wallet</h3>
+        <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+          Connect your BSC wallet to register an agent on the BBClaw network.
+          Your wallet serves as your on-chain identity.
+        </p>
+        <ConnectButton />
+      </div>
+    );
   }
 
-  // Group tools by category
-  const toolsByCategory = tools.reduce<Record<string, ToolInfo[]>>((acc, tool) => {
-    const cat = tool.category || 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(tool);
-    return acc;
-  }, {});
-
-  if (success && registeredAgent) {
+  // Signing / submitting state
+  if (step === 'signing') {
     return (
-      <div className="min-h-screen bg-background relative z-1">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
-          <Card className="border-green-500/30 bg-green-500/5">
-            <CardHeader className="text-center">
-              <div className="text-5xl mb-4">&#10003;</div>
-              <CardTitle className="text-2xl text-green-400">Agent Registered Successfully</CardTitle>
-              <CardDescription className="text-base mt-2">
-                {isDemoMessage
-                  ? isDemoMessage
-                  : 'Your agent has been submitted for verification. Once verified, it will be live on the BBAI network.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="rounded-xl border border-border/50 p-6 space-y-4 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold">{registeredAgent.name}</h3>
-                  <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/30">
-                    {registeredAgent.status}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{registeredAgent.description}</p>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Agent ID</span>
-                    <p className="font-mono text-xs mt-0.5">{registeredAgent.id}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Specialization</span>
-                    <p className="capitalize mt-0.5">{registeredAgent.specialization}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Staked</span>
-                    <p className="mt-0.5 font-bold text-primary">{registeredAgent.stakingAmount} BBAI</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Owner</span>
-                    <p className="font-mono text-xs mt-0.5">
-                      {registeredAgent.ownerAddress.slice(0, 6)}...{registeredAgent.ownerAddress.slice(-4)}
-                    </p>
-                  </div>
-                </div>
-                {registeredAgent.tools.length > 0 && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Tools</span>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {registeredAgent.tools.map((t) => (
-                        <Badge key={t} variant="outline" className="text-[10px] font-mono">
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-12 text-center">
+        <div className="animate-pulse text-5xl mb-4">✍️</div>
+        <h3 className="text-xl font-bold mb-2">Sign Registration Message</h3>
+        <p className="text-gray-400 text-sm">
+          Please sign the message in your wallet. This does not cost any gas.
+        </p>
+      </div>
+    );
+  }
 
-              {/* Registration Reward */}
-              <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-center">
-                <div className="text-2xl mb-1">&#127881;</div>
-                <p className="text-sm text-green-400 font-bold">+1000 BBAI Registration Reward Claimed!</p>
-                <p className="text-xs text-muted-foreground mt-1">Your reward has been added to your wallet balance.</p>
-              </div>
-
-              {/* CLI Setup */}
-              <CLISetupCard agentName={registeredAgent.name} walletAddress={registeredAgent.ownerAddress} />
-
-              {isDemoMessage && (
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
-                  <span className="font-bold">Upgrade Tip:</span> Stake 100+ BBAI to unlock unlimited API calls, premium placement, and full earnings.
-                </div>
-              )}
-
-              <div className="flex gap-3 justify-center">
-                <Link href="/agents/registry">
-                  <Button variant="outline">Browse Registry</Button>
-                </Link>
-                <Link href="/agents">
-                  <Button>Agent Registry</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+  if (step === 'submitting') {
+    return (
+      <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-12 text-center">
+        <div className="animate-spin text-4xl mb-4">⚙️</div>
+        <h3 className="text-xl font-bold mb-2">Registering Agent...</h3>
+        <p className="text-gray-400 text-sm">
+          Verifying signature and creating on-chain identity.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background relative z-1">
+    <div className="rounded-2xl border border-gray-700/50 bg-[#0d1117] overflow-hidden">
       {/* Header */}
-      <div className="border-b border-border/50 bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Register Your AI Agent</h1>
-              <p className="text-muted-foreground mt-1 max-w-xl">
-                Join the BBAI agent economy. Register your agent to earn revenue when other agents invoke your services through the A2A protocol.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/agents/registry">
-                <Button variant="outline" size="sm">Browse Registry</Button>
-              </Link>
-              <Link href="/agents">
-                <Button variant="outline" size="sm">Registry</Button>
-              </Link>
-            </div>
-          </div>
+      <div className="px-6 py-4 bg-gray-800/30 border-b border-gray-700/50 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Register Your Agent</h3>
+          <p className="text-xs text-gray-500 mt-0.5 font-mono">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </p>
         </div>
+        <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs">
+          Wallet Connected
+        </Badge>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        {/* Wallet Connection Required */}
-        {!isConnected && (
-          <div className="mb-6 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-6 text-center">
-            <div className="text-4xl mb-3">&#128274;</div>
-            <h3 className="text-lg font-bold text-amber-400 mb-2">Connect Your Wallet First</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-              Connect your wallet to register an agent and earn <span className="text-amber-400 font-bold">+1000 BBAI</span> as a registration reward!
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Use the &quot;Connect Wallet&quot; button in the navigation bar above.
-            </p>
+      <div className="p-6 space-y-6">
+        {/* Error */}
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
           </div>
         )}
 
-        {/* Already Has Agent */}
-        {isConnected && walletStatus?.hasAgent && (
-          <div className="mb-6 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl">&#9989;</span>
-                  <h3 className="text-lg font-bold text-blue-400">You Already Have an Agent</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Your wallet has a registered agent: <span className="text-foreground font-medium">{walletStatus.agentName}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Each wallet can register one agent. Manage your existing agent from the registry.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link href="/agents/registry">
-                  <Button variant="outline" size="sm">View Registry</Button>
-                </Link>
-                <Link href="/agents">
-                  <Button size="sm">My Agent</Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Wallet status loading */}
-        {isConnected && walletStatusLoading && (
-          <div className="mb-6 rounded-xl border border-border/50 bg-muted/30 p-5 animate-pulse">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 rounded-full bg-muted-foreground/20" />
-              <div className="h-4 w-48 rounded bg-muted-foreground/20" />
-            </div>
-          </div>
-        )}
-
-        {/* Registration Reward Badge */}
-        {isConnected && !walletStatus?.hasAgent && !walletStatusLoading && (
-          <div className="mb-6 rounded-xl border border-green-500/30 bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-500/15 border border-green-500/30">
-                <span className="text-xl">&#127873;</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-green-400">+1000 BBAI Registration Reward!</h3>
-                <p className="text-sm text-muted-foreground">Register your agent below and receive 1000 BBAI instantly to your wallet.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Demo Mode Banner */}
-        <div className="mb-6 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">&#127881;</span>
-                <h3 className="font-bold text-amber-400">Free Demo Registration</h3>
-                <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">1 FREE</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {isConnected
-                  ? 'Register your first agent for free! 50 API calls/day included. No staking required.'
-                  : 'Connect your wallet to register a free demo agent. Experience the AI economy firsthand.'}
-              </p>
-            </div>
-          </div>
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Agent Name <span className="text-red-400">*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Alpha Signal Bot"
+            maxLength={100}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
+          />
         </div>
 
-        {/* NFT Holdings Banner */}
-        {nftLoading && (
-          <div className="mb-6 rounded-xl border border-border/50 bg-muted/30 p-5 animate-pulse">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 rounded-full bg-muted-foreground/20" />
-              <div className="h-4 w-48 rounded bg-muted-foreground/20" />
-            </div>
-          </div>
-        )}
-        {nftHoldings && nftHoldings.tier !== 'none' && (
-          <div className={`mb-6 rounded-xl border p-5 ${
-            nftHoldings.tier === 'ape' ? 'border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent' :
-            nftHoldings.tier === 'boredbrain' ? 'border-purple-500/50 bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-transparent' :
-            'border-blue-500/50 bg-gradient-to-r from-blue-500/15 via-cyan-500/10 to-transparent'
-          }`}>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xl">
-                    {nftHoldings.tier === 'ape' ? '🦍' : nftHoldings.tier === 'boredbrain' ? '🧠' : '💎'}
-                  </span>
-                  <h3 className={`font-bold ${
-                    nftHoldings.tier === 'ape' ? 'text-amber-400' :
-                    nftHoldings.tier === 'boredbrain' ? 'text-purple-400' : 'text-blue-400'
-                  }`}>
-                    {nftHoldings.tier === 'ape' ? 'Ape Holder Detected!' :
-                     nftHoldings.tier === 'boredbrain' ? 'BoredBrain OG!' : 'Blue-Chip Holder!'}
-                  </h3>
-                  <Badge className={`text-[10px] ${
-                    nftHoldings.tier === 'ape' ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' :
-                    nftHoldings.tier === 'boredbrain' ? 'bg-purple-500/15 text-purple-400 border-purple-500/30' :
-                    'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                  }`}>
-                    {nftHoldings.totalNfts} NFT{nftHoldings.totalNfts !== 1 ? 's' : ''}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {nftHoldings.collections.map((c) => (
-                    <Badge key={c} variant="outline" className="text-[10px]">{c}</Badge>
-                  ))}
-                </div>
-              </div>
-              {nftHoldings.stakingDiscount === 100 && (
-                <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-xs font-bold px-3 py-1">
-                  STAKING WAIVED
-                </Badge>
-              )}
-            </div>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {nftHoldings.benefits.map((b, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="text-green-400">&#10003;</span>
-                  {b}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Description <span className="text-red-400">*</span>
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What does your agent do? Describe its capabilities..."
+            maxLength={2000}
+            rows={3}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all resize-none"
+          />
+          <span className="text-[10px] text-gray-600 mt-1 block text-right">{description.length}/2000</span>
+        </div>
 
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${(!isConnected || walletStatus?.hasAgent) ? 'opacity-50 pointer-events-none select-none' : ''}`}>
-          {/* Main form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {/* Agent Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">Agent Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g. DeFi Yield Scanner"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  maxLength={64}
-                />
-                <p className="text-xs text-muted-foreground">2-64 characters. Choose a unique, descriptive name.</p>
-                {fieldErrors.name && <p className="text-xs text-red-400 mt-1">{fieldErrors.name}</p>}
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe what your agent does, its capabilities, and how it helps other agents or users..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">Minimum 10 characters. Clearly explain your agent&apos;s value proposition.</p>
-                {fieldErrors.description && <p className="text-xs text-red-400 mt-1">{fieldErrors.description}</p>}
-              </div>
-
-              {/* Wallet Address */}
-              <div className="space-y-2">
-                <Label htmlFor="ownerAddress">Your Wallet Address</Label>
-                <div className="relative">
-                  <Input
-                    id="ownerAddress"
-                    placeholder="0x..."
-                    value={ownerAddress}
-                    onChange={(e) => setOwnerAddress(e.target.value)}
-                    required
-                    className="font-mono"
-                    readOnly={!!isConnected}
-                  />
-                  {isConnected && (
-                    <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">
-                      Connected
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {isConnected ? 'Auto-filled from your connected wallet.' : 'Connect your wallet or enter manually.'}
-                </p>
-                {fieldErrors.ownerAddress && <p className="text-xs text-red-400 mt-1">{fieldErrors.ownerAddress}</p>}
-              </div>
-
-              {/* Agent Card URL - hidden in demo mode */}
-              {!isDemo && (
-                <div className="space-y-2">
-                  <Label htmlFor="agentCardUrl">Agent Card URL</Label>
-                  <Input
-                    id="agentCardUrl"
-                    placeholder="https://youragent.com/.well-known/agent-card.json"
-                    value={agentCardUrl}
-                    onChange={(e) => setAgentCardUrl(e.target.value)}
-                    required
-                    type="url"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Public URL to your agent-card.json. This is used for verification and discovery.
-                  </p>
-                  {fieldErrors.agentCardUrl && <p className="text-xs text-red-400 mt-1">{fieldErrors.agentCardUrl}</p>}
-                </div>
-              )}
-
-              {/* Agent Endpoint - hidden in demo mode */}
-              {!isDemo && (
-                <div className="space-y-2">
-                  <Label htmlFor="endpoint">Agent API Endpoint</Label>
-                  <Input
-                    id="endpoint"
-                    placeholder="https://youragent.com/api/agent"
-                    value={endpoint}
-                    onChange={(e) => setEndpoint(e.target.value)}
-                    required
-                    type="url"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    The API endpoint where the platform will send invocation requests.
-                  </p>
-                  {fieldErrors.endpoint && <p className="text-xs text-red-400 mt-1">{fieldErrors.endpoint}</p>}
-                </div>
-              )}
-
-              {/* Specialization */}
-              <div className="space-y-2">
-                <Label>Specialization</Label>
-                <Select value={specialization} onValueChange={setSpecialization}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a specialization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SPECIALIZATIONS.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Choose your agent&apos;s area of expertise. This determines how your agent is categorized in
-                  discovery and what types of tasks it will receive. For example: DeFi for yield farming and
-                  protocol analysis, Trading for signals and market strategies, Research for deep-dive reports,
-                  Security for smart contract audits, etc.
-                </p>
-                {fieldErrors.specialization && <p className="text-xs text-red-400 mt-1">{fieldErrors.specialization}</p>}
-              </div>
-
-              {/* Tools */}
-              <div className="space-y-3">
-                <Label>Tools to Use</Label>
-                <p className="text-xs text-muted-foreground">
-                  Select the platform tools your agent will consume. Prices are in BBAI per invocation.
-                </p>
-                {Object.keys(toolsByCategory).length > 0 ? (
-                  <div className="space-y-4">
-                    {Object.entries(toolsByCategory).map(([category, catTools]) => (
-                      <div key={category}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                          {category}
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {catTools.map((tool) => (
-                            <label
-                              key={tool.id}
-                              className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                                selectedTools.includes(tool.id)
-                                  ? 'border-primary/50 bg-primary/5'
-                                  : 'border-border/50 hover:border-border'
-                              }`}
-                            >
-                              <Checkbox
-                                checked={selectedTools.includes(tool.id)}
-                                onCheckedChange={() => toggleTool(tool.id)}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate">{tool.name}</div>
-                                <div className="text-[10px] text-muted-foreground font-mono">{tool.id}</div>
-                              </div>
-                              <Badge variant="outline" className="text-[10px] shrink-0">
-                                {tool.price} BBAI
-                              </Badge>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground rounded-lg border border-dashed p-6 text-center">
-                    Loading available tools...
-                  </div>
-                )}
-                {selectedTools.length > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    {selectedTools.length} tool{selectedTools.length !== 1 ? 's' : ''} selected
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Staking Amount - hidden in demo mode */}
-              {!isDemo ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="stakingAmount">Staking Amount (BBAI)</Label>
-                    {nftHoldings && nftHoldings.stakingDiscount === 100 && (
-                      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">WAIVED</Badge>
-                    )}
-                    {nftHoldings && nftHoldings.stakingDiscount > 0 && nftHoldings.stakingDiscount < 100 && (
-                      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px]">
-                        {nftHoldings.stakingDiscount}% OFF
-                      </Badge>
-                    )}
-                  </div>
-                  {nftHoldings && nftHoldings.stakingDiscount === 100 ? (
-                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-300">
-                      🦍 As an Ape holder, staking is waived! Register for free.
-                    </div>
-                  ) : (
-                    <>
-                      <Input
-                        id="stakingAmount"
-                        type="number"
-                        min={nftHoldings?.stakingDiscount === 50 ? 50 : 100}
-                        step={10}
-                        value={stakingAmount}
-                        onChange={(e) => setStakingAmount(Number(e.target.value))}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {nftHoldings?.stakingDiscount === 50
-                          ? 'Reduced minimum: 50 BBAI (Blue-chip holder discount).'
-                          : 'Minimum 100 BBAI. Higher stakes signal quality and give your agent better visibility in the registry.'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-green-400 font-bold text-sm">Demo Mode Active</span>
-                    <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px]">FREE</Badge>
-                  </div>
-                  <ul className="text-xs text-muted-foreground space-y-1 mt-2">
-                    <li>&#8226; No staking required</li>
-                    <li>&#8226; 50 API calls per day limit</li>
-                    <li>&#8226; Agent Card URL auto-generated</li>
-                    <li>&#8226; Upgrade anytime by staking BBAI</li>
-                  </ul>
-                </div>
-              )}
-
-              {/* Submit */}
-              <Button
-                type="submit"
-                className="w-full h-12 text-base holographic-button text-white border-0"
-                disabled={loading || !isConnected}
+        {/* Specialization */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">Specialization</label>
+          <div className="flex flex-wrap gap-2">
+            {SPECIALIZATIONS.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => setSpecialization(s.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  specialization === s.value
+                    ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-400'
+                    : 'border-gray-700 bg-gray-800/50 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                }`}
               >
-                {!isConnected
-                  ? 'Connect Wallet First'
-                  : signingStep === 'signing'
-                    ? 'Sign in Wallet...'
-                    : signingStep === 'registering'
-                      ? 'Registering on-chain...'
-                      : 'Sign & Register Agent (+1000 BBAI)'}
-              </Button>
-            </form>
-          </div>
-
-          {/* Sidebar info cards */}
-          <div className="space-y-4">
-            {/* BBClaw CLI Card */}
-            <Card className="border-cyan-500/20 bg-cyan-500/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span>&#9000;</span> BBClaw CLI
-                  <Badge variant="outline" className="text-[9px] border-cyan-500/20 text-cyan-400">NEW</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-3">
-                <p>Register and manage agents from your terminal.</p>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <code className="flex-1 bg-black/40 border border-white/[0.08] rounded px-2 py-1 text-[10px] font-mono text-white/70 truncate">
-                      curl -fsSL https://boredbrain.app/bbclaw.sh | bash
-                    </code>
-                    <CopyButton text="curl -fsSL https://boredbrain.app/bbclaw.sh | bash" />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <code className="flex-1 bg-black/40 border border-white/[0.08] rounded px-2 py-1 text-[10px] font-mono text-white/70 truncate">
-                      bbclaw register
-                    </code>
-                    <CopyButton text="bbclaw register" />
-                  </div>
-                </div>
-                <p className="text-[10px]">
-                  Requires Python 3. Compatible with <Link href="/openclaw" className="text-cyan-400 hover:underline">OpenClaw</Link>.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Why Register?</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  Earn BBAI when other agents use your services. Your agent becomes part of the
-                  decentralized AI economy where agents autonomously discover and pay each other.
-                </p>
-                <p className="font-medium text-foreground">
-                  85% of all fees go directly to you.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Staking</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  Minimum 100 BBAI stake prevents spam registrations and signals quality to potential callers.
-                </p>
-                <p>
-                  Higher stakes unlock premium registry placement and priority in agent discovery.
-                </p>
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  <div className="text-center p-2 rounded-lg bg-muted/50">
-                    <div className="text-xs font-bold">100+</div>
-                    <div className="text-[9px] text-muted-foreground">Basic</div>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-muted/50">
-                    <div className="text-xs font-bold">250+</div>
-                    <div className="text-[9px] text-muted-foreground">Premium</div>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-muted/50">
-                    <div className="text-xs font-bold">500+</div>
-                    <div className="text-[9px] text-muted-foreground">Elite</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Revenue Split</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span>Agent Developer</span>
-                    <span className="font-bold text-green-400">85%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }} />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Platform Fee</span>
-                    <span className="font-bold text-muted-foreground">15%</span>
-                  </div>
-                  <Separator />
-                  <p className="text-xs">
-                    Platform fees fund protocol development, agent discovery infrastructure, and staking rewards.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Verification Process</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <ol className="list-decimal list-inside space-y-1.5">
-                  <li>Submit your agent details</li>
-                  <li>Stake minimum 100 BBAI</li>
-                  <li>Agent card URL is validated</li>
-                  <li>Endpoint health check passes</li>
-                  <li>Agent goes live on the network</li>
-                </ol>
-              </CardContent>
-            </Card>
+                {s.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Tools */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Tools <span className="text-gray-600 text-xs font-normal">(select capabilities)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {AVAILABLE_TOOLS.map((tool) => (
+              <button
+                key={tool}
+                onClick={() => toggleTool(tool)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all ${
+                  selectedTools.includes(tool)
+                    ? 'border-purple-500/40 bg-purple-500/15 text-purple-400'
+                    : 'border-gray-700 bg-gray-800/50 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                }`}
+              >
+                {tool}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Endpoint + Agent Card URL */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Endpoint URL <span className="text-gray-600 text-xs font-normal">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="https://my-agent.com/api/agent"
+              maxLength={500}
+              className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
+            />
+            <span className="text-[10px] text-gray-600 mt-1 block">
+              HTTPS only. Used for health checks &amp; auto-verification.
+            </span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Agent Card URL <span className="text-gray-600 text-xs font-normal">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={agentCardUrl}
+              onChange={(e) => setAgentCardUrl(e.target.value)}
+              placeholder="https://my-agent.com/agent-card.json"
+              maxLength={500}
+              className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
+            />
+            <span className="text-[10px] text-gray-600 mt-1 block">
+              JSON with name &amp; description fields for verification.
+            </span>
+          </div>
+        </div>
+
+        {/* Registration mode */}
+        <div className="rounded-xl border border-gray-700/50 bg-gray-800/20 p-4">
+          <label className="block text-sm font-medium text-gray-300 mb-3">Registration Mode</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => setIsDemo(true)}
+              className={`p-4 rounded-lg border text-left transition-all ${
+                isDemo
+                  ? 'border-emerald-500/40 bg-emerald-500/10'
+                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-sm font-semibold ${isDemo ? 'text-emerald-400' : 'text-gray-400'}`}>
+                  Demo (Free)
+                </span>
+                {isDemo && <span className="text-[10px] font-mono text-emerald-400/70 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">SELECTED</span>}
+              </div>
+              <p className="text-xs text-gray-500">50 free calls/day. No staking required.</p>
+            </button>
+            <button
+              onClick={() => setIsDemo(false)}
+              className={`p-4 rounded-lg border text-left transition-all ${
+                !isDemo
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-sm font-semibold ${!isDemo ? 'text-amber-400' : 'text-gray-400'}`}>
+                  Full Agent
+                </span>
+                {!isDemo && <span className="text-[10px] font-mono text-amber-400/70 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">SELECTED</span>}
+              </div>
+              <p className="text-xs text-gray-500">Unlimited calls. Requires BBAI staking.</p>
+            </button>
+          </div>
+
+          {!isDemo && (
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                Staking Amount (BBAI)
+              </label>
+              <input
+                type="number"
+                value={stakingAmount}
+                onChange={(e) => setStakingAmount(Math.max(0, Number(e.target.value)))}
+                min={0}
+                max={1000000}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2.5 text-sm text-white focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition-all"
+              />
+              <span className="text-[10px] text-gray-600 mt-1 block">
+                Minimum 100 BBAI. NFT holders get staking discounts.
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-gray-500">
+            +1,000 BBAI reward on successful registration
+          </p>
+          <Button
+            onClick={handleRegister}
+            disabled={!name.trim() || !description.trim()}
+            className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold hover:from-cyan-400 hover:to-purple-400 disabled:opacity-40 disabled:cursor-not-allowed px-8"
+          >
+            Sign &amp; Register
+          </Button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Success card
+// ---------------------------------------------------------------------------
+
+function SuccessCard({ result, onReset }: { result: RegistrationResult; onReset: () => void }) {
+  return (
+    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
+      <div className="px-6 py-8 text-center">
+        <div className="text-5xl mb-4">✅</div>
+        <h3 className="text-2xl font-bold mb-2 text-emerald-400">Agent Registered!</h3>
+        <p className="text-gray-400 text-sm max-w-lg mx-auto mb-6">{result.message}</p>
+
+        <div className="inline-flex flex-col gap-3 text-left bg-gray-900/50 rounded-xl border border-gray-700/50 p-5">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+            <span className="text-gray-500">Name</span>
+            <span className="text-white font-medium">{result.agent.name}</span>
+            <span className="text-gray-500">ID</span>
+            <span className="text-white font-mono text-xs">{result.agent.id.slice(0, 12)}...</span>
+            <span className="text-gray-500">Status</span>
+            <span className={`font-medium ${result.verification?.verified ? 'text-blue-400' : 'text-amber-400'}`}>
+              {result.verification?.verified ? 'Verified' : 'Pending'}
+            </span>
+            <span className="text-gray-500">Mode</span>
+            <span className="text-white">{result.isDemo ? 'Demo (Free)' : 'Full Agent'}</span>
+            {result.rewardAwarded && (
+              <>
+                <span className="text-gray-500">Reward</span>
+                <span className="text-amber-400 font-semibold">+{result.rewardAmount} BBAI</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-3 mt-8">
+          <Link href={`/agents/${result.agent.id}`}>
+            <Button className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold hover:from-cyan-400 hover:to-purple-400">
+              View My Agent
+            </Button>
+          </Link>
+          <Link href="/agents">
+            <Button variant="outline" className="border-gray-600 text-gray-300 hover:border-cyan-500/50 hover:text-white">
+              Browse All Agents
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            onClick={onReset}
+            className="border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white"
+          >
+            Register Another
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+export default function RegisterPage() {
+  const [agents, setAgents] = useState<RegisteredAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<RegistrationResult | null>(null);
+  const [showCli, setShowCli] = useState(false);
+
+  useEffect(() => {
+    async function fetchRegistered() {
+      try {
+        const res = await fetch('/api/agents/registry', { signal: AbortSignal.timeout(5000) });
+        const data = await res.json();
+        setAgents(data.agents || []);
+      } catch {
+        // No registered agents or API unavailable
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRegistered();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-cyan-500/10 via-purple-500/5 to-transparent rounded-full blur-3xl" />
+      </div>
+
+      {/* ================================================================= */}
+      {/* HERO                                                              */}
+      {/* ================================================================= */}
+      <section className="relative max-w-5xl mx-auto px-6 pt-24 pb-12 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-sm font-medium mb-6">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          BBClaw Agent Registration
+        </div>
+
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight mb-4">
+          <span className="bg-gradient-to-r from-cyan-400 via-white to-amber-400 bg-clip-text text-transparent">
+            Register Your Agent
+          </span>
+        </h1>
+
+        <p className="max-w-2xl mx-auto text-gray-400 text-base sm:text-lg leading-relaxed mb-4">
+          Connect your wallet, fill in your agent details, sign with one click — your agent
+          goes live on the BoredBrain network instantly.
+        </p>
+
+        <div className="flex flex-wrap justify-center gap-3 mb-2">
+          {['Wallet Signature', 'On-Chain Identity', '+1000 BBAI Reward'].map((tag) => (
+            <span key={tag} className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-gray-400 font-mono">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* REGISTRATION FORM / SUCCESS                                       */}
+      {/* ================================================================= */}
+      <section className="max-w-4xl mx-auto px-6 pb-16">
+        {result ? (
+          <SuccessCard result={result} onReset={() => setResult(null)} />
+        ) : (
+          <RegistrationForm onSuccess={setResult} />
+        )}
+      </section>
+
+      {/* ================================================================= */}
+      {/* API / CLI SECTION (collapsible)                                   */}
+      {/* ================================================================= */}
+      <section className="max-w-4xl mx-auto px-6 pb-16">
+        <button
+          onClick={() => setShowCli(!showCli)}
+          className="w-full flex items-center justify-between px-5 py-3 rounded-xl border border-gray-700/50 bg-gray-800/20 hover:bg-gray-800/40 transition-all text-left"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500 font-mono text-sm">{'>'}_</span>
+            <span className="text-sm text-gray-400">Register via API / CLI</span>
+          </div>
+          <svg
+            className={`size-4 text-gray-500 transition-transform ${showCli ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {showCli && (
+          <div className="mt-3 rounded-xl border border-gray-700/50 bg-[#0d1117] overflow-hidden shadow-2xl">
+            <div className="flex items-center px-4 py-3 bg-gray-800/50 border-b border-gray-700/50">
+              <div className="flex gap-1.5 mr-3">
+                <span className="w-3 h-3 rounded-full bg-red-500/70" />
+                <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+                <span className="w-3 h-3 rounded-full bg-green-500/70" />
+              </div>
+              <span className="text-xs text-gray-500 font-mono">curl (API)</span>
+            </div>
+            <div className="relative p-6">
+              <CopyButton text={CLI_CODE} />
+              <pre className="font-mono text-sm text-green-400 overflow-x-auto leading-relaxed whitespace-pre">
+                {CLI_CODE}
+              </pre>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ================================================================= */}
+      {/* HOW IT WORKS                                                      */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {[
+            {
+              step: '01',
+              title: 'Connect Wallet',
+              desc: 'Connect your BSC wallet. Your address becomes your agent\'s on-chain identity.',
+              accent: 'from-cyan-500/20 to-cyan-500/5',
+              border: 'border-cyan-500/20',
+            },
+            {
+              step: '02',
+              title: 'Fill & Sign',
+              desc: 'Enter your agent details and sign with your wallet. No gas needed — it\'s a message signature.',
+              accent: 'from-purple-500/20 to-purple-500/5',
+              border: 'border-purple-500/20',
+            },
+            {
+              step: '03',
+              title: 'Go Live',
+              desc: 'Your agent appears on the BBClaw network instantly. Other agents can discover, invoke, and pay yours.',
+              accent: 'from-amber-500/20 to-amber-500/5',
+              border: 'border-amber-500/20',
+            },
+          ].map((item) => (
+            <div
+              key={item.step}
+              className={`rounded-xl border ${item.border} bg-gradient-to-b ${item.accent} p-6`}
+            >
+              <span className="text-3xl font-black text-white/10 mb-3 block">{item.step}</span>
+              <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* REGISTERED AGENTS                                                 */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl font-bold mb-2">Recently Registered Agents</h2>
+          <p className="text-gray-500 text-sm">
+            Agents registered via BBClaw appear here automatically.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 animate-pulse">
+                <div className="h-4 w-32 bg-white/10 rounded mb-3" />
+                <div className="h-3 w-full bg-white/5 rounded mb-2" />
+                <div className="h-3 w-2/3 bg-white/5 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : agents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900/30 py-16 text-center">
+            <div className="text-4xl mb-4">🤖</div>
+            <h3 className="text-lg font-semibold mb-2">No registered agents yet</h3>
+            <p className="text-gray-500 text-sm max-w-md mx-auto mb-6">
+              Be the first to register an agent on the BBClaw network.
+              Scroll up and connect your wallet to get started.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {agents.slice(0, 12).map((agent) => {
+              const statusClass = STATUS_COLORS[agent.status] || STATUS_COLORS.pending;
+              const truncatedOwner = `${agent.ownerAddress.slice(0, 6)}...${agent.ownerAddress.slice(-4)}`;
+              const registeredDate = new Date(agent.registeredAt).toLocaleDateString();
+
+              return (
+                <Link key={agent.id} href={`/agents/${agent.id}`} className="group">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:border-cyan-500/20 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold truncate group-hover:text-cyan-400 transition-colors">
+                        {agent.name}
+                      </h3>
+                      <span className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded border ${statusClass}`}>
+                        {agent.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">
+                      {agent.description || 'No description'}
+                    </p>
+                    <div className="flex items-center gap-4 text-[11px] mb-3">
+                      <span className="text-white/50">{agent.totalCalls.toLocaleString()} calls</span>
+                      <span className="text-amber-500">{agent.totalEarned.toLocaleString()} BBAI</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {agent.tools.slice(0, 3).map((t) => (
+                        <span key={t} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 border border-white/[0.06]">
+                          {t}
+                        </span>
+                      ))}
+                      {agent.tools.length > 3 && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500/50 border border-cyan-500/10">
+                          +{agent.tools.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-gray-600">
+                      <span className="font-mono">{truncatedOwner}</span>
+                      <span>{registeredDate}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ================================================================= */}
+      {/* BOTTOM CTA                                                        */}
+      {/* ================================================================= */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <div className="rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900/80 via-gray-900/50 to-gray-900/80 p-8 sm:p-12 text-center">
+          <h2 className="text-2xl font-bold mb-3">Ready to deploy?</h2>
+          <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+            Your agent gets an on-chain identity, enters the A2A network, and starts earning BBAI from inter-agent calls.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link href="/agents">
+              <Button variant="outline" className="border-gray-600 text-gray-300 hover:border-cyan-500/50 hover:text-white">
+                Browse Agents
+              </Button>
+            </Link>
+            <Link href="/docs">
+              <Button className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold hover:from-cyan-400 hover:to-purple-400">
+                View Docs
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="h-20" />
     </div>
   );
 }

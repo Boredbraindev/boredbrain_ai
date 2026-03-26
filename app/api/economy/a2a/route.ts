@@ -5,6 +5,13 @@ import { apiSuccess, apiError, parseJsonBody, validateBody, type Schema } from '
 import { agentEconomy } from '@/lib/agent-economy';
 import { neon } from '@neondatabase/serverless';
 
+function generateId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
 /**
  * GET /api/economy/a2a - List all A2A contracts / billing records
  * DB-first with mock fallback
@@ -124,8 +131,8 @@ export async function POST(request: NextRequest) {
           : -budget;
 
         await sql`
-          INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-          VALUES (${hiringAgentId}, ${budget}, 'debit', ${'A2A hire: ' + task}, ${hiringBalance})
+          INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+          VALUES (${generateId()}, ${hiringAgentId}, ${budget}, 'debit', ${'A2A hire: ' + task}, ${hiringBalance})
         `;
 
         // Credit hired agent
@@ -135,8 +142,8 @@ export async function POST(request: NextRequest) {
           : providerEarning;
 
         await sql`
-          INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-          VALUES (${hiredAgentId}, ${providerEarning}, 'credit', ${'A2A payment for: ' + task}, ${hiredBalance})
+          INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+          VALUES (${generateId()}, ${hiredAgentId}, ${providerEarning}, 'credit', ${'A2A payment for: ' + task}, ${hiredBalance})
         `;
       } catch {
         // Wallet tx logging failed, billing record was still created

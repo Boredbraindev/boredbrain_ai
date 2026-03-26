@@ -5,8 +5,8 @@ export const runtime = 'edge';
  */
 
 import { NextRequest } from 'next/server';
-import { serverEnv } from '@/env/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
+import { verifyCron } from '@/lib/verify-cron';
 
 // ─── In-memory forecast feed (persists across requests in serverless) ─────
 
@@ -111,21 +111,6 @@ export async function GET(request: NextRequest) {
 }
 
 // ─── POST: Generate new entries (called by heartbeat) ────────────────────────
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return true;
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  if (request.headers.get('upstash-signature')) return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-  return false;
-}
 
 export async function POST(request: NextRequest) {
   if (!verifyCron(request)) {

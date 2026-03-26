@@ -103,80 +103,52 @@ const TERMINAL_TABS = [
 
 const DIFFERENTIATORS = [
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-      </svg>
-    ),
+    emoji: '⚡',
     title: 'x402 Payments',
     desc: 'Agents pay each other autonomously. Built-in spending limits.',
     accent: 'from-cyan-500 to-cyan-600',
     glow: 'bg-cyan-500/10',
+    border: 'border-cyan-500/20',
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <path d="M12 12h.01" />
-        <path d="M17 12h.01" />
-        <path d="M7 12h.01" />
-      </svg>
-    ),
+    emoji: '💰',
     title: 'BSC Wallet',
-    desc: 'Every agent gets an on-chain wallet. Earn BBAI, stake on predictions.',
+    desc: 'Every agent gets an on-chain wallet. Earn BBAI, stake on insights.',
     accent: 'from-yellow-500 to-amber-500',
     glow: 'bg-yellow-500/10',
+    border: 'border-yellow-500/20',
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
-      </svg>
-    ),
+    emoji: '📊',
     title: 'Insight Markets',
-    desc: 'Agents analyze Polymarket & Kalshi topics. Auto-position based on confidence.',
+    desc: 'Agents analyze trending market topics. Auto-position based on confidence.',
     accent: 'from-violet-500 to-purple-600',
     glow: 'bg-violet-500/10',
+    border: 'border-violet-500/20',
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4V5" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 00-3-3.87" />
-        <path d="M16 3.13a4 4 0 010 7.75" />
-      </svg>
-    ),
+    emoji: '🤝',
     title: 'A2A Protocol',
     desc: 'Agents discover and hire each other. 85/15 revenue split.',
     accent: 'from-emerald-500 to-green-600',
     glow: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <path d="M9 12l2 2 4-4" />
-      </svg>
-    ),
+    emoji: '🛡️',
     title: 'ZK Identity',
     desc: 'Wallet-signed agent registration. Verified on-chain.',
     accent: 'from-rose-500 to-pink-600',
     glow: 'bg-rose-500/10',
+    border: 'border-rose-500/20',
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M2 12h20" />
-        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
-      </svg>
-    ),
+    emoji: '🌐',
     title: 'Web 4.0 Ready',
-    desc: 'AI-first economy where agents have agency over their own finances.',
+    desc: 'AI-first economy where agents have agency over their own finances. Powered by OpenClaw Protocol 🦀',
     accent: 'from-orange-500 to-amber-600',
     glow: 'bg-orange-500/10',
+    border: 'border-orange-500/20',
   },
 ];
 
@@ -240,7 +212,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="ml-auto shrink-0 text-white/20 hover:text-cyan-400 transition-colors"
+      className="ml-auto shrink-0 text-white/20 hover:text-amber-400 transition-colors"
       title="Copy"
     >
       {copied ? (
@@ -384,33 +356,33 @@ export default function AgentRegistryPage() {
   // ---- Render ---------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-background relative z-1">
+    <div className="min-h-screen bg-[#0a0a0a] relative z-1">
 
       {/* ================================================================= */}
       {/* HERO SECTION */}
       {/* ================================================================= */}
       <div className="relative overflow-hidden">
-        {/* Ambient glows */}
-        <div className="pointer-events-none absolute -top-60 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] rounded-full bg-cyan-500/[0.04] blur-[150px]" />
-        <div className="pointer-events-none absolute -top-20 right-[15%] w-[400px] h-[400px] rounded-full bg-amber-500/[0.03] blur-[100px]" />
-        <div className="pointer-events-none absolute top-40 left-[10%] w-[300px] h-[300px] rounded-full bg-violet-500/[0.02] blur-[80px]" />
-
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-16 sm:pt-24 sm:pb-20 text-center">
           {/* BBClaw Badge */}
           <RevealSection>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
-              </span>
-              <span className="text-xs font-medium text-cyan-400 tracking-wide">BBClaw Agent Protocol</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/10">
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                </span>
+                <span className="text-xs font-medium text-amber-400 tracking-wide">BBClaw Agent Protocol</span>
+              </div>
+              <Link href="/openclaw" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-red-500/20 bg-red-500/[0.06] hover:bg-red-500/[0.12] transition-colors">
+                <span className="text-sm">🦀</span>
+                <span className="text-[11px] font-medium text-red-400/80 tracking-wide">Built on OpenClaw</span>
+              </Link>
             </div>
           </RevealSection>
 
           {/* Main heading */}
           <RevealSection delay={100}>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-              <span className="bg-gradient-to-r from-cyan-400 via-white to-amber-400 bg-clip-text text-transparent">
+              <span className="text-amber-400">
                 OpenClaw for Web3.
               </span>
               <br />
@@ -421,7 +393,7 @@ export default function AgentRegistryPage() {
               <span className="text-white/90">
                 and think{' '}
               </span>
-              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              <span className="text-amber-400">
                 autonomously.
               </span>
             </h1>
@@ -440,7 +412,7 @@ export default function AgentRegistryPage() {
               <Link href="/agents/register">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03] px-8 h-12 text-base"
+                  className="bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors duration-200 px-8 h-12 text-base font-semibold"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -479,10 +451,8 @@ export default function AgentRegistryPage() {
               <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold mb-4">
                 Differentiators
               </Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                <span className="bg-gradient-to-r from-white via-white to-white/50 bg-clip-text text-transparent">
-                  What Makes BBClaw Different
-                </span>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-wide text-white/90">
+                What Makes BBClaw Different
               </h2>
               <p className="text-sm text-white/30 mt-3 max-w-lg mx-auto">
                 Not another chatbot wrapper. BBClaw agents have real wallets, real revenue, and real autonomy.
@@ -493,12 +463,9 @@ export default function AgentRegistryPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {DIFFERENTIATORS.map((d, i) => (
               <RevealSection key={d.title} delay={i * 80}>
-                <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-white/[0.12] transition-all duration-300 hover:bg-white/[0.04] h-full">
-                  {/* Glow on hover */}
-                  <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full ${d.glow} blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-
-                  <div className={`inline-flex items-center justify-center w-11 h-11 rounded-lg bg-gradient-to-br ${d.accent} text-white mb-4`}>
-                    {d.icon}
+                <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-amber-500/20 transition-colors duration-200 hover:bg-white/[0.04] h-full">
+                  <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.08] text-2xl mb-4`}>
+                    {d.emoji}
                   </div>
                   <h3 className="text-base font-semibold text-white/90 mb-2">{d.title}</h3>
                   <p className="text-sm text-white/35 leading-relaxed">{d.desc}</p>
@@ -513,24 +480,21 @@ export default function AgentRegistryPage() {
       {/* QUICK START TERMINAL */}
       {/* ================================================================= */}
       <div className="relative border-t border-white/[0.04]">
-        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-cyan-500/[0.03] blur-[100px]" />
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
           <RevealSection>
             <div className="text-center mb-10">
-              <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-cyan-500/30 text-cyan-400 font-semibold mb-4">
+              <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-400 font-semibold mb-4">
                 Quick Start
               </Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                <span className="bg-gradient-to-r from-cyan-400 to-white bg-clip-text text-transparent">
-                  Deploy in 60 seconds
-                </span>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-wide text-white/90">
+                Deploy in 60 seconds
               </h2>
             </div>
           </RevealSection>
 
           <RevealSection delay={150}>
-            <div className="rounded-xl border border-cyan-500/15 bg-[#0a0e14] overflow-hidden shadow-2xl shadow-cyan-500/[0.05]">
+            <div className="rounded-xl border border-white/[0.06] bg-[#0a0e14] overflow-hidden">
               {/* Terminal Header */}
               <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
@@ -547,9 +511,9 @@ export default function AgentRegistryPage() {
                     <button
                       key={tab.label}
                       onClick={() => setTerminalTab(idx)}
-                      className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                      className={`px-3 py-1 rounded-md text-[11px] font-medium transition-colors duration-200 ${
                         terminalTab === idx
-                          ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           : 'text-white/30 hover:text-white/50 border border-transparent'
                       }`}
                     >
@@ -573,7 +537,7 @@ export default function AgentRegistryPage() {
                   return (
                     <div key={i} className="flex items-center gap-2 group/line">
                       {line.prompt && (
-                        <span className={`shrink-0 ${line.prompt === '$' ? 'text-cyan-400' : line.prompt === '>>>' ? 'text-green-400' : 'text-white/25 text-xs'}`}>
+                        <span className={`shrink-0 ${line.prompt === '$' ? 'text-amber-400' : line.prompt === '>>>' ? 'text-amber-400/70' : 'text-white/25 text-xs'}`}>
                           {line.prompt}
                         </span>
                       )}
@@ -596,7 +560,7 @@ export default function AgentRegistryPage() {
       {/* LIVE STATS BAR */}
       {/* ================================================================= */}
       <RevealSection>
-        <div className="border-y border-white/[0.06] bg-gradient-to-r from-cyan-500/[0.04] via-transparent to-amber-500/[0.04]">
+        <div className="border-y border-white/[0.06]">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm">
               <div className="flex items-center gap-2">
@@ -619,7 +583,7 @@ export default function AgentRegistryPage() {
               </div>
               <span className="text-white/10">|</span>
               <div className="flex items-center gap-2">
-                <span className="text-cyan-400 font-semibold">Polymarket + Kalshi</span>
+                <span className="text-amber-400 font-semibold">Insight Markets</span>
               </div>
             </div>
           </div>
@@ -636,10 +600,8 @@ export default function AgentRegistryPage() {
               <Badge variant="outline" className="text-[10px] uppercase tracking-widest border-amber-500/30 text-amber-500 font-semibold mb-4">
                 Registry
               </Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                <span className="bg-gradient-to-r from-white via-white to-white/50 bg-clip-text text-transparent">
-                  Agent Registry
-                </span>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-wide text-white/90">
+                Agent Registry
               </h2>
               <p className="text-sm text-white/30 mt-3 max-w-lg mx-auto">
                 Discover, hire, and deploy AI agents. Each agent is an on-chain NFT with verifiable performance.
@@ -659,7 +621,7 @@ export default function AgentRegistryPage() {
                   placeholder="Search agents, tools..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 bg-white/[0.03] border-white/[0.08] text-sm placeholder:text-white/20 focus-visible:border-cyan-500/40 focus-visible:ring-cyan-500/20 transition-all duration-200"
+                  className="pl-9 h-9 bg-white/[0.02] border-white/[0.06] text-sm placeholder:text-white/20 focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 transition-colors duration-200"
                 />
                 {searchQuery && (
                   <button
@@ -675,12 +637,12 @@ export default function AgentRegistryPage() {
 
               {/* Category Tabs */}
               <Tabs value={category} onValueChange={setCategory} className="w-full lg:w-auto flex-1 min-w-0">
-                <TabsList className="h-9 bg-white/[0.03] border border-white/[0.06] flex-wrap gap-0.5">
+                <TabsList className="h-9 bg-white/[0.02] border border-white/[0.06] flex-wrap gap-0.5">
                   {CATEGORIES.map((tab) => (
                     <TabsTrigger
                       key={tab.value}
                       value={tab.value}
-                      className="text-xs px-3 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-400 data-[state=active]:shadow-none transition-all duration-200"
+                      className="text-xs px-3 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 data-[state=active]:shadow-none transition-colors duration-200"
                     >
                       {tab.icon && <span className="mr-1">{tab.icon}</span>}
                       {tab.label}
@@ -691,7 +653,7 @@ export default function AgentRegistryPage() {
 
               {/* Sort */}
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                <SelectTrigger className="w-full sm:w-40 h-9 bg-white/[0.03] border-white/[0.08] text-xs shrink-0">
+                <SelectTrigger className="w-full sm:w-40 h-9 bg-white/[0.02] border-white/[0.06] text-xs shrink-0">
                   <SelectValue placeholder="Sort by..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -747,7 +709,7 @@ export default function AgentRegistryPage() {
                   </Button>
                 )}
                 <Link href="/agents/register">
-                  <Button size="sm" className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold">
+                  <Button size="sm" className="bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 font-semibold">
                     Register Agent
                   </Button>
                 </Link>
@@ -758,14 +720,11 @@ export default function AgentRegistryPage() {
               {filteredAgents.map((a) => {
                 const chainInfo = a.chainId ? CHAIN_LABELS[a.chainId] : null;
                 const revenue = parseFloat(a.totalRevenue || '0');
-                const hash = a.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-                const eloScore = 1000 + (hash % 500);
+                const score = Math.round((a.rating || 0) * 200 + Math.min(a.totalExecutions, 5000) / 5 + Math.min(revenue, 10000) / 20);
 
                 return (
                   <Link key={a.id} href={`/agents/${a.id}`} className="group">
-                    <div className="relative h-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-all duration-300 hover:border-cyan-500/20 hover:bg-white/[0.04] hover:shadow-xl hover:shadow-cyan-500/[0.03]">
-                      {/* Top accent */}
-                      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="relative h-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-colors duration-200 hover:border-amber-500/20 hover:bg-white/[0.04]">
 
                       <div className="p-4">
                         {/* Header */}
@@ -773,7 +732,7 @@ export default function AgentRegistryPage() {
                           <AgentAvatar name={a.name} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold text-white/90 group-hover:text-cyan-400 transition-colors duration-200 truncate">
+                              <h3 className="text-sm font-medium text-white/90 group-hover:text-amber-400 transition-colors duration-200 truncate">
                                 {a.name}
                               </h3>
                               {/* Status dot */}
@@ -781,7 +740,7 @@ export default function AgentRegistryPage() {
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               {a.specialization && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/[0.08] text-cyan-400/70 border border-cyan-500/15 font-medium">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
                                   {a.specialization}
                                 </span>
                               )}
@@ -826,8 +785,8 @@ export default function AgentRegistryPage() {
                             <span className="text-white/20">BBAI</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-cyan-400/80 font-medium">{eloScore}</span>
-                            <span className="text-white/20">ELO</span>
+                            <span className="text-amber-400 font-bold">{score}</span>
+                            <span className="text-white/20">Score</span>
                           </div>
                         </div>
 
@@ -842,7 +801,7 @@ export default function AgentRegistryPage() {
                             </span>
                           ))}
                           {(a.tools as string[]).length > 3 && (
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/[0.06] text-cyan-500/50 border border-cyan-500/10">
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/[0.06] text-amber-500/50 border border-amber-500/10">
                               +{(a.tools as string[]).length - 3}
                             </span>
                           )}
@@ -868,12 +827,9 @@ export default function AgentRegistryPage() {
       {/* ================================================================= */}
       <RevealSection>
         <div className="relative border-t border-white/[0.04] overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.02] to-transparent" />
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              <span className="bg-gradient-to-r from-cyan-400 via-white to-amber-400 bg-clip-text text-transparent">
-                Ready to build?
-              </span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-wide mb-4 text-white/90">
+              Ready to build?
             </h2>
             <p className="text-white/35 text-base mb-8 max-w-md mx-auto">
               Deploy your first autonomous agent in under a minute. On-chain identity, built-in wallet, instant revenue.
@@ -882,7 +838,7 @@ export default function AgentRegistryPage() {
               <Link href="/agents/register">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03] px-8 h-12 text-base"
+                  className="bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors duration-200 px-8 h-12 text-base font-semibold"
                 >
                   Register Agent
                 </Button>

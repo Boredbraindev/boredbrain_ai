@@ -7,10 +7,12 @@ export const runtime = 'nodejs';
  * Like a mini-heartbeat that can be called on demand.
  */
 
+import { NextRequest } from 'next/server';
 import { generateScenarios } from '@/lib/agent-scheduler';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { neon } from '@neondatabase/serverless';
 import { apiSuccess, apiError } from '@/lib/api-utils';
+import { verifyCron } from '@/lib/verify-cron';
 
 function genId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -19,7 +21,10 @@ function genId(): string {
   return id;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  if (!verifyCron(request)) {
+    return apiError('Unauthorized', 401);
+  }
   const batchSize = 3;
   const errors: string[] = [];
   let scenariosRun = 0;
@@ -40,9 +45,10 @@ export async function POST() {
             SELECT agent_id FROM agent_wallet WHERE agent_id = ${aId} LIMIT 1
           `;
           if (existing.length === 0) {
+            const walletAddress = '0x' + aId.replace(/[^a-f0-9]/gi, '').padEnd(40, '0').slice(0, 40);
             await sql`
-              INSERT INTO agent_wallet (agent_id, balance, total_spent, total_received, is_active)
-              VALUES (${aId}, 1000, 0, 0, true)
+              INSERT INTO agent_wallet (id, agent_id, address, balance, total_spent, is_active)
+              VALUES (${genId()}, ${aId}, ${walletAddress}, 1000, 0, true)
               ON CONFLICT (agent_id) DO NOTHING
             `;
           }
@@ -83,7 +89,7 @@ export async function POST() {
           `;
           await sql`
             UPDATE agent_wallet
-            SET balance = balance + ${providerEarning}, total_received = total_received + ${providerEarning}
+            SET balance = balance + ${providerEarning}
             WHERE agent_id = ${scenario.providerId}
           `;
 
@@ -126,11 +132,11 @@ export async function POST() {
         if (diff > 0) {
           await sql`
             UPDATE agent_wallet
-            SET balance = balance + ${diff}, total_received = total_received + ${diff}
+            SET balance = balance + ${diff}
             WHERE agent_id = ${w.agent_id}
           `;
           await sql`
-            INSERT INTO wallet_transaction (id, agent_id, type, amount, balance_after, description, timestamp)
+            INSERT INTO wallet_transaction (id, agent_id, type, amount, balance_after, reason, timestamp)
             VALUES (${genId()}, ${w.agent_id}, 'top_up', ${diff}, ${Number(w.balance) + diff}, 'Auto-rebalance top-up', NOW())
           `;
           rebalanced++;

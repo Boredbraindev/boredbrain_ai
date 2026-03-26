@@ -85,10 +85,14 @@ function getGoogleEndpoint(model: string): string {
 /**
  * Detect which LLM providers have valid API keys configured.
  */
+function isRealKey(key: string | undefined): key is string {
+  return !!key && key !== 'dummy' && key.length > 10;
+}
+
 function getAvailableProviders(): ProviderConfig[] {
   const providers: ProviderConfig[] = [];
 
-  if (serverEnv.OPENAI_API_KEY) {
+  if (isRealKey(serverEnv.OPENAI_API_KEY)) {
     providers.push({
       provider: 'openai',
       apiKey: serverEnv.OPENAI_API_KEY,
@@ -97,7 +101,7 @@ function getAvailableProviders(): ProviderConfig[] {
     });
   }
 
-  if (serverEnv.ANTHROPIC_API_KEY) {
+  if (isRealKey(serverEnv.ANTHROPIC_API_KEY)) {
     providers.push({
       provider: 'anthropic',
       apiKey: serverEnv.ANTHROPIC_API_KEY,
@@ -106,7 +110,7 @@ function getAvailableProviders(): ProviderConfig[] {
     });
   }
 
-  if (serverEnv.XAI_API_KEY) {
+  if (isRealKey(serverEnv.XAI_API_KEY)) {
     providers.push({
       provider: 'xai',
       apiKey: serverEnv.XAI_API_KEY,
@@ -115,7 +119,7 @@ function getAvailableProviders(): ProviderConfig[] {
     });
   }
 
-  if (serverEnv.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (isRealKey(serverEnv.GOOGLE_GENERATIVE_AI_API_KEY)) {
     const model = DEFAULT_MODELS.google;
     providers.push({
       provider: 'google',
@@ -150,6 +154,50 @@ function selectProvider(preferred?: LLMProvider, preferredModel?: string): Provi
     fallback.model = preferredModel;
   }
   return fallback;
+}
+
+/**
+ * Get ordered fallback chain: preferred first, then remaining providers.
+ * Google (gemini-2.0-flash) is always last since it's cheapest / highest quota.
+ */
+function getFallbackChain(preferred?: LLMProvider, preferredModel?: string): ProviderConfig[] {
+  const available = getAvailableProviders();
+  if (available.length === 0) return [];
+
+  // Preferred provider first
+  const chain: ProviderConfig[] = [];
+  if (preferred) {
+    const match = available.find((p) => p.provider === preferred);
+    if (match) {
+      if (preferredModel) match.model = preferredModel;
+      chain.push(match);
+    }
+  }
+
+  // Add remaining, with google last
+  const rest = available
+    .filter((p) => !chain.some((c) => c.provider === p.provider))
+    .sort((a, b) => {
+      if (a.provider === 'google') return 1;
+      if (b.provider === 'google') return -1;
+      return 0;
+    });
+
+  return [...chain, ...rest];
+}
+
+/** Check if an error is a rate-limit / quota error worth retrying with another provider */
+function isRateLimitError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('429') ||
+    msg.includes('rate limit') ||
+    msg.includes('quota') ||
+    msg.includes('too many requests') ||
+    msg.includes('capacity') ||
+    msg.includes('overloaded')
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -533,11 +581,11 @@ export async function executeAgent(
   context?: string,
   maxToolRounds: number = 3,
 ): Promise<AgentResponse> {
-  // Select provider
-  const provider = selectProvider(agent.preferredProvider, agent.preferredModel);
+  // Get fallback chain of providers
+  const fallbackChain = getFallbackChain(agent.preferredProvider, agent.preferredModel);
 
   // No API key available: return error (no silent simulation)
-  if (!provider) {
+  if (fallbackChain.length === 0) {
     return generateLLMUnavailableResponse(agent, 'No LLM API keys configured');
   }
 
@@ -579,11 +627,13 @@ export async function executeAgent(
   const toolDefs =
     agent.tools && agent.tools.length > 0 ? buildToolDefs(agent.tools) : undefined;
 
-  // Call the LLM
+  // Call the LLM with fallback chain
   let totalTokens = 0;
   let allToolCalls: ToolCallResult[] = [];
   let finalContent = '';
+  let lastError: Error | null = null;
 
+  for (const provider of fallbackChain) {
   try {
     let result: LLMResult;
 
@@ -804,14 +854,27 @@ export async function executeAgent(
       simulated: false,
     };
   } catch (error) {
-    console.error(`[agent-executor] LLM call failed for ${agent.name}:`, error);
+    lastError = error instanceof Error ? error : new Error(String(error));
 
-    // Return error — no silent simulation
-    return generateLLMUnavailableResponse(
-      agent,
-      error instanceof Error ? error.message : 'LLM call failed',
-    );
+    // If rate-limited and more providers available, try next one
+    if (isRateLimitError(error)) {
+      console.warn(
+        `[agent-executor] ${provider.provider} rate-limited for ${agent.name}, trying next provider...`,
+      );
+      continue;
+    }
+
+    // Non-rate-limit error — stop trying
+    console.error(`[agent-executor] LLM call failed for ${agent.name} (${provider.provider}):`, error);
+    break;
   }
+  } // end fallback chain loop
+
+  // All providers exhausted
+  return generateLLMUnavailableResponse(
+    agent,
+    lastError?.message ?? 'All LLM providers failed',
+  );
 }
 
 // ---------------------------------------------------------------------------

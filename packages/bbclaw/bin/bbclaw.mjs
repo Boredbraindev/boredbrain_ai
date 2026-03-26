@@ -76,7 +76,16 @@ async function apiFetch(path, options = {}) {
       },
     });
     clearTimeout(timeoutId);
-    return { ok: res.ok, status: res.status, data: await res.json() };
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Response was not valid JSON — wrap raw text as error
+      data = { error: text.slice(0, 500) || `HTTP ${res.status}` };
+    }
+    return { ok: res.ok, status: res.status, data };
   } catch (err) {
     clearTimeout(timeoutId);
     const msg = err instanceof Error ? err.message : String(err);

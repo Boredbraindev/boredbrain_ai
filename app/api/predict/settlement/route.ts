@@ -5,29 +5,12 @@ export const runtime = 'edge';
  */
 
 import { NextRequest } from 'next/server';
-import { serverEnv } from '@/env/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
 import {
   settleRound,
   getSettlementStats,
 } from '@/lib/blockchain/settlement-service';
-
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return true;
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  if (request.headers.get('upstash-signature')) return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-  return false;
-}
+import { verifyCron } from '@/lib/verify-cron';
 
 // ─── GET: Settlement stats ────────────────────────────────────────────────────
 
@@ -97,7 +80,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     return apiError(
-      err instanceof Error ? err.message : 'Settlement failed',
+      'Settlement failed',
       500,
     );
   }

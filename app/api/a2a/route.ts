@@ -13,6 +13,16 @@ import { neon } from '@neondatabase/serverless';
 // CORS headers
 // ---------------------------------------------------------------------------
 
+function generateId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 16; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+// A2A is a server-to-server JSON-RPC protocol — external agents on any domain
+// need to call these endpoints. CORS * is intentional here (same as Google A2A spec).
+// Authentication is handled per-method via wallet signatures and billing checks.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -183,13 +193,13 @@ async function ensureWalletEdge(sql: any, agentId: string) {
   if (rows.length > 0) return rows[0];
   const address = generateWalletAddress(agentId);
   const created = await sql`
-    INSERT INTO agent_wallet (agent_id, address, balance, daily_limit, total_spent, is_active)
-    VALUES (${agentId}, ${address}, 50, 50, 0, true)
+    INSERT INTO agent_wallet (id, agent_id, address, balance, daily_limit, total_spent, is_active)
+    VALUES (${generateId()}, ${agentId}, ${address}, 50, 50, 0, true)
     RETURNING *
   `;
   await sql`
-    INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-    VALUES (${agentId}, 50, 'credit', 'Initial wallet funding', 50)
+    INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+    VALUES (${generateId()}, ${agentId}, 50, 'credit', 'Initial wallet funding', 50)
   `;
   return created[0];
 }
@@ -213,8 +223,8 @@ async function settleBillingEdge(
     const newBalance = callerWallet[0].balance - totalCost;
     await sql`UPDATE agent_wallet SET balance = ${newBalance}, total_spent = total_spent + ${totalCost} WHERE agent_id = ${callerAgentId} AND balance >= ${totalCost}`;
     await sql`
-      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-      VALUES (${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId}, ${newBalance})
+      INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+      VALUES (${generateId()}, ${callerAgentId}, ${totalCost}, 'debit', ${'Inter-agent billing: called ' + providerAgentId}, ${newBalance})
     `;
   }
 
@@ -224,8 +234,8 @@ async function settleBillingEdge(
     const newBalance = providerWallet[0].balance + providerEarning;
     await sql`UPDATE agent_wallet SET balance = ${newBalance} WHERE agent_id = ${providerAgentId}`;
     await sql`
-      INSERT INTO wallet_transaction (agent_id, amount, type, reason, balance_after)
-      VALUES (${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
+      INSERT INTO wallet_transaction (id, agent_id, amount, type, reason, balance_after)
+      VALUES (${generateId()}, ${providerAgentId}, ${providerEarning}, 'credit', 'Wallet top-up', ${newBalance})
     `;
   }
 

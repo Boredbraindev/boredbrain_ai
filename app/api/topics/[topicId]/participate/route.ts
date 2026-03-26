@@ -14,25 +14,14 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
-import { serverEnv } from '@/env/server';
 import { submitAgentOpinion } from '@/lib/topic-debate';
-
-function verifyAuth(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === 'development';
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  return false;
-}
+import { verifyCron } from '@/lib/verify-cron';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ topicId: string }> },
 ) {
-  if (!verifyAuth(request)) {
+  if (!verifyCron(request)) {
     return apiError('Unauthorized', 401);
   }
 

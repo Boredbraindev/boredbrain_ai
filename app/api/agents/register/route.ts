@@ -17,6 +17,178 @@ import {
   type Schema,
 } from '@/lib/api-utils';
 
+// ---------------------------------------------------------------------------
+// Verification helpers (non-blocking — failures don't prevent registration)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ping an agent's endpoint URL with a 5-second timeout.
+ * Returns true if the endpoint responds with a 2xx status.
+ */
+/** Block SSRF — reject private/internal IPs and non-HTTPS URLs */
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // Only allow HTTPS
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    // Block private/internal ranges
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+    if (host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) return false;
+    if (host.startsWith('169.254.')) return false; // link-local / cloud metadata
+    if (host.endsWith('.internal') || host.endsWith('.local')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function pingEndpoint(endpointUrl: string): Promise<{ ok: boolean; status?: number; error?: string }> {
+  if (!isSafeUrl(endpointUrl)) {
+    return { ok: false, error: 'Endpoint must be a public HTTPS URL' };
+  }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5_000);
+    const response = await fetch(endpointUrl, {
+      method: 'GET',
+      signal: controller.signal,
+      redirect: 'manual', // Don't follow redirects to internal URLs
+    });
+    clearTimeout(timeoutId);
+    return { ok: response.ok, status: response.status };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const isTimeout = message.includes('aborted') || message.includes('abort');
+    return { ok: false, error: isTimeout ? 'Endpoint ping timed out (5s)' : message };
+  }
+}
+
+/**
+ * Fetch an agent card URL and validate it contains required JSON fields (name, description).
+ * Returns the parsed card on success or an error string on failure.
+ */
+async function validateAgentCard(
+  cardUrl: string,
+): Promise<{ valid: boolean; card?: Record<string, unknown>; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5_000);
+    const response = await fetch(cardUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { valid: false, error: `Agent card URL returned HTTP ${response.status}` };
+    }
+
+    let card: Record<string, unknown>;
+    try {
+      card = await response.json();
+    } catch {
+      return { valid: false, error: 'Agent card URL did not return valid JSON' };
+    }
+
+    if (typeof card !== 'object' || card === null || Array.isArray(card)) {
+      return { valid: false, error: 'Agent card must be a JSON object' };
+    }
+
+    // Required fields: name and description
+    if (!card.name || typeof card.name !== 'string') {
+      return { valid: false, error: 'Agent card missing required field: name' };
+    }
+    if (!card.description || typeof card.description !== 'string') {
+      return { valid: false, error: 'Agent card missing required field: description' };
+    }
+
+    return { valid: true, card };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const isTimeout = message.includes('aborted') || message.includes('abort');
+    return { valid: false, error: isTimeout ? 'Agent card fetch timed out (5s)' : message };
+  }
+}
+
+/**
+ * Run post-registration verification checks (endpoint ping + agent card).
+ * Non-blocking: if checks pass, updates agent status to 'verified' in DB.
+ * If checks fail, agent stays 'pending' and verification details are stored in metadata.
+ */
+async function runPostRegistrationVerification(
+  agentId: string,
+  endpoint: string | undefined,
+  agentCardUrl: string | undefined,
+): Promise<{ verified: boolean; endpointOk: boolean | null; agentCardOk: boolean | null; details: Record<string, unknown> }> {
+  const details: Record<string, unknown> = {};
+  let endpointOk: boolean | null = null;
+  let agentCardOk: boolean | null = null;
+
+  // 1. Endpoint ping check
+  if (endpoint && endpoint.length > 0) {
+    const pingResult = await pingEndpoint(endpoint);
+    endpointOk = pingResult.ok;
+    details.endpointPing = {
+      ok: pingResult.ok,
+      status: pingResult.status ?? null,
+      error: pingResult.error ?? null,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  // 2. Agent card check
+  if (agentCardUrl && agentCardUrl.length > 0) {
+    const cardResult = await validateAgentCard(agentCardUrl);
+    agentCardOk = cardResult.valid;
+    details.agentCardCheck = {
+      valid: cardResult.valid,
+      error: cardResult.error ?? null,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  // Determine if agent should be marked verified:
+  //   - If endpoint provided, it must respond 2xx
+  //   - If agentCardUrl provided, it must be valid JSON with name+description
+  //   - If neither provided, stay pending (nothing to verify)
+  const hasEndpoint = endpoint && endpoint.length > 0;
+  const hasCard = agentCardUrl && agentCardUrl.length > 0;
+  const verified =
+    (hasEndpoint || hasCard) &&
+    (endpointOk !== false) &&
+    (agentCardOk !== false);
+
+  // Update agent status + metadata in DB
+  if (verified || Object.keys(details).length > 0) {
+    try {
+      const { neon: neonSql } = await import('@neondatabase/serverless');
+      const sql = neonSql(process.env.DATABASE_URL!);
+
+      if (verified) {
+        await sql`
+          UPDATE external_agent
+          SET status = 'verified',
+              verified_at = NOW(),
+              metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ verification: details })}::jsonb
+          WHERE id = ${agentId}
+        `;
+      } else {
+        await sql`
+          UPDATE external_agent
+          SET metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ verification: details })}::jsonb
+          WHERE id = ${agentId}
+        `;
+      }
+    } catch (err) {
+      console.warn('[register] Post-registration verification DB update failed:', err);
+    }
+  }
+
+  return { verified, endpointOk, agentCardOk, details };
+}
+
 const registerSchema: Schema = {
   name: { type: 'string', required: true, maxLength: 100 },
   description: { type: 'string', required: true, maxLength: 2000 },
@@ -224,6 +396,23 @@ export async function POST(request: NextRequest) {
       return apiSuccess({ agent, message: `Agent "${agent.name}" registered but reward could not be verified.`, isDemo, nftTier, rewardAwarded: false, rewardAmount: 0 }, 201);
     }
 
+    // ── Post-registration verification (endpoint ping + agent card) ────
+    // Non-blocking: if verification fails, agent stays 'pending'
+    let verificationResult: Awaited<ReturnType<typeof runPostRegistrationVerification>> | null = null;
+    try {
+      verificationResult = await runPostRegistrationVerification(
+        agent.id,
+        endpoint,
+        agentCardUrl,
+      );
+      if (verificationResult.verified) {
+        agent.status = 'verified' as typeof agent.status;
+        agent.verifiedAt = new Date().toISOString();
+      }
+    } catch (err) {
+      console.warn('[register] Post-registration verification failed:', err);
+    }
+
     // ── Record staking deduction for non-demo registrations ────────────
     if (!isDemo && stakingAmount > 0) {
       try {
@@ -266,9 +455,10 @@ export async function POST(request: NextRequest) {
       console.warn('[register] Failed to award registration reward:', err);
     }
 
+    const verifiedLabel = verificationResult?.verified ? ' Status: verified.' : ' Status: pending (verification incomplete).';
     const message = isDemo
-      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.${rewardAwarded ? ' +1000 BBAI reward!' : ''}`
-      : `Agent "${agent.name}" registered successfully. ${stakingAmount} BBAI staked.${rewardAwarded ? ' +1000 BBAI reward!' : ''}`;
+      ? `Demo agent "${agent.name}" registered! You get 50 free calls/day. Stake BBAI to upgrade.${rewardAwarded ? ' +1000 BBAI reward!' : ''}${verifiedLabel}`
+      : `Agent "${agent.name}" registered successfully. ${stakingAmount} BBAI staked.${rewardAwarded ? ' +1000 BBAI reward!' : ''}${verifiedLabel}`;
 
     return apiSuccess(
       {
@@ -278,6 +468,14 @@ export async function POST(request: NextRequest) {
         nftTier,
         rewardAwarded,
         rewardAmount: rewardAwarded ? 1000 : 0,
+        verification: verificationResult
+          ? {
+              verified: verificationResult.verified,
+              endpointOk: verificationResult.endpointOk,
+              agentCardOk: verificationResult.agentCardOk,
+              details: verificationResult.details,
+            }
+          : null,
         ...(nftTier !== 'none' && nftHoldings ? {
           nftBenefits: {
             tier: nftTier,
@@ -297,10 +495,50 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/agents/register - Get registry stats
+ * GET /api/agents/register - Get registration stats (total, active, pending, verified counts)
+ * Uses DB-first pattern with 3-second timeout, falls back to Drizzle-based stats.
  */
 export async function GET() {
   try {
+    // DB-first: raw SQL with 3s timeout for fast stats
+    try {
+      const { neon: neonSql } = await import('@neondatabase/serverless');
+      const sql = neonSql(process.env.DATABASE_URL!);
+
+      const result = await Promise.race([
+        sql`
+          SELECT
+            count(*)::int AS total,
+            count(*) FILTER (WHERE status = 'active')::int AS active,
+            count(*) FILTER (WHERE status = 'pending')::int AS pending,
+            count(*) FILTER (WHERE status = 'verified')::int AS verified,
+            count(*) FILTER (WHERE status = 'suspended')::int AS suspended,
+            COALESCE(sum(staking_amount), 0)::float AS total_staked,
+            COALESCE(sum(total_earned), 0)::float AS total_earnings
+          FROM external_agent
+        `,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB query timed out (3s)')), 3_000),
+        ),
+      ]);
+
+      const row = result[0];
+      return apiSuccess({
+        stats: {
+          total: row.total,
+          active: row.active,
+          pending: row.pending,
+          verified: row.verified,
+          suspended: row.suspended,
+          totalStaked: Number(Number(row.total_staked).toFixed(4)),
+          totalEarnings: Number(Number(row.total_earnings).toFixed(4)),
+        },
+      });
+    } catch (dbErr) {
+      console.warn('[register/GET] DB-first stats failed, falling back to Drizzle:', dbErr);
+    }
+
+    // Fallback: Drizzle ORM query
     const stats = await getRegistryStats();
     return apiSuccess({ stats });
   } catch (error: unknown) {

@@ -71,19 +71,24 @@ export async function GET(request: NextRequest) {
 
 // ---------------------------------------------------------------------------
 // POST /api/subscription
-// Body: { walletAddress, txHash, chain?, amount? }
-// Records a new Pro subscription after onchain payment
+// Body: { walletAddress, txHash, chain?, tier?, amount?, paymentToken?, minBnbWei? }
+// Records a new Pro subscription in user_subscription after onchain confirmation.
+// This is the single source of truth — frontend calls this after the smart
+// contract tx succeeds so that lib/subscription.ts (getSubscriptionTier) and
+// GET /api/subscription return consistent data.
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, txHash, chain, amount } = body as {
+    const { walletAddress, txHash, chain, tier, amount } = body as {
       walletAddress?: string;
       txHash?: string;
       chain?: string;
+      tier?: string;
       amount?: number;
     };
 
+    // ── Input validation ──
     if (!walletAddress || !isValidEthAddress(walletAddress)) {
       return apiError('Valid walletAddress required', 400);
     }
@@ -94,7 +99,9 @@ export async function POST(request: NextRequest) {
 
     const sql = neon(process.env.DATABASE_URL!);
     const walletLower = walletAddress.toLowerCase();
-    const paymentChain = chain || 'bsc';
+    const paymentChain = (chain && typeof chain === 'string') ? chain.toLowerCase() : 'bsc';
+    const subscriptionTier = (tier === 'pro' || tier === 'basic') ? tier : 'pro';
+    const agentSlots = subscriptionTier === 'pro' ? PRO_AGENT_SLOTS : 1;
     const amountPaid = typeof amount === 'number' && amount > 0 ? amount : PRO_PRICE_USD;
 
     // ── Onchain payment verification via BSC RPC ──
@@ -107,17 +114,12 @@ export async function POST(request: NextRequest) {
       if (paymentToken === 'usdt') {
         const usdtResult = await verifyUsdtPayment(txHash.trim());
         if (!usdtResult.valid) {
-          return apiError(`Payment verification failed: ${usdtResult.error}`, 400);
+          return apiError('Payment verification failed', 400);
         }
-        // Verify sender matches the wallet claiming the subscription
         if (usdtResult.from && usdtResult.from.toLowerCase() !== walletLower) {
-          return apiError(
-            `Payment sender ${usdtResult.from} does not match subscription wallet ${walletLower}`,
-            400,
-          );
+          return apiError('Payment sender does not match subscription wallet', 400);
         }
       } else if (paymentToken === 'bnb') {
-        // For BNB payment, caller must provide the minBnbWei equivalent of $10
         const minBnbWei = (body as { minBnbWei?: string }).minBnbWei;
         if (!minBnbWei) {
           return apiError('minBnbWei required for BNB payments', 400);
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
       setTimeout(() => reject(new Error('DB timeout')), 3000),
     );
 
-    // Check for duplicate txHash
+    // ── Duplicate txHash guard ──
     const existingTx = await Promise.race([
       sql`SELECT id FROM user_subscription WHERE tx_hash = ${txHash.trim()} LIMIT 1`,
       timeout,
@@ -151,23 +153,32 @@ export async function POST(request: NextRequest) {
       return apiError('This transaction has already been used', 409);
     }
 
-    // Calculate expiry: 30 days from now (monthly subscription)
+    // ── Calculate expiry: 30 days from now (monthly subscription) ──
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    // Upsert: if wallet already has a subscription, update it; otherwise insert
+    // ── Upsert: update existing row or insert new one ──
+    // (Neon HTTP driver doesn't support transactions; use sequential queries)
     const existing = await Promise.race([
-      sql`SELECT id FROM user_subscription WHERE LOWER(wallet_address) = ${walletLower} LIMIT 1`,
+      sql`SELECT id, expires_at FROM user_subscription WHERE LOWER(wallet_address) = ${walletLower} LIMIT 1`,
       timeout,
     ]);
 
     if (existing && existing.length > 0) {
-      // Update existing subscription
+      // If the existing subscription hasn't expired yet, extend from its
+      // current expiry date rather than from now (stacking).
+      const currentExpiry = existing[0].expires_at ? new Date(existing[0].expires_at) : null;
+      const now = new Date();
+      if (currentExpiry && currentExpiry > now) {
+        expiresAt.setTime(currentExpiry.getTime());
+        expiresAt.setDate(expiresAt.getDate() + 30);
+      }
+
       await Promise.race([
         sql`
           UPDATE user_subscription
-          SET tier = 'pro',
-              agent_slots = ${PRO_AGENT_SLOTS},
+          SET tier = ${subscriptionTier},
+              agent_slots = ${agentSlots},
               tx_hash = ${txHash.trim()},
               chain = ${paymentChain},
               amount_paid = ${amountPaid},
@@ -178,15 +189,14 @@ export async function POST(request: NextRequest) {
         timeout,
       ]);
     } else {
-      // Insert new subscription
       await Promise.race([
         sql`
           INSERT INTO user_subscription (id, wallet_address, tier, agent_slots, tx_hash, chain, amount_paid, expires_at, created_at, updated_at)
           VALUES (
             gen_random_uuid()::text,
             ${walletLower},
-            'pro',
-            ${PRO_AGENT_SLOTS},
+            ${subscriptionTier},
+            ${agentSlots},
             ${txHash.trim()},
             ${paymentChain},
             ${amountPaid},
@@ -200,9 +210,12 @@ export async function POST(request: NextRequest) {
     }
 
     return apiSuccess({
-      tier: 'pro',
-      agentSlots: PRO_AGENT_SLOTS,
+      tier: subscriptionTier,
+      agentSlots,
       expiresAt: expiresAt.toISOString(),
+      txHash: txHash.trim(),
+      chain: paymentChain,
+      status: 'active',
       message: 'Subscription activated! You now have Pro access.',
     });
   } catch (err) {

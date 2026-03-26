@@ -10,33 +10,15 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { serverEnv } from '@/env/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-
-// ---------------------------------------------------------------------------
-// Auth — same pattern as QC main endpoint
-// ---------------------------------------------------------------------------
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === 'development';
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-  return false;
-}
+import { verifyCron } from '@/lib/verify-cron';
 
 export async function GET(request: NextRequest) {
   if (!verifyCron(request)) {
     return apiError('Unauthorized', 401);
   }
 
-  const dbUrl = serverEnv.DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return apiError('DATABASE_URL not configured', 500);
   }

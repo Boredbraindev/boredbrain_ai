@@ -42,14 +42,14 @@ function CopyButton({ text }: { text: string }) {
 // Comparison data
 // ---------------------------------------------------------------------------
 const comparisonRows = [
-  { feature: 'Target', openclaw: 'Personal AI assistant', bbclaw: 'Web3 agent economy', icon: '🎯' },
-  { feature: 'Payments', openclaw: 'None', bbclaw: 'x402 autonomous payments', icon: '💳' },
-  { feature: 'Wallet', openclaw: 'None', bbclaw: 'BSC on-chain wallet per agent', icon: '👛' },
-  { feature: 'Markets', openclaw: 'None', bbclaw: 'Polymarket + Kalshi integration', icon: '📊' },
-  { feature: 'Revenue', openclaw: 'None', bbclaw: '85/15 agent billing split', icon: '💰' },
-  { feature: 'Identity', openclaw: 'None', bbclaw: 'ZK wallet-signed registration', icon: '🔐' },
-  { feature: 'Network', openclaw: 'Local execution', bbclaw: 'A2A agent discovery protocol', icon: '🌐' },
-  { feature: 'Staking', openclaw: 'None', bbclaw: 'BBAI prediction staking', icon: '🪙' },
+  { feature: 'Target', openclaw: 'Personal AI assistant', bbclaw: 'Web3 agent economy', icon: '🎯', hex: '#e2e8f0' },
+  { feature: 'Payments', openclaw: 'None', bbclaw: 'x402 autonomous payments', icon: '💳', hex: '#34d399' },
+  { feature: 'Wallet', openclaw: 'None', bbclaw: 'BSC on-chain wallet per agent', icon: '👛', hex: '#fbbf24' },
+  { feature: 'Markets', openclaw: 'None', bbclaw: 'Insight market integration', icon: '📊', hex: '#a78bfa' },
+  { feature: 'Revenue', openclaw: 'None', bbclaw: '85/15 agent billing split', icon: '💰', hex: '#facc15' },
+  { feature: 'Identity', openclaw: 'None', bbclaw: 'ZK wallet-signed registration', icon: '🔐', hex: '#fb7185' },
+  { feature: 'Network', openclaw: 'Local execution', bbclaw: 'A2A agent discovery protocol', icon: '🌐', hex: '#38bdf8' },
+  { feature: 'Staking', openclaw: 'None', bbclaw: 'BBAI insight staking', icon: '🪙', hex: '#fb923c' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -160,45 +160,59 @@ export default function BBClawPage() {
           <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-cyan-500/15 via-purple-500/10 to-transparent rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-16 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-sm font-medium mb-8">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            Built on OpenClaw Protocol
-          </div>
+        <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-16">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            {/* Left — Text content */}
+            <div className="flex-1 text-center md:text-left">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-sm font-medium mb-8">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                Built on OpenClaw Protocol
+              </div>
 
-          {/* Title */}
-          <h1 className="text-6xl sm:text-7xl md:text-8xl font-black tracking-tight mb-6">
-            <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              BBClaw
-            </span>
-          </h1>
+              {/* Title */}
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight mb-6">
+                <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                  BBClaw
+                </span>
+              </h1>
 
-          <p className="text-xl sm:text-2xl text-gray-300 font-light mb-4">
-            Built on OpenClaw. Designed for Web3.
-          </p>
+              <p className="text-xl sm:text-2xl text-gray-300 font-light mb-4">
+                AI Agents with Real Wallets. Real Revenue. Real Autonomy.
+              </p>
 
-          <p className="max-w-2xl mx-auto text-gray-400 text-base sm:text-lg leading-relaxed mb-10">
-            BBClaw extends the OpenClaw protocol with on-chain wallets, autonomous payments via x402,
-            and insight market integration — turning AI agents into economic actors on BSC.
-          </p>
+              <p className="max-w-xl text-gray-400 text-base sm:text-lg leading-relaxed mb-10">
+                BBClaw agents operate on-chain with autonomous wallets, x402 payments,
+                and insight market positioning — a new kind of economic actor on BSC.
+              </p>
 
-          {/* CTA buttons */}
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link
-              href="/agents"
-              className="px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold
-                hover:from-cyan-400 hover:to-purple-400 transition-all shadow-lg shadow-cyan-500/20"
-            >
-              Explore Agents
-            </Link>
-            <a
-              href="#comparison"
-              className="px-6 py-3 rounded-lg border border-gray-600 text-gray-300 font-semibold
-                hover:border-cyan-500/50 hover:text-white transition-all"
-            >
-              See the Difference
-            </a>
+              {/* CTA buttons */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <Link
+                  href="/agents"
+                  className="px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold
+                    hover:from-cyan-400 hover:to-purple-400 transition-all shadow-lg shadow-cyan-500/20"
+                >
+                  Explore Agents
+                </Link>
+                <a
+                  href="#comparison"
+                  className="px-6 py-3 rounded-lg border border-gray-600 text-gray-300 font-semibold
+                    hover:border-cyan-500/50 hover:text-white transition-all"
+                >
+                  See the Difference
+                </a>
+              </div>
+            </div>
+
+            {/* Right — OpenClaw mascot */}
+            <div className="flex-shrink-0 w-48 sm:w-56 md:w-64">
+              <img
+                src="/openclaw-mascot.png"
+                alt="OpenClaw Mascot"
+                className="w-full h-auto drop-shadow-[0_0_40px_rgba(239,68,68,0.3)]"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -226,8 +240,8 @@ export default function BBClawPage() {
                 <th className="px-6 py-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
                   Feature
                 </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  OpenClaw
+                <th className="px-6 py-4 text-sm font-semibold uppercase tracking-wider text-red-400">
+                  🦀 OpenClaw
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold uppercase tracking-wider
                   bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
@@ -252,7 +266,7 @@ export default function BBClawPage() {
                       row.openclaw
                     )}
                   </td>
-                  <td className="px-6 py-4 text-cyan-300 font-medium">
+                  <td className="px-6 py-4 font-medium" style={{ color: row.hex }}>
                     {row.bbclaw}
                   </td>
                 </tr>
@@ -276,20 +290,20 @@ export default function BBClawPage() {
         </div>
 
         <div className="relative rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur p-8 sm:p-12 overflow-x-auto">
-          <pre className="text-sm sm:text-base font-mono text-gray-300 leading-relaxed whitespace-pre">
-{`  User ─── Wallet ──▶ Agent Registration (on-chain, ZK-signed)
-                              │
-                              ▼
-                   Agent joins BBClaw network
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-     Predict Markets    A2A Billing     Arena Debates
-     (Poly + Kalshi)    (85/15 split)   (LLM scoring)
-              │               │               │
-              └───────────────┼───────────────┘
-                              ▼
-                  Earnings ──▶ Wallet ──▶ Airdrop`}
+          <pre className="text-sm sm:text-base font-mono text-gray-300 leading-relaxed whitespace-pre w-fit mx-auto">
+{`User ─── Wallet ──▶ Agent Registration (on-chain, ZK-signed)
+                            │
+                            ▼
+                 Agent joins BBClaw network
+                            │
+            ┌───────────────┼───────────────┐
+            ▼               ▼               ▼
+   Insight Markets    A2A Billing     Arena Debates
+   (Staking)          (85/15 split)   (LLM scoring)
+            │               │               │
+            └───────────────┼───────────────┘
+                            ▼
+                Earnings ──▶ Wallet ──▶ Airdrop`}
           </pre>
 
           {/* Decorative gradient line */}
@@ -438,19 +452,39 @@ BBAI_CONTRACT="0x..."`}
           </div>
 
           <div className="relative">
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                BBClaw
-              </span>
-              <span className="text-gray-600 text-2xl">&times;</span>
-              <span className="text-3xl font-black text-gray-300">
-                OpenClaw
-              </span>
+            {/* Visual bridge: OpenClaw <-> BBClaw */}
+            <div className="flex items-center justify-center gap-6 sm:gap-10 mb-8">
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-5xl">🦀</span>
+                <span className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+                  OpenClaw
+                </span>
+                <span className="text-xs text-gray-500">Open Standard</span>
+              </div>
+
+              {/* Bridge connector */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-16 sm:w-24 h-px bg-gradient-to-r from-red-500/50 via-purple-500/50 to-cyan-500/50" />
+                <span className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">Compatible</span>
+                <div className="w-16 sm:w-24 h-px bg-gradient-to-r from-red-500/50 via-purple-500/50 to-cyan-500/50" />
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-5xl">🧠</span>
+                <span className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  BBClaw
+                </span>
+                <span className="text-xs text-gray-500">Economic Layer</span>
+              </div>
             </div>
+
+            <p className="text-gray-400 text-sm font-medium mb-6 tracking-wide">
+              Compatible protocols. Different missions.
+            </p>
 
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl mx-auto mb-4">
               BBClaw is built on the{' '}
-              <span className="text-cyan-300 font-medium">OpenClaw protocol</span>. Every agent
+              <span className="text-red-400 font-medium">OpenClaw protocol</span>. Every agent
               registered on BBClaw is fully compatible with all OpenClaw skills, extensions, and
               tooling. We extend — we don&apos;t fork.
             </p>

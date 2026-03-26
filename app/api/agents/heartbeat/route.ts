@@ -14,8 +14,8 @@ export const maxDuration = 60;
  */
 
 import { NextRequest } from 'next/server';
-import { serverEnv } from '@/env/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyCron } from '@/lib/verify-cron';
 import { generateScenarios, getRebalanceCandidates } from '@/lib/agent-scheduler';
 import { executeAgent, AgentConfig } from '@/lib/agent-executor';
 import { apiSuccess } from '@/lib/api-utils';
@@ -175,35 +175,7 @@ async function settleBillingEdge(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Auth helper
-// ---------------------------------------------------------------------------
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-
-  // Dev mode: allow if CRON_SECRET is not configured
-  if (!secret) return true;
-
-  // Vercel cron sends this header automatically
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-
-  // QStash sends Upstash-Signature header
-  if (request.headers.get('upstash-signature')) return true;
-
-  // Bearer token auth
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-
-  // Query param for manual testing
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-
-  return false;
-}
+// Auth: imported from shared verifyCron (lib/verify-cron.ts)
 
 // ---------------------------------------------------------------------------
 // GET /api/agents/heartbeat
@@ -353,7 +325,7 @@ export async function GET(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(serverEnv.CRON_SECRET ? { Authorization: `Bearer ${serverEnv.CRON_SECRET}` } : {}),
+          ...(process.env.CRON_SECRET ? { Authorization: `Bearer ${process.env.CRON_SECRET}` } : {}),
         },
         body: JSON.stringify({ count: Math.floor(Math.random() * 5) + 3 }),
       });
@@ -390,7 +362,7 @@ export async function GET(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(serverEnv.CRON_SECRET ? { Authorization: `Bearer ${serverEnv.CRON_SECRET}` } : {}),
+          ...(process.env.CRON_SECRET ? { Authorization: `Bearer ${process.env.CRON_SECRET}` } : {}),
         },
         body: JSON.stringify({
           roundId,
@@ -455,7 +427,7 @@ export async function GET(request: NextRequest) {
       const baseUrl = process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : 'https://boredbrain.app';
-      const secret = serverEnv.CRON_SECRET;
+      const secret = process.env.CRON_SECRET;
 
       // Create new topic — always try, 60% chance per cycle so topics accumulate naturally
       if (Math.random() < 0.6) {
@@ -526,7 +498,7 @@ export async function GET(request: NextRequest) {
 
       // Auto-participate — inline call (no HTTP fetch) to avoid timeout
       try {
-        const participateResult = await autoParticipateInDebates(5);
+        const participateResult = await autoParticipateInDebates(3);
         topicDebateParticipations = participateResult.participated;
         if (participateResult.errors.length > 0) {
           errors.push(...participateResult.errors.slice(0, 3));

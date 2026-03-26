@@ -4,6 +4,7 @@ export const maxDuration = 30;
 import { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { apiSuccess, apiError } from '@/lib/api-utils';
+import { verifyCron } from '@/lib/verify-cron';
 
 /**
  * POST /api/agents/seed-activity?step=1|2|3|4
@@ -16,14 +17,8 @@ import { apiSuccess, apiError } from '@/lib/api-utils';
  *   step=all (default) — Run all steps (may timeout on large fleets)
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    const { searchParams } = new URL(request.url);
-    const qSecret = searchParams.get('secret');
-    if (auth !== secret && qSecret !== secret) {
-      return apiError('Unauthorized', 401);
-    }
+  if (!verifyCron(request)) {
+    return apiError('Unauthorized', 401);
   }
 
   const { searchParams } = new URL(request.url);

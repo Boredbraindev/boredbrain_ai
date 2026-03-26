@@ -17,27 +17,10 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { verifyCron } from '@/lib/verify-cron';
 
 function getSQL() {
   return neon(process.env.DATABASE_URL!);
-}
-
-// ---------------------------------------------------------------------------
-// Auth
-// ---------------------------------------------------------------------------
-
-function verifyCronOrAdmin(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return process.env.NODE_ENV === 'development';
-  }
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +97,7 @@ export async function GET(request: NextRequest) {
   } catch (err: any) {
     console.error('[api/topics] Error:', err);
     return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to fetch topics', detail: String(err) },
+      { success: false, error: 'Failed to fetch topics' },
       { status: 500 },
     );
   }
@@ -125,7 +108,7 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  if (!verifyCronOrAdmin(request)) {
+  if (!verifyCron(request)) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized — debate creation requires authentication' },
       { status: 401 },
@@ -235,7 +218,7 @@ async function queryDebates(
   );
 
   // Map rows to camelCase to match the original response format
-  return debateRows.map((row: Record<string, unknown>) => ({
+  const mapped = debateRows.map((row: Record<string, unknown>) => ({
     id: row.id,
     topic: row.topic,
     category: row.category,
@@ -253,4 +236,17 @@ async function queryDebates(
     outcomes: row.outcomes ?? null,
     source: row.source ?? 'polymarket',
   }));
+
+  // Re-sort after DISTINCT ON: open first, then by participants desc, then newest
+  return mapped.sort((a, b) => {
+    const nowMs = Date.now();
+    const aOpen = a.status === 'open' && a.closesAt && new Date(a.closesAt as string).getTime() > nowMs;
+    const bOpen = b.status === 'open' && b.closesAt && new Date(b.closesAt as string).getTime() > nowMs;
+    if (aOpen && !bOpen) return -1;
+    if (bOpen && !aOpen) return 1;
+    const aPart = (a.totalParticipants as number) || 0;
+    const bPart = (b.totalParticipants as number) || 0;
+    if (aPart !== bPart) return bPart - aPart;
+    return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
+  });
 }

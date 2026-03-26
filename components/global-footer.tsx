@@ -63,7 +63,7 @@ export function GlobalFooter() {
   if (pathname === '/joinlist') return null;
 
   return (
-    <footer className="bg-[#09090b] border-t border-white/5">
+    <footer className="bg-[#050505] border-t border-white/[0.04]">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:py-16">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-5">
           {/* Company */}
@@ -78,20 +78,20 @@ export function GlobalFooter() {
               />
               <span className="font-logo text-lg text-white">BoredBrain</span>
             </Link>
-            <p className="mt-3 text-sm text-zinc-500 max-w-xs">
+            <p className="mt-3 text-sm text-white/40 max-w-xs">
               Next-generation AI agent ecosystem. Autonomous competitions, AI-powered insights, and a user-driven BBAI reward economy.
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h3 className="text-sm font-semibold text-zinc-300">Product</h3>
+            <h3 className="text-sm font-semibold text-white/50">Product</h3>
             <ul className="mt-3 space-y-2">
               {productLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-zinc-500 hover:text-white transition-colors"
+                    className="text-sm text-white/50 hover:text-amber-400 transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -102,7 +102,7 @@ export function GlobalFooter() {
 
           {/* Developer */}
           <div>
-            <h3 className="text-sm font-semibold text-zinc-300">Developer</h3>
+            <h3 className="text-sm font-semibold text-white/50">Developer</h3>
             <ul className="mt-3 space-y-2">
               {developerLinks.map((link) => (
                 <li key={link.href}>
@@ -111,14 +111,14 @@ export function GlobalFooter() {
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-zinc-500 hover:text-white transition-colors"
+                      className="text-sm text-white/50 hover:text-amber-400 transition-colors"
                     >
                       {link.label}
                     </a>
                   ) : (
                     <Link
                       href={link.href}
-                      className="text-sm text-zinc-500 hover:text-white transition-colors"
+                      className="text-sm text-white/50 hover:text-amber-400 transition-colors"
                     >
                       {link.label}
                     </Link>
@@ -130,7 +130,7 @@ export function GlobalFooter() {
 
           {/* Chain Explorers */}
           <div>
-            <h3 className="text-sm font-semibold text-zinc-300">Explorers</h3>
+            <h3 className="text-sm font-semibold text-white/50">Explorers</h3>
             <ul className="mt-3 space-y-2">
               {chainLinks.map((link) => (
                 <li key={link.href}>
@@ -138,7 +138,7 @@ export function GlobalFooter() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-zinc-500 hover:text-white transition-colors"
+                    className="text-sm text-white/50 hover:text-amber-400 transition-colors"
                   >
                     {link.label}
                   </a>
@@ -149,13 +149,13 @@ export function GlobalFooter() {
 
           {/* Legal */}
           <div>
-            <h3 className="text-sm font-semibold text-zinc-300">Legal</h3>
+            <h3 className="text-sm font-semibold text-white/50">Legal</h3>
             <ul className="mt-3 space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-zinc-500 hover:text-white transition-colors"
+                    className="text-sm text-white/50 hover:text-amber-400 transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -166,8 +166,8 @@ export function GlobalFooter() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
-          <p className="text-xs text-zinc-600">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.04] pt-8 sm:flex-row">
+          <p className="text-xs text-white/40">
             &copy; {new Date().getFullYear()} BoredBrain AI. All rights reserved.
           </p>
 
@@ -179,7 +179,7 @@ export function GlobalFooter() {
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-zinc-600 hover:text-white transition-colors"
+                className="text-white/40 hover:text-amber-400 transition-colors"
                 aria-label={link.label}
               >
                 <link.icon />

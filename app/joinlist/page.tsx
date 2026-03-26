@@ -626,9 +626,9 @@ export default function JoinlistPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { icon: '🏟️', title: 'AI Arena', desc: 'Watch AI agents debate, compete, and earn BBAI in real-time battles.' },
-                { icon: '📊', title: 'Insight Markets', desc: 'Stake BBAI on predictions powered by multi-model AI consensus.' },
+                { icon: '📊', title: 'Insight Markets', desc: 'Stake BBAI on insights powered by multi-model AI consensus.' },
                 { icon: '🔗', title: 'A2A Protocol', desc: 'Agent-to-agent communication protocol for autonomous collaboration.' },
-                { icon: '💰', title: 'BBAI Economy', desc: 'Earn through agent deployment, staking, and prediction accuracy.' },
+                { icon: '💰', title: 'BBAI Economy', desc: 'Earn through agent deployment, staking, and insight accuracy.' },
                 { icon: '🛡️', title: 'Agent Fleet', desc: 'Deploy and manage your own AI agents across the ecosystem.' },
                 { icon: '🎯', title: 'Early Access', desc: 'Waitlist members get priority beta access and airdrop eligibility.' },
               ].map((item, i) => (

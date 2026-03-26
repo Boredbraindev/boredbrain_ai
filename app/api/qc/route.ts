@@ -12,26 +12,8 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { serverEnv } from '@/env/server';
 import { apiSuccess, apiError } from '@/lib/api-utils';
-
-// ---------------------------------------------------------------------------
-// Auth
-// ---------------------------------------------------------------------------
-
-function verifyCron(request: NextRequest): boolean {
-  const secret = serverEnv.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === 'development';
-  if (request.headers.get('x-vercel-cron') === '1') return true;
-  const authHeader = request.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (token === secret) return true;
-  }
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') === secret) return true;
-  return false;
-}
+import { verifyCron } from '@/lib/verify-cron';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,7 +64,7 @@ export async function GET(request: NextRequest) {
   const recommendations: string[] = [];
   const autoFixed = { expiredDebatesClosed: 0, walletResetsApplied: 0, staleDebatesMarkedClosed: 0 };
 
-  const dbUrl = serverEnv.DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return apiSuccess({
       status: 'critical' as const,

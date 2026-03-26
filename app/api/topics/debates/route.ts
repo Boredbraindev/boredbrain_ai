@@ -10,7 +10,7 @@ export const maxDuration = 10;
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, parseJsonBody } from '@/lib/api-utils';
-import { serverEnv } from '@/env/server';
+import { verifyCron } from '@/lib/verify-cron';
 import {
   getAllDebates,
   createDebateFromTopic,
@@ -69,14 +69,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth: require cron secret or bearer token
-    const authHeader = request.headers.get('authorization');
-    const secret = serverEnv.CRON_SECRET;
-    if (secret) {
-      const token = authHeader?.replace(/^Bearer\s+/i, '') ?? '';
-      if (token !== secret && request.headers.get('x-vercel-cron') !== '1') {
-        return apiError('Unauthorized', 401);
-      }
+    if (!verifyCron(request)) {
+      return apiError('Unauthorized', 401);
     }
 
     const parsed = await parseJsonBody<{ topicId?: string }>(request);

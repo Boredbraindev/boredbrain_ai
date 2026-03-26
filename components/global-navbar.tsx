@@ -44,8 +44,8 @@ function NavDropdown({
           className={cn(
             'text-[11px] lg:text-xs xl:text-[13px] font-mono-wide tracking-widest gap-0.5 px-2.5 lg:px-3 xl:px-4',
             isGroupActive
-              ? 'text-amber-brand'
-              : 'text-muted-foreground/70 hover:text-amber-brand',
+              ? 'text-amber-400 font-semibold'
+              : 'text-white/60 hover:text-amber-400',
           )}
         >
           {label}
@@ -55,7 +55,7 @@ function NavDropdown({
       <DropdownMenuContent
         align="center"
         sideOffset={8}
-        className="min-w-[140px] lg:min-w-[160px] bg-background/95 backdrop-blur-xl border-white/[0.08]"
+        className="min-w-[140px] lg:min-w-[160px] bg-[#0a0a0a] border-white/[0.06]"
       >
         {items.map((item) => {
           // Exact match only for dropdown items — prevents /agents matching /agents/register
@@ -67,10 +67,10 @@ function NavDropdown({
                 className={cn(
                   'text-[11px] lg:text-xs font-mono-wide tracking-widest cursor-pointer flex items-center gap-1.5',
                   isActive
-                    ? 'text-amber-brand font-semibold'
+                    ? 'text-amber-400 font-semibold'
                     : item.status === 'coming_soon'
                       ? 'text-white/25'
-                      : 'text-muted-foreground hover:text-foreground',
+                      : 'text-white/60 hover:text-amber-400',
                 )}
               >
                 {item.label}
@@ -110,7 +110,6 @@ const NAV_GROUPS = [
       { href: '/economy', label: 'Economy' },
       { href: '/topup', label: 'Top Up' },
       { href: '/campaigns', label: 'Campaigns' },
-      { href: '/rewards', label: 'Rewards' },
     ],
   },
   {
@@ -129,9 +128,6 @@ export function GlobalNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Hide navbar on standalone pages (joinlist landing, etc.)
-  if (pathname === '/joinlist') return null;
-
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -143,6 +139,9 @@ export function GlobalNavbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  // Hide navbar on standalone pages (joinlist landing, etc.)
+  if (pathname === '/joinlist') return null;
+
   return (
     <>
       <nav
@@ -150,8 +149,8 @@ export function GlobalNavbar() {
           'fixed left-0 right-0 z-30 top-0 flex justify-between items-center transition-all duration-300',
           'px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-3 xl:px-8 min-h-[56px] lg:min-h-[60px] xl:min-h-[64px]',
           scrolled
-            ? 'bg-background/70 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_1px_20px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.04)]'
-            : 'bg-background/40 backdrop-blur-md border-b border-transparent',
+            ? 'bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-white/[0.04] shadow-[0_1px_10px_rgba(0,0,0,0.2)]'
+            : 'bg-[#0a0a0a]/80 backdrop-blur-sm border-b border-transparent',
         )}
         role="navigation"
       >
@@ -174,7 +173,7 @@ export function GlobalNavbar() {
               height={28}
               className="opacity-90 group-hover:opacity-100 transition-opacity rounded-md sm:w-[28px] sm:h-[28px] lg:w-[34px] lg:h-[34px] xl:w-[38px] xl:h-[38px]"
             />
-            <span className="hidden lg:inline text-sm xl:text-base font-logo text-white/90 group-hover:text-white transition-colors tracking-wide">
+            <span className="hidden lg:inline text-sm xl:text-base font-logo text-amber-500 group-hover:text-amber-400 transition-colors tracking-wide">
               BoredBrain
             </span>
           </Link>
@@ -199,28 +198,12 @@ export function GlobalNavbar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="holographic-button rounded-full border border-border/40 dark:border-white/10 transition-all pointer-events-auto px-3.5 sm:px-4 lg:px-5 h-9 lg:h-10 xl:h-11 font-semibold active:scale-[0.97]"
+              className="bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 rounded-full transition-all pointer-events-auto px-3.5 sm:px-4 lg:px-5 h-9 lg:h-10 xl:h-11 font-semibold active:scale-[0.97]"
             >
-              <span className="font-bold text-xs sm:text-sm lg:text-sm xl:text-base text-white dark:text-white flex items-center gap-1 lg:gap-1.5">
+              <span className="font-bold text-xs sm:text-sm lg:text-sm xl:text-base text-amber-400 flex items-center gap-1 lg:gap-1.5">
                 <span className="text-base sm:text-lg lg:text-xl leading-none">⚔</span>
                 <span className="tracking-wide hidden sm:inline">ARENA</span>
               </span>
-            </Button>
-          </Link>
-
-          <Link href="/profile">
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(
-                'hidden sm:inline-flex items-center gap-1.5 rounded-full border transition-all h-9 lg:h-10 px-2.5 lg:px-3',
-                pathname === '/profile'
-                  ? 'text-amber-brand bg-amber-brand/10 border-amber-500/30'
-                  : 'text-muted-foreground/70 hover:text-amber-brand hover:bg-white/[0.06] border-white/[0.12]',
-              )}
-            >
-              <UserIcon className="size-5 lg:size-6" />
-              <span className="hidden lg:inline text-xs font-medium tracking-wide">Profile</span>
             </Button>
           </Link>
 
@@ -237,12 +220,12 @@ export function GlobalNavbar() {
           onClick={() => setMobileMenuOpen(false)}
         >
           <div
-            className="absolute top-[56px] left-0 right-0 max-h-[calc(100dvh-56px)] overflow-y-auto bg-background/95 backdrop-blur-xl border-b border-white/[0.08] p-4"
+            className="absolute top-[56px] left-0 right-0 max-h-[calc(100dvh-56px)] overflow-y-auto bg-[#0a0a0a]/98 backdrop-blur-sm border-b border-white/[0.04] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             {NAV_GROUPS.map((group) => (
               <div key={group.label} className="mb-4 last:mb-0">
-                <p className="text-[10px] font-mono-wide tracking-widest text-muted-foreground/50 uppercase mb-1.5 px-2">
+                <p className="text-[10px] font-mono-wide tracking-widest text-white/30 uppercase mb-1.5 px-2">
                   {group.label}
                 </p>
                 <div className="flex flex-col gap-0.5">
@@ -256,10 +239,10 @@ export function GlobalNavbar() {
                         className={cn(
                           'text-sm px-2 py-1.5 rounded-md transition-colors flex items-center gap-1.5',
                           isActive
-                            ? 'text-amber-brand font-semibold bg-amber-brand/10'
+                            ? 'text-amber-400 font-semibold bg-amber-500/10'
                             : item.status === 'coming_soon'
                               ? 'text-white/25'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]',
+                              : 'text-white/60 hover:text-amber-400 hover:bg-white/[0.04]',
                         )}
                       >
                         {item.label}
@@ -275,14 +258,14 @@ export function GlobalNavbar() {
                 </div>
               </div>
             ))}
-            <div className="pt-3 border-t border-white/[0.06] flex flex-col gap-2">
+            <div className="pt-3 border-t border-white/[0.04] flex flex-col gap-2">
               <Link
                 href="/profile"
                 className={cn(
                   'text-sm px-2 py-1.5 rounded-md transition-colors flex items-center gap-2',
                   pathname === '/profile'
-                    ? 'text-amber-brand font-semibold bg-amber-brand/10'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]',
+                    ? 'text-amber-400 font-semibold bg-amber-500/10'
+                    : 'text-white/60 hover:text-amber-400 hover:bg-white/[0.04]',
                 )}
               >
                 <UserIcon className="size-4" />

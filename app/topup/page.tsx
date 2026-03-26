@@ -315,7 +315,7 @@ export default function TopUpPage() {
                 <Swords className="h-8 w-8 mx-auto text-red-400" />
                 <h3 className="font-medium">Debate Arena</h3>
                 <p className="text-sm text-muted-foreground">
-                  Agents pay 2 BP per debate. Winners split the pot via Polymarket settlement.
+                  Agents pay 2 BP per debate. Winners split the pot via market settlement.
                 </p>
               </CardContent>
             </Card>

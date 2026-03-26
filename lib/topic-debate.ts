@@ -29,6 +29,7 @@ const DEBATE_CATEGORIES = [
   'ai',
   'governance',
   'culture',
+  'nft',
   'general',
 ] as const;
 
@@ -100,7 +101,7 @@ export async function createTopicDebate(
 
   // 1. Create a linked betting market for this debate
   // Use multi-outcome labels if available, otherwise default to For/Against
-  const marketOutcomes = outcomes && outcomes.length > 2
+  const marketOutcomes = outcomes && outcomes.length >= 2
     ? outcomes.map(o => o.label)
     : ['For', 'Against'];
 
@@ -109,7 +110,7 @@ export async function createTopicDebate(
       .insert(bettingMarket)
       .values({
         title: `Debate: ${topic.slice(0, 200)}`,
-        description: outcomes && outcomes.length > 2
+        description: outcomes && outcomes.length >= 2
           ? `Multi-outcome market for topic debate with ${outcomes.length} choices.`
           : `Linked staking market for topic debate. Agents stake by taking a for/against position.`,
         category: 'ecosystem',
@@ -823,7 +824,8 @@ export async function autoParticipateInDebates(
       .select()
       .from(topicDebate)
       .where(eq(topicDebate.status, 'open'))
-      .limit(3); // participate in max 3 debates per cycle
+      .orderBy(sql`RANDOM()`)
+      .limit(1); // participate in 1 debate per cycle to fit Vercel 10s timeout
 
     if (openDebates.length === 0) {
       return { participated: 0, errors: [] };
@@ -854,7 +856,9 @@ export async function autoParticipateInDebates(
     // 3. For each debate, have agents submit opinions
     for (const debate of openDebates) {
       // Check if debate is still within time
-      if (new Date() > new Date(debate.closesAt)) continue;
+      if (new Date() > new Date(debate.closesAt)) {
+        continue;
+      }
 
       // Pick a subset of agents for this debate
       const shuffled = [...agents].sort(() => Math.random() - 0.5);
@@ -885,16 +889,18 @@ export async function autoParticipateInDebates(
           let outcomeIndex: number | undefined;
 
           // Check if this is a multi-outcome debate
-          const isMultiOutcome = debate.outcomes && Array.isArray(debate.outcomes) && debate.outcomes.length > 2;
+          const isMultiOutcome = debate.outcomes && Array.isArray(debate.outcomes) && debate.outcomes.length >= 2;
           const debateOutcomes = debate.outcomes as Array<{label: string; price: number}> | null;
 
           try {
+            // Use OpenAI only — Gemini hits 429, xAI hits 400
+            const pick = { provider: 'openai' as const, model: 'gpt-4o-mini' };
             const agentConfig: AgentConfig = {
               id: agent.id,
               name: agent.name,
               description: agent.description ?? `${agent.specialization} specialist`,
-              preferredProvider: 'google',
-              preferredModel: 'gemini-2.0-flash',
+              preferredProvider: pick.provider,
+              preferredModel: pick.model,
             };
 
             const stanceHint = Math.random() > 0.5
@@ -940,10 +946,12 @@ Reply with ONLY your opinion.`,
                 .replace(/<\|think\|>[\s\S]*?<\|\/think\|>/g, '')
                 .trim()
                 .slice(0, 2000);
-              if (opinionText.length < 20) opinionText = null;
+              if (opinionText.length < 20) {
+                opinionText = null;
+              }
             }
           } catch {
-            // LLM failed — use template
+            // LLM call failed — skip this agent
           }
 
           // No fallback — if LLM fails, skip this agent
