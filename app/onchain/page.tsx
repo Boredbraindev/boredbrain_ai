@@ -122,7 +122,7 @@ export default function OnChainDashboard() {
               <div className="space-y-1">
                 <div className="text-xs text-zinc-500 uppercase tracking-wider">Network</div>
                 <div className="text-lg font-semibold text-white flex items-center gap-2">
-                  {settlement?.chain ?? 'BSC Testnet'}
+                  {settlement?.chain ?? 'BSC Mainnet'}
                   <div className="relative">
                     <div className={`w-2 h-2 rounded-full ${settlement?.isLive ? 'bg-green-500' : 'bg-amber-500'}`} />
                     <div className={`absolute inset-0 w-2 h-2 rounded-full animate-ping ${settlement?.isLive ? 'bg-green-500' : 'bg-amber-500'} opacity-40`} />
@@ -354,7 +354,7 @@ export default function OnChainDashboard() {
                 <Separator className="bg-zinc-800" />
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500">Network</span>
-                  <span className="text-white">{settlement?.chain ?? 'BSC Testnet'}</span>
+                  <span className="text-white">{settlement?.chain ?? 'BSC Mainnet'}</span>
                 </div>
                 <Separator className="bg-zinc-800" />
                 <div className="flex justify-between text-sm">

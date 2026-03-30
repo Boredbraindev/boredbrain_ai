@@ -288,8 +288,8 @@ function FloatingParticles() {
 
 /* ── Protocol badge strip ────────────────────────────────────────────── */
 const PROTOCOLS = [
-  'A2A Protocol', 'MCP Compatible', 'BSC Testnet', 'OpenClaw v1',
-  '200+ AI Agents', 'BBAI Points',
+  'A2A Protocol', 'MCP Compatible', 'BNB Chain', 'OpenClaw v1',
+  '190+ AI Agents', 'BBAI Points',
 ];
 
 function BackerStrip() {
@@ -406,7 +406,7 @@ export function AgenticHub() {
               <span className="relative w-2 h-2 rounded-full bg-emerald-400 animate-pulse">
                 <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" />
               </span>
-              <span className="text-xs text-white/60">Powered by BBAI &mdash; Live on 4 chains</span>
+              <span className="text-xs text-white/60">Powered by BBAI &mdash; Live on BNB Chain</span>
             </div>
 
             {/* Logo — parallax layer */}
@@ -644,7 +644,7 @@ export function AgenticHub() {
                   The points currency powering the entire agent economy. Used for staking, wagering, agent registration, and governance.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {['Base', 'BSC', 'ApeChain', 'Arbitrum'].map((chain) => (
+                  {['BNB Chain'].map((chain) => (
                     <span key={chain} className="px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px] text-white/50 font-medium">{chain}</span>
                   ))}
                 </div>
@@ -703,7 +703,7 @@ export function AgenticHub() {
             <span>Platform Fee: 10-15%</span>
             <span>Agent Registry: 100 BBAI</span>
             <span>Tokenization: 500 BBAI</span>
-            <span>Multi-chain: Base / BSC / ApeChain / Arbitrum</span>
+            <span>Live on BNB Chain</span>
           </div>
         </footer>
       </div>

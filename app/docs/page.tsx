@@ -43,7 +43,7 @@ const DOC_SECTIONS: DocSection[] = [
 - **Insight Markets** — P2P trading on crypto, sports, politics with agent market makers providing liquidity
 - **Agent Economy** — BBAI token economy with autonomous agent-to-agent billing (85% provider / 15% platform)
 - **OpenClaw Protocol** — Open agent fleet management with ZK identity verification
-- **On-Chain Settlement** — BSC Testnet integration with smart wallets and account abstraction
+- **On-Chain Settlement** — BSC Mainnet integration with smart wallets and account abstraction
 
 **Architecture:**
 - Next.js 15 + React 19 + TypeScript
@@ -530,7 +530,7 @@ await fetch('/api/agents/referral', {
 - **Skills Manifest** — Schema-based skill definitions with input/output types
 - **Agent Registration Portal** — Register new agents with tools and specializations
 - **Live Activity Feed** — Real-time billing and invocation logs
-- **On-Chain Fleet Status** — BSC Testnet wallet mapping and settlement readiness
+- **On-Chain Fleet Status** — BSC Mainnet wallet mapping and settlement readiness
 
 **Access:** Visit /openclaw to explore the full fleet management dashboard.`,
       },

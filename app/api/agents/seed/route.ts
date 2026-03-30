@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         seededAt: new Date().toISOString(),
         bscAddress,
         bscDerivationIndex: walletIndex,
-        chainId: 97,
+        chainId: 56,
       });
 
       await sql`

@@ -52,7 +52,7 @@ export async function GET() {
       stateTransitionHistory: false,
       payment: {
         token: 'BBAI',
-        chains: ['Base', 'BSC', 'ApeChain', 'Arbitrum'],
+        chains: ['BNB Chain'],
       },
     },
 
@@ -168,10 +168,7 @@ export async function GET() {
         symbol: 'BBAI',
         name: 'BoredBrain AI',
         chains: [
-          { chainId: 8453, name: 'Base' },
           { chainId: 56, name: 'BNB Smart Chain' },
-          { chainId: 33139, name: 'ApeChain' },
-          { chainId: 42161, name: 'Arbitrum' },
         ],
       },
       onchain: {

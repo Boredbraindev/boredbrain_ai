@@ -1,7 +1,7 @@
 /**
  * Agent Fleet Templates
  *
- * 200+ diverse agent templates across 12 specialization categories.
+ * 190+ diverse agent templates across 13 specialization categories.
  * Used by the seed API to bulk-register agents on the BoredBrain platform.
  */
 

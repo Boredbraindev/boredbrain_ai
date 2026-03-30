@@ -530,20 +530,7 @@ export default function JoinlistPage() {
                       >
                         <XIcon />
                       </Link>
-                      <Link
-                        href="https://discord.gg/"
-                        target="_blank"
-                        className="text-white/30 hover:text-amber-400 transition-colors"
-                      >
-                        <DiscordIcon />
-                      </Link>
-                      <Link
-                        href="https://t.me/"
-                        target="_blank"
-                        className="text-white/30 hover:text-amber-400 transition-colors"
-                      >
-                        <TelegramIcon />
-                      </Link>
+                      {/* Discord & Telegram links removed — not yet set up */}
                     </div>
                   </div>
                 ) : (
@@ -658,22 +645,6 @@ export default function JoinlistPage() {
                 aria-label="X (Twitter)"
               >
                 <XIcon />
-              </Link>
-              <Link
-                href="https://discord.gg/"
-                target="_blank"
-                className="text-white/25 hover:text-amber-400 transition-colors duration-300"
-                aria-label="Discord"
-              >
-                <DiscordIcon />
-              </Link>
-              <Link
-                href="https://t.me/"
-                target="_blank"
-                className="text-white/25 hover:text-amber-400 transition-colors duration-300"
-                aria-label="Telegram"
-              >
-                <TelegramIcon />
               </Link>
               <Link
                 href="https://github.com/Boredbraindev/boredbrain_ai"

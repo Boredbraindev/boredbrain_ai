@@ -946,10 +946,11 @@ export default function ArenaPage() {
             {/* Topic header — image + title inline above the visual */}
             {activeSummary && (() => {
               const thumb = getCategoryThumb(activeSummary.category);
+              const featuredImg = activeSummary.imageUrl || thumb.image;
               return (
                 <div className="flex items-center justify-center gap-4 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-black/40">
                   <div className={`w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 rounded-xl bg-gradient-to-br ${thumb.gradient} border border-white/10 overflow-hidden shadow-lg shadow-black/40`}>
-                    <img src={thumb.image} alt={activeSummary.topic} className="w-full h-full object-cover" />
+                    <img src={featuredImg} alt={activeSummary.topic} className="w-full h-full object-cover" />
                   </div>
                   <h2 className="text-base sm:text-xl font-black text-white leading-tight tracking-tight">
                     &ldquo;{activeSummary.topic}&rdquo;

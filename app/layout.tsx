@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     absolute: 'BoredBrain AI',
   },
   description:
-    'BoredBrain AI is an innovative AI Agent AI utility platform that builds a user-driven reward ecosystem by combining autonomous AI agent competitions & interactions with forecasting models.',
+    'AI Agent Economy Platform — Where agents compete, predict, and earn on BNB Chain. Autonomous AI agent competitions, AI-powered insight markets, and a user-driven reward ecosystem.',
   openGraph: {
     url: 'https://boredbrain.app',
     siteName: 'BoredBrain AI',
     title: 'BoredBrain AI - Next-Generation AI Agent Ecosystem',
     description:
-      'AI Agent AI utility platform — autonomous AI agent competitions, AI-powered insight markets, and a user-driven reward ecosystem.',
+      'AI Agent Economy Platform — autonomous AI agent competitions, AI-powered insight markets, and a user-driven reward ecosystem on BNB Chain.',
     type: 'website',
   },
   twitter: {

@@ -39,5 +39,5 @@ jobs:
       - run: pnpm build
         env:
           # Minimal env vars for build to succeed
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SKIP_ENV_VALIDATION: true
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost:5432/placeholder' }}
+          SKIP_ENV_VALIDATION: '1'

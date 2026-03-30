@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       rating: ea.rating || 0,
       eloRating: ea.elo_rating || 1200,
       nftTokenId: null,
-      chainId: 97,
+      chainId: 56,
       status: ea.status,
       specialization: ea.specialization,
       ownerAddress: ea.owner_address,

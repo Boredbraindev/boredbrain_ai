@@ -22,7 +22,7 @@ import { createInterface } from 'node:readline';
 // Config
 // ---------------------------------------------------------------------------
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const API_BASE = process.env.BBCLAW_API || 'https://boredbrain.app/api';
 const CONFIG_DIR = join(homedir(), '.bbclaw');
 const CONFIG_PATH = join(CONFIG_DIR, 'agent.json');

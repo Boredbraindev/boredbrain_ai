@@ -5,11 +5,10 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const productLinks = [
-  { href: '/playground', label: 'Arena' },
-  { href: '/playbooks', label: 'Playbooks' },
-  { href: '/predict', label: 'Insights' },
-  { href: '/economy', label: 'Economy' },
-  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/arena', label: 'Arena' },
+  { href: '/agents', label: 'Agents' },
+  { href: '/openclaw', label: 'BBClaw' },
+  { href: '/docs', label: 'Docs' },
 ];
 
 const developerLinks = [
@@ -25,13 +24,10 @@ const legalLinks = [
 
 const socialLinks = [
   { href: 'https://x.com/BoredbBrain', label: 'X (Twitter)', icon: XIcon },
-  { href: 'https://discord.gg/', label: 'Discord', icon: DiscordIcon },
-  { href: 'https://t.me/', label: 'Telegram', icon: TelegramIcon },
 ];
 
 const chainLinks = [
-  { href: 'https://basescan.org', label: 'Base Explorer' },
-  { href: 'https://bscscan.com', label: 'BSC Explorer' },
+  { href: 'https://bscscan.com', label: 'BscScan' },
 ];
 
 function XIcon({ className }: { className?: string }) {

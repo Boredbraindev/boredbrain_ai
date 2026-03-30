@@ -4,8 +4,8 @@
  * Monitors whale wallet transfers to exchanges using Etherscan's free API.
  * Generates debate topics from large ETH movements.
  *
- * Free tier: 5 requests/second, no API key needed for basic endpoints.
- * Results are cached for 10 minutes.
+ * Etherscan V2 API requires a free API key (get one at https://etherscan.io/myapikey).
+ * Free tier: 5 requests/second. Results are cached for 10 minutes.
  */
 
 import type { TopicCandidate } from '@/lib/nft-feed';
@@ -76,6 +76,12 @@ interface EtherscanTx {
 }
 
 async function fetchRecentTransactions(address: string): Promise<EtherscanTx[]> {
+  // Etherscan V2 API requires a valid API key for all requests.
+  // Get a free key at https://etherscan.io/myapikey
+  if (!ETHERSCAN_API_KEY) {
+    return [];
+  }
+
   const { controller, timeout } = createAbortController();
   try {
     const params = new URLSearchParams({
@@ -88,10 +94,8 @@ async function fetchRecentTransactions(address: string): Promise<EtherscanTx[]> 
       sort: 'desc',
       page: '1',
       offset: '5',
+      apikey: ETHERSCAN_API_KEY,
     });
-    if (ETHERSCAN_API_KEY) {
-      params.set('apikey', ETHERSCAN_API_KEY);
-    }
 
     const res = await fetch(`${ETHERSCAN_API}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
@@ -102,7 +106,15 @@ async function fetchRecentTransactions(address: string): Promise<EtherscanTx[]> 
     if (!res.ok) return [];
 
     const data = await res.json();
-    if (data.status !== '1' || !Array.isArray(data.result)) return [];
+
+    // V2 returns status '1' on success, '0' on error
+    if (data.status !== '1' || !Array.isArray(data.result)) {
+      // Log the error for debugging (missing key, rate limit, etc.)
+      if (data.message && data.message !== 'OK') {
+        console.warn(`[onchain-feed] Etherscan API error for ${address.slice(0, 10)}...: ${data.message} — ${typeof data.result === 'string' ? data.result : ''}`);
+      }
+      return [];
+    }
 
     return data.result as EtherscanTx[];
   } catch {
@@ -206,6 +218,12 @@ export async function fetchOnchainTopics(limit = 3): Promise<TopicCandidate[]> {
   // Check cache
   if (onchainCache && Date.now() - onchainCache.fetchedAt < CACHE_TTL_MS) {
     return onchainCache.topics.slice(0, limit);
+  }
+
+  // Etherscan V2 requires an API key — skip fetch entirely if not configured
+  if (!ETHERSCAN_API_KEY) {
+    console.warn('[onchain-feed] ETHERSCAN_API_KEY not set — skipping onchain feed. Get a free key at https://etherscan.io/myapikey');
+    return [];
   }
 
   try {

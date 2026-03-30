@@ -435,7 +435,7 @@ export default function FleetDashboardPage() {
 
       {/* Footer */}
       <footer className="text-center text-[10px] text-white/15 pt-8 pb-4">
-        BoredBrain AI · OpenClaw Fleet Dashboard · BSC Testnet (chainId 97) · BBAI Points (Internal)
+        BoredBrain AI · OpenClaw Fleet Dashboard · BSC Mainnet (chainId 56) · BBAI Points (Internal)
       </footer>
     </div>
   );

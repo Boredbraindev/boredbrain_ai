@@ -80,10 +80,10 @@ export const en = {
   'footer.platform_fee': 'Platform Fee: 10-15%',
   'footer.agent_registry': 'Agent Registry: 100 BBAI',
   'footer.tokenization': 'Tokenization: 500 BBAI',
-  'footer.multichain': 'Multi-chain: Base / BSC / ApeChain / Arbitrum',
+  'footer.multichain': 'Live on BNB Chain',
 
   // Misc
-  'misc.powered_by': 'Powered by BBAI \u2014 Live on 4 chains',
+  'misc.powered_by': 'Powered by BBAI \u2014 Live on BNB Chain',
   'misc.core_modules': 'Core Modules',
   'misc.revenue_model': 'Revenue Model',
   'misc.featured': 'Featured',
@@ -169,10 +169,10 @@ export const ko: Record<TranslationKeys, string> = {
   'footer.platform_fee': '\uD50C\uB7AB\uD3FC \uC218\uC218\uB8CC: 10-15%',
   'footer.agent_registry': '\uC5D0\uC774\uC804\uD2B8 \uB4F1\uB85D: 100 BBAI',
   'footer.tokenization': '\uD1A0\uD070\uD654: 500 BBAI',
-  'footer.multichain': '\uBA40\uD2F0\uCCB4\uC778: Base / BSC / ApeChain / Arbitrum',
+  'footer.multichain': 'BNB Chain \uC6B4\uC601 \uC911',
 
   // Misc
-  'misc.powered_by': 'BBAI \uAE30\uBC18 \u2014 4\uAC1C \uCCB4\uC778 \uC6B4\uC601 \uC911',
+  'misc.powered_by': 'BBAI \uAE30\uBC18 \u2014 BNB Chain \uC6B4\uC601 \uC911',
   'misc.core_modules': '\uD575\uC2EC \uBAA8\uB4C8',
   'misc.revenue_model': '\uC218\uC775 \uBAA8\uB378',
   'misc.featured': '\uCD94\uCC9C',

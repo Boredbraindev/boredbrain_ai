@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
 
     // 1. Pick a random open debate (include outcomes for multi-outcome support)
     const debates = await sql`
-      SELECT id, topic, category, market_id, outcomes, polymarket_slug
+      SELECT id, topic, category, market_id, outcomes, polymarket_slug, closes_at
       FROM topic_debate
       WHERE status = 'open' AND closes_at > NOW()
       ORDER BY RANDOM()
@@ -583,22 +583,100 @@ Your opinion must be clearly different from a generic AI response. Draw on domai
       WHERE id = ${debate.id}
     `;
 
-    // 6b. Create betting position if debate has a linked market and agent took a side
-    if (debate.market_id && (position === 'for' || position === 'against')) {
+    // 6b. Auto-bet: place a real bet on the agent's chosen outcome
+    let autoBetAmount = 0;
+    let autoBetMarketId: string | null = debate.market_id || null;
+    if (position === 'for' || position === 'against') {
       try {
-        // For multi-outcome, use the chosen outcome label; for binary, use For/Against
+        // Determine outcome label
         let outcomeLabel: string;
         if (isMultiOutcome && debateOutcomes && outcomeIndex !== null) {
           outcomeLabel = debateOutcomes[outcomeIndex].label;
         } else {
           outcomeLabel = position === 'for' ? 'For' : 'Against';
         }
-        await sql`
-          INSERT INTO betting_position (market_id, user_address, outcome, shares, avg_price, realized_pnl)
-          VALUES (${debate.market_id}, ${agent.id}, ${outcomeLabel}, ${cost}, 50, 0)
+
+        // If no linked market, create one for this debate
+        if (!autoBetMarketId) {
+          const outcomes = isMultiOutcome && debateOutcomes
+            ? debateOutcomes.map((o: {label: string; price: number}) => o.label)
+            : ['For', 'Against'];
+          const outcomesArray = `{${outcomes.map((o: string) => `"${o}"`).join(',')}}`;
+          const closesAt = debate.closes_at || new Date(Date.now() + 7 * 86400000).toISOString();
+          const newMarket = await sql`
+            INSERT INTO betting_market (id, title, category, outcomes, status, creator_address, creator_type, total_volume, total_orders, resolves_at)
+            VALUES (gen_random_uuid(), ${debate.topic}, ${debate.category || 'general'}, ${outcomesArray}::text[], 'open', 'platform', 'platform', 0, 0, ${closesAt}::timestamp)
+            RETURNING id
+          `;
+          const marketId = newMarket[0]?.id;
+          if (!marketId) throw new Error('Failed to create betting market');
+          // Link the market to the debate
+          await sql`
+            UPDATE topic_debate SET market_id = ${marketId}::uuid WHERE id = ${debate.id}
+          `;
+          autoBetMarketId = marketId;
+        }
+
+        // Check agent wallet balance for betting (need at least 5 BBAI to bet)
+        const walletCheck = await sql`
+          SELECT balance FROM agent_wallet WHERE agent_id = ${agent.id} LIMIT 1
         `;
+        const agentBalance = walletCheck.length > 0 ? (walletCheck[0].balance ?? 0) : 0;
+
+        if (agentBalance >= 5) {
+          // Random bet amount 1-5 BBAI
+          autoBetAmount = Math.floor(Math.random() * 5) + 1;
+          // Clamp to available balance
+          autoBetAmount = Math.min(autoBetAmount, agentBalance);
+          const betPrice = 50; // fair value default
+
+          // Deduct bet amount from agent wallet
+          await sql`
+            UPDATE agent_wallet
+            SET balance = balance - ${autoBetAmount}, total_spent = total_spent + ${autoBetAmount}
+            WHERE agent_id = ${agent.id} AND balance >= ${autoBetAmount}
+          `;
+
+          // Place a betting order
+          await sql`
+            INSERT INTO betting_order (id, market_id, user_address, user_type, side, price, amount, filled, status)
+            VALUES (gen_random_uuid(), ${autoBetMarketId}::uuid, ${agent.id}, 'agent', ${outcomeLabel}, ${betPrice}, ${autoBetAmount}, 0, 'open')
+          `;
+
+          // Update market order count and volume
+          await sql`
+            UPDATE betting_market
+            SET total_orders = total_orders + 1, total_volume = total_volume + ${autoBetAmount * betPrice}, updated_at = NOW()
+            WHERE id = ${autoBetMarketId}::uuid
+          `;
+
+          // Upsert betting position
+          const existingPos = await sql`
+            SELECT id, shares, avg_price FROM betting_position
+            WHERE market_id = ${autoBetMarketId}::uuid AND user_address = ${agent.id} AND outcome = ${outcomeLabel}
+            LIMIT 1
+          `;
+
+          if (existingPos.length > 0) {
+            const oldShares = existingPos[0].shares || 0;
+            const oldAvg = existingPos[0].avg_price || 0;
+            const newShares = oldShares + autoBetAmount;
+            const newAvg = newShares > 0 ? Math.round((oldAvg * oldShares + betPrice * autoBetAmount) / newShares) : 0;
+            await sql`
+              UPDATE betting_position
+              SET shares = ${newShares}, avg_price = ${newAvg}, updated_at = NOW()
+              WHERE id = ${existingPos[0].id}
+            `;
+          } else {
+            await sql`
+              INSERT INTO betting_position (id, market_id, user_address, outcome, shares, avg_price, realized_pnl)
+              VALUES (gen_random_uuid(), ${autoBetMarketId}::uuid, ${agent.id}, ${outcomeLabel}, ${autoBetAmount}, ${betPrice}, 0)
+            `;
+          }
+        }
       } catch {
-        // Non-critical — opinion is still recorded
+        // Non-critical — opinion is still recorded, betting is best-effort
+        autoBetAmount = 0;
       }
     }
 
@@ -641,6 +719,8 @@ Your opinion must be clearly different from a generic AI response. Draw on domai
       confidence: confidence ?? null,
       stakeAmount: autoStakeAmount,
       stakeOutcome: stakeOutcome ?? null,
+      betAmount: autoBetAmount,
+      betMarketId: autoBetMarketId ?? undefined,
       opinionPreview: trimmed.slice(0, 100) + '...',
     });
   } catch (err) {

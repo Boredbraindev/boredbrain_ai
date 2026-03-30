@@ -1,4 +1,3 @@
-export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 /**
@@ -259,7 +258,7 @@ export async function GET(request: NextRequest) {
     //    Wrapped in an 8-second timeout to stay within Vercel's 10s function limit.
     //    If new feeds timeout, we skip them — Polymarket/Kalshi are already collected above.
     try {
-      const NEW_FEEDS_TIMEOUT_MS = 8000;
+      const NEW_FEEDS_TIMEOUT_MS = 8000; // Timeout for secondary feeds — maxDuration is 60s
       const [nftResult, kolResult, onchainResult] = await Promise.race([
         Promise.allSettled([
           fetchNFTTopics(5),

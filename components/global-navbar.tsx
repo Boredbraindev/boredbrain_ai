@@ -105,20 +105,11 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Economy',
-    items: [
-      { href: '/economy', label: 'Economy' },
-      { href: '/topup', label: 'Top Up' },
-      { href: '/campaigns', label: 'Campaigns' },
-    ],
-  },
-  {
     label: 'More',
     items: [
-      { href: '/openclaw', label: 'ClawHub' },
-      { href: '/stats', label: 'Stats' },
+      { href: '/openclaw', label: 'BBClaw' },
       { href: '/docs', label: 'Docs' },
-      { href: '/guide', label: 'Guide' },
+      { href: '/subscribe', label: 'Pro' },
     ],
   },
 ];
