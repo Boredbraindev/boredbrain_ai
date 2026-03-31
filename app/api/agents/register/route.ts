@@ -286,12 +286,28 @@ export async function POST(request: NextRequest) {
       return apiError('Failed to verify wallet signature. Please try again.', 400);
     }
 
-    // URL validation for optional URL fields
+    // URL validation
     if (agentCardUrl && !isValidUrl(agentCardUrl)) {
       return apiError('agentCardUrl must be a valid http(s) URL', 400);
     }
     if (endpoint && !isValidUrl(endpoint)) {
       return apiError('endpoint must be a valid http(s) URL', 400);
+    }
+
+    // ── Full Agent: endpoint is REQUIRED + must respond ─────────────────
+    if (!isDemo) {
+      if (!endpoint || endpoint.trim().length === 0) {
+        return apiError('Full Agent registration requires an endpoint URL. Your agent must be reachable via HTTPS.', 400);
+      }
+      // Pre-verify endpoint before registration
+      const preCheck = await pingEndpoint(endpoint);
+      if (!preCheck.ok) {
+        return apiError(
+          `Agent endpoint verification failed: ${preCheck.error || 'HTTP ' + preCheck.status}. ` +
+          'Your agent must respond with HTTP 2xx at the provided endpoint URL.',
+          400,
+        );
+      }
     }
 
     // Sanitize tool names

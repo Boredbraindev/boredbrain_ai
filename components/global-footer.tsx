@@ -13,8 +13,7 @@ const productLinks = [
 
 const developerLinks = [
   { href: 'https://github.com/Boredbraindev/boredbrain_ai', label: 'GitHub', external: true },
-  { href: '/api/agents/discover', label: 'API Docs', external: false },
-  { href: '/api/a2a', label: 'A2A Protocol', external: false },
+  { href: '/docs', label: 'API Docs', external: false },
 ];
 
 const legalLinks = [

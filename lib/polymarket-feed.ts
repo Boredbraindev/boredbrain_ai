@@ -226,13 +226,17 @@ export async function fetchTrendingTopics(limit = 20, minVolume = 0): Promise<Tr
       /spread|over.*under|O\/U|moneyline/i,
       // Filter very short-term markets with specific times
       /\d+:\d+[AP]M/i,
-      // Filter repetitive daily markets (daily Bitcoin price, Elon tweets, MrBeast views)
+      // Filter repetitive daily markets
       /Bitcoin above ___/i,
       /Bitcoin price on/i,
+      /Ethereum above ___/i,
+      /Ethereum above.*on March/i,
       /# of views of.*MrBeast/i,
+      /# of views of.*video day/i,
       /# tweets.*March/i,
       /Elon Musk # tweets/i,
       /Highest temperature in.*on March/i,
+      /Highest temperature in.*on April/i,
     ];
     // "vs" filter: skip individual game matchups but keep tournaments/finals
     const VS_PATTERN = /\bvs\.?\b/i;

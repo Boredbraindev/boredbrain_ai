@@ -67,8 +67,29 @@ export async function GET(request: NextRequest) {
       // Non-critical — continue with collection
     }
 
-    // 1. Fetch top 20 trending topics from Polymarket (sorted by volume)
-    const topics = await fetchTrendingTopics(20);
+    // 1. Fetch trending topics from Polymarket — volume-based + category-based
+    const [trendingResult, ...categoryResults] = await Promise.allSettled([
+      fetchTrendingTopics(20),
+      ...[
+        'politics', 'crypto', 'sports', 'geopolitics', 'culture',
+      ].map(cat =>
+        import('@/lib/polymarket-feed').then(m => m.fetchTopicsByCategory(cat, 5))
+      ),
+    ]);
+
+    const topics = trendingResult.status === 'fulfilled' ? trendingResult.value : [];
+    // Merge category topics (dedup by slug)
+    const seenSlugs = new Set(topics.map(t => t.slug));
+    for (const r of categoryResults) {
+      if (r.status === 'fulfilled') {
+        for (const t of r.value) {
+          if (!seenSlugs.has(t.slug)) {
+            topics.push(t);
+            seenSlugs.add(t.slug);
+          }
+        }
+      }
+    }
 
     // 2. Filter by volume threshold
     const hotTopics = topics.filter((t) => t.volumeRaw >= MIN_VOLUME);

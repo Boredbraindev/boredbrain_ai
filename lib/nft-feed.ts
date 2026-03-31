@@ -41,14 +41,14 @@ interface CollectionStats {
 // ---------------------------------------------------------------------------
 
 const COLLECTIONS = [
-  { slug: 'bayc', name: 'Bored Ape Yacht Club', image: '/nft/bayc.svg' },
-  { slug: 'mutant-ape-yacht-club', name: 'Mutant Ape Yacht Club', image: '/nft/mayc.svg' },
-  { slug: 'cryptopunks', name: 'CryptoPunks', image: '/nft/punks.svg' },
-  { slug: 'azuki', name: 'Azuki', image: '/nft/azuki.svg' },
-  { slug: 'pudgypenguins', name: 'Pudgy Penguins', image: '/nft/pudgy.svg' },
-  { slug: 'milady', name: 'Milady Maker', image: '/nft/milady.svg' },
-  { slug: 'doodles-official', name: 'Doodles', image: '/nft/doodles.svg' },
-  { slug: 'clonex', name: 'CloneX', image: '/nft/clonex.svg' },
+  { slug: 'bayc', name: 'Bored Ape Yacht Club', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=300&fit=crop' },
+  { slug: 'mutant-ape-yacht-club', name: 'Mutant Ape Yacht Club', image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop' },
+  { slug: 'cryptopunks', name: 'CryptoPunks', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop' },
+  { slug: 'azuki', name: 'Azuki', image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&h=300&fit=crop' },
+  { slug: 'pudgypenguins', name: 'Pudgy Penguins', image: 'https://images.unsplash.com/photo-1551986782-d0169b3f8fa7?w=400&h=300&fit=crop' },
+  { slug: 'milady', name: 'Milady Maker', image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=300&fit=crop' },
+  { slug: 'doodles-official', name: 'Doodles', image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=300&fit=crop' },
+  { slug: 'clonex', name: 'CloneX', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=400&h=300&fit=crop' },
 ];
 
 const OPENSEA_API = 'https://api.opensea.io/api/v2/collections';
