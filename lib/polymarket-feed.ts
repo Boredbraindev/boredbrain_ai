@@ -237,6 +237,8 @@ export async function fetchTrendingTopics(limit = 20, minVolume = 0): Promise<Tr
       /Elon Musk # tweets/i,
       /Highest temperature in.*on March/i,
       /Highest temperature in.*on April/i,
+      /Bitcoin Up or Down/i,
+      /Ethereum Up or Down/i,
     ];
     // "vs" filter: skip individual game matchups but keep tournaments/finals
     const VS_PATTERN = /\bvs\.?\b/i;

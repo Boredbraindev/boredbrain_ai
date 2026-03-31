@@ -139,7 +139,9 @@ async function fetchMagicEdenStats(slug: string): Promise<CollectionStats | null
 function generateTopicsFromStats(stats: CollectionStats): TopicCandidate[] {
   const topics: TopicCandidate[] = [];
   const endDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  const baseSlug = `nft-${stats.slug}-${Date.now()}`;
+  // Use date-based slug so same collection only creates 1 topic per day
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const baseSlug = `nft-${stats.slug}-${dateStr}`;
 
   // Floor price movement topic (>5% change in 24h)
   if (Math.abs(stats.oneDayChange) > 0.05) {
@@ -194,8 +196,8 @@ function generateTopicsFromStats(stats: CollectionStats): TopicCandidate[] {
     });
   }
 
-  // Holder count topic
-  if (stats.numOwners > 1000) {
+  // Only generate holder topic if no floor/volume topic was created (1 per collection max)
+  if (topics.length === 0 && stats.numOwners > 1000) {
     topics.push({
       title: `${stats.name} holders reach ${stats.numOwners.toLocaleString()} — bullish signal?`,
       category: 'nft',

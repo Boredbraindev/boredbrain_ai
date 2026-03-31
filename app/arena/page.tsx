@@ -780,6 +780,10 @@ export default function ArenaPage() {
 
   // Handle stake submission
   async function handleStake() {
+    if (!walletAddress) {
+      toast.error('Connect your wallet to stake');
+      return;
+    }
     if (!activeDebateId || !stakePosition || !sortedOpinions.length) return;
     // Find an agent with the matching position (multi-outcome: match by outcomeIndex)
     const matchingAgent = stakePosition.startsWith('outcome_')
@@ -794,7 +798,7 @@ export default function ArenaPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletAddress: '0x0000000000000000000000000000000000000000', // TODO: use real wallet
+          walletAddress: walletAddress || '0x0000000000000000000000000000000000000000',
           agentId: matchingAgent.agentId,
           amount: stakeAmount,
         }),
